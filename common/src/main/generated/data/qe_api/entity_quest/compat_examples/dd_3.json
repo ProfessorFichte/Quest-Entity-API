@@ -1,0 +1,33 @@
+{
+  "follow_quest_order": false,
+  "id": "qe_api:compat_examples/dd_3",
+  "required_mod": "dungeon_difficulty",
+  "rewards": [
+    {
+      "operations": [
+        {
+          "type": "qe_api:repair_item"
+        },
+        {
+          "type": "qe_api:enchant_specific",
+          "enchantment_id": "minecraft:sharpness",
+          "level": 3
+        },
+        {
+          "type": "qe_api:increase_power_level",
+          "amount": 3,
+          "cap": 10
+        }
+      ],
+      "reward": "qe_api:enhance_item"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 5,
+      "item_id": "minecraft:diamond",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

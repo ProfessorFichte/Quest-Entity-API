@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    "qe_api:explorer/forest_undead",
+    "qe_api:explorer/nether_piglin_hunt"
+  ]
+}

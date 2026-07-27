@@ -1,0 +1,34 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+#issueTrackerURL = ""
+license = "MIT"
+
+[[mods]]
+modId = "qe_api"
+version = "${version}"
+displayName = "QuestEntityAPI"
+authors = "Fichte"
+description = '''
+A data-driven quest system: give any entity quests with tasks, requirements, and rewards, defined entirely in JSON.
+'''
+#logoFile = ""
+
+[[dependencies.qe_api]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.qe_api]]
+modId = "minecraft"
+type = "required"
+versionRange = "[1.21.1,)"
+ordering = "NONE"
+side = "BOTH"
+
+[[mixins]]
+config = "qe_api.mixins.json"
+
+[[mixins]]
+config = "qe_api.neoforge.mixins.json"

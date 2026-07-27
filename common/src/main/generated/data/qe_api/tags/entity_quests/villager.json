@@ -1,0 +1,14 @@
+{
+  "replace": false,
+  "values": [
+    "qe_api:villager/eat_golden_apples",
+    "qe_api:villager/brew_master",
+    "qe_api:villager/find_mineshaft_map",
+    "qe_api:villager/outpost_kill",
+    "qe_api:villager/explosion_test",
+    "qe_api:villager/legendary_hunter",
+    "qe_api:villager/enchantment_reward_travel",
+    "qe_api:villager/command_level_kill",
+    "qe_api:villager/advancement_req_test"
+  ]
+}

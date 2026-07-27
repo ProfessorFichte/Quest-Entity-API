@@ -1,0 +1,19 @@
+{
+  "follow_quest_order": false,
+  "id": "qe_api:compat_examples/spell_engine_cast_test",
+  "required_mod": "spell_engine",
+  "rewards": [
+    {
+      "amount": 150,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 5,
+      "spell_school": "spell_power:arcane",
+      "task": "qe_api:spell_cast"
+    }
+  ],
+  "tier": 1
+}

@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "qe_api:wizard_paths/wizard_root",
+    "qe_api:wizard_paths/fire_path",
+    "qe_api:wizard_paths/frost_path"
+  ]
+}

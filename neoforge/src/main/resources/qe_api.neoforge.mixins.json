@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com.qeapi.neoforge.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "mixins": [
+    "VillagerJobConversionMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

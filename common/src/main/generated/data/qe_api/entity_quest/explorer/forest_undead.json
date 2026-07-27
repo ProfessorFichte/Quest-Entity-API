@@ -1,0 +1,29 @@
+{
+  "follow_quest_order": false,
+  "id": "qe_api:explorer/forest_undead",
+  "rewards": [
+    {
+      "amount": 400,
+      "reward": "qe_api:experience"
+    },
+    {
+      "amplifier": 1,
+      "duration": 120,
+      "effect_id": "minecraft:strength",
+      "reward": "qe_api:status_effect"
+    },
+    {
+      "advancement_id": "minecraft:adventure/kill_a_mob",
+      "reward": "qe_api:advancement"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 2,
+      "entity_tag": "minecraft:undead",
+      "in_biome_tag": "minecraft:is_forest",
+      "task": "qe_api:entity_kill"
+    }
+  ],
+  "tier": 1
+}

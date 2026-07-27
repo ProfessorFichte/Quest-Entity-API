@@ -1,0 +1,19 @@
+{
+  "id": "qe_api:wizard_paths/frost_path",
+  "quest_group": "frost",
+  "rewards": [
+    {
+      "amount": 8,
+      "item_id": "minecraft:packed_ice",
+      "reward": "qe_api:item"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 3,
+      "item_id": "minecraft:ice",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 2
+}

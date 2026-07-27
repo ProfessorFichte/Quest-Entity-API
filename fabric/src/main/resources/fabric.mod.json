@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "qe_api",
+  "version": "${version}",
+  "name": "QuestEntityAPI",
+  "description": "A data-driven quest system: give any entity quests with tasks, requirements, and rewards, defined entirely in JSON.",
+  "authors": [
+    "Fichte"
+  ],
+  "contact": {
+  },
+  "license": "MIT",
+  "icon": "assets/qe_api/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.qeapi.fabric.QuestEntityAPIFabric"
+    ],
+    "client": [
+      "com.qeapi.fabric.client.QuestEntityAPIFabricClient"
+    ],
+    "fabric-datagen": [
+      "com.qeapi.fabric.ModDataGenerator"
+    ]
+  },
+  "mixins": [
+    "qe_api.mixins.json",
+    "qe_api.fabric.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

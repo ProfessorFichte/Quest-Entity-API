@@ -1,0 +1,19 @@
+{
+  "follow_quest_order": false,
+  "id": "qe_api:compat_examples/spellbound_weapon",
+  "required_mod": "spell_engine",
+  "rewards": [
+    {
+      "reward": "qe_api:spell_bind",
+      "spell_id": "wizards:fireball"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 3,
+      "spell_id": "wizards:fireball",
+      "task": "qe_api:spell_cast"
+    }
+  ],
+  "tier": 1
+}

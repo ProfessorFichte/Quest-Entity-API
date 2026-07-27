@@ -1,0 +1,20 @@
+{
+  "follow_quest_order": false,
+  "id": "qe_api:compat_examples/dd_2",
+  "required_mod": "dungeon_difficulty",
+  "rewards": [
+    {
+      "amount": 3,
+      "cap": 10,
+      "reward": "qe_api:increase_power_level"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 3,
+      "entity_id": "minecraft:zombie",
+      "task": "qe_api:entity_kill"
+    }
+  ],
+  "tier": 1
+}

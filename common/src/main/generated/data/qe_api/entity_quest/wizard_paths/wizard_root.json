@@ -1,0 +1,33 @@
+{
+  "id": "qe_api:wizard_paths/wizard_root",
+  "reward_choice_pools": [
+    {
+      "options": [
+        {
+          "group": "fire",
+          "icon": "qe_api:textures/gui/quest_paths/fire.png",
+          "reward": "qe_api:set_quest_group"
+        },
+        {
+          "group": "frost",
+          "icon": "qe_api:textures/gui/quest_paths/frost.png",
+          "reward": "qe_api:set_quest_group"
+        }
+      ]
+    }
+  ],
+  "rewards": [
+    {
+      "amount": 100,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 3,
+      "item_id": "minecraft:book",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

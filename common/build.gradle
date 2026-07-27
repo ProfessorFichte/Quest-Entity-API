@@ -1,0 +1,26 @@
+architectury {
+    common rootProject.enabled_platforms.split(',')
+}
+
+// Datagen output (see fabric/build.gradle's runDatagen) lives here, physically separate from
+// src/main/resources, so a datagen run can never delete hand-authored files again - vanilla's
+// data generator treats its output folder as fully self-managed and purges anything under it
+// that isn't freshly (re)written by a registered provider.
+sourceSets {
+    main {
+        resources {
+            srcDir 'src/main/generated'
+        }
+    }
+}
+
+dependencies {
+    modImplementation "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version"
+
+    //Compatibility Mod's
+    modCompileOnly "net.puffish:skillsmod:$rootProject.pufferfish_skills_version:fabric"
+    modCompileOnly "maven.modrinth:spell-engine:$rootProject.spell_engine_version-fabric"
+    modCompileOnly "maven.modrinth:spell-power:$rootProject.spell_power_version-fabric"
+    modCompileOnly files(rootProject.file("libs/dungeon_difficulty-fabric-3.6.10+1.21.1.jar"))
+    modCompileOnly "maven.modrinth:enchant-limiter:$rootProject.enchant_limiter_version-fabric"
+}
