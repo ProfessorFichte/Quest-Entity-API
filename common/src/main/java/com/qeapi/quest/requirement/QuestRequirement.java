@@ -16,7 +16,8 @@ import java.util.Optional;
 public sealed interface QuestRequirement permits
         HasAdvancementRequirement,
         HasItemRequirement,
-        HasLevelRequirement {
+        HasLevelRequirement,
+        HasLevelZSkillRequirement {
 
     Map<ResourceLocation, RequirementType<?>> REQUIREMENT_TYPES = new HashMap<>();
 
@@ -63,6 +64,7 @@ public sealed interface QuestRequirement permits
         registerType(QuestEntityAPI.id("has_advancement"), HasAdvancementRequirement.CODEC);
         registerType(QuestEntityAPI.id("has_item"), HasItemRequirement.CODEC);
         registerType(QuestEntityAPI.id("has_level"), HasLevelRequirement.CODEC);
+        registerType(QuestEntityAPI.id("has_levelz_skill"), HasLevelZSkillRequirement.CODEC);
     }
 
     record RequirementType<T extends QuestRequirement>(ResourceLocation id, MapCodec<T> codec) {

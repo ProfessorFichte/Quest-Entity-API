@@ -10,6 +10,7 @@ import com.qeapi.quest.QuestPool;
 import com.qeapi.quest.requirement.HasAdvancementRequirement;
 import com.qeapi.quest.requirement.HasItemRequirement;
 import com.qeapi.quest.requirement.HasLevelRequirement;
+import com.qeapi.quest.requirement.HasLevelZSkillRequirement;
 import com.qeapi.quest.requirement.QuestRequirement;
 import com.qeapi.quest.reward.*;
 import com.qeapi.quest.task.*;
@@ -306,6 +307,11 @@ public abstract class QuestProvider implements DataProvider {
         return hasItem(item, 1);
     }
 
+    // LevelZ integration - skillId is LevelZ's skill key, e.g. "melee", "mining"
+    protected HasLevelZSkillRequirement hasLevelZSkill(String skillId, int level) {
+        return HasLevelZSkillRequirement.of(skillId, level);
+    }
+
     // ==================== Reward Helpers ====================
 
     protected ExperienceReward experience(int amount) {
@@ -392,6 +398,12 @@ public abstract class QuestProvider implements DataProvider {
     // same as above, with a custom icon in the quest GUI
     protected SkillLevelReward skillLevel(ResourceLocation skillTreeId, int levels, ResourceLocation icon) {
         return new SkillLevelReward(skillTreeId, levels, java.util.Optional.of(icon));
+    }
+
+    // LevelZ integration - grants whole levels in a LevelZ skill; icon is always the skill's own
+    // sprite (LevelZCompat.skillIcon), so unlike the Pufferfish rewards above there's no icon param
+    protected LevelZSkillLevelReward levelZSkillLevel(String skillId, int levels) {
+        return new LevelZSkillLevelReward(skillId, levels);
     }
 
     // Spell Engine integration - random spell from a pool (tag), within the tier range (inclusive)

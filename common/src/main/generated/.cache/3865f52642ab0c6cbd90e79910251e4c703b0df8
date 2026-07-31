@@ -1,4 +1,4 @@
-// 1.21.1	2026-07-28T00:12:16.7662047	QuestEntityAPI/Quest Entity API Quests: qe_api
+// 1.21.1	2026-07-29T08:44:07.8556791	QuestEntityAPI/Quest Entity API Quests: qe_api
 bbd47c00a1208a495c20d89354ac9cc675e3641f data\qe_api\entity_quest\compat_examples\repair_test.json
 da42fd659b49c945fccf986a94560ce9124bdef1 data\qe_api\entity_quest\compat_examples\dd_2.json
 60ff89e833b0b638f28fa6925cac6ed35b4441e2 data\qe_api\tags\entity_quests\villager.json
@@ -25,7 +25,8 @@ a80e469704c306eba220e0cc3f0879ff4fd592b3 data\qe_api\entity_quest\compat_example
 675e804a9a30c82d6b3ecc0293cd631a337696c6 data\qe_api\entity_quest\compat_examples\spell_engine_school_kill.json
 bd20fd3e37bdd18fd296476949aa623b44c088aa data\qe_api\entity_quest\compat_examples\dd_3.json
 d2c97c90b10697ce741335132cda68cef616a330 data\qe_api\entity_quest\compat_examples\spell_scroll_test.json
-09600266ea4b63067cc6d8bc12ae8afb4692e0b0 data\qe_api\tags\entity_quests\compat_examples.json
+efd0e700a0d7cdc2a628ce50f057a969807fd473 data\qe_api\entity_quest\compat_examples\levelz_test.json
+eb68adb7897c342d904db76f137984ae275e2fdf data\qe_api\tags\entity_quests\compat_examples.json
 fd3680a0f45e19eb20a87a720e6be01a03e85343 data\qe_api\entity_quest\villager\outpost_kill.json
 adb6b0a3cc0e41cee53045dbc60655348b2ed489 data\qe_api\entity_quest\compat_examples\enchantment_limiter.json
 59eeedba6cfdc54c7e3c87b07d732dc63565b533 data\qe_api\entity_quest\villager\explosion_test.json

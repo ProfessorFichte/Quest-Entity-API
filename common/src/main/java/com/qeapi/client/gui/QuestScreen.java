@@ -9,6 +9,8 @@ import com.qeapi.quest.Quest;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.quest.requirement.QuestRequirement;
 import com.qeapi.quest.reward.ExperienceReward;
+import com.qeapi.compat.LevelZCompat;
+import com.qeapi.quest.reward.LevelZSkillLevelReward;
 import com.qeapi.quest.reward.LootTableReward;
 import com.qeapi.quest.reward.QuestReward;
 import com.qeapi.quest.reward.RewardChoicePool;
@@ -1047,6 +1049,10 @@ public class QuestScreen extends Screen {
             Optional<ResourceLocation> icon = reward instanceof SkillExperienceReward skillExp
                     ? skillExp.icon() : ((SkillLevelReward) reward).icon();
             return renderSkillTreeReward(graphics, icon, reward.getDisplayText().getString(), x, y, maxWidth);
+        } else if (reward instanceof LevelZSkillLevelReward levelZSkillLevel) {
+            Optional<ResourceLocation> icon = LevelZCompat.isLoaded()
+                    ? Optional.of(LevelZCompat.skillIcon(levelZSkillLevel.skillId())) : Optional.empty();
+            return renderSkillTreeReward(graphics, icon, reward.getDisplayText().getString(), x, y, maxWidth);
         } else if (reward instanceof SetQuestGroupReward questGroupReward) {
             return renderSkillTreeReward(graphics, Optional.of(questGroupReward.icon()), reward.getDisplayText().getString(), x, y, maxWidth);
         } else if (reward instanceof SpellScrollReward spellScrollReward && SpellEngineClientCompat.isLoaded()) {
@@ -1239,6 +1245,7 @@ public class QuestScreen extends Screen {
                 || reward instanceof LootTableReward
                 || (reward instanceof StatusEffectReward statusEffectReward && statusEffectReward.getEffect() != null)
                 || reward instanceof SkillExperienceReward || reward instanceof SkillLevelReward
+                || (reward instanceof LevelZSkillLevelReward && LevelZCompat.isLoaded())
                 || reward instanceof SetQuestGroupReward
                 || (reward instanceof SpellScrollReward && SpellEngineClientCompat.isLoaded())
                 || reward instanceof TargetItemReward;

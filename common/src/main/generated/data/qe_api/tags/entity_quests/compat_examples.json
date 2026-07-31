@@ -1,18 +1,6 @@
 {
   "replace": false,
   "values": [
-    "qe_api:compat_examples/spell_engine_specific_spell_kill",
-    "qe_api:compat_examples/spell_engine_cast_test",
-    "qe_api:compat_examples/spell_engine_pool_kill",
-    "qe_api:compat_examples/spell_engine_school_kill",
-    "qe_api:compat_examples/spell_scroll_test",
-    "qe_api:compat_examples/skill_tree_test",
-    "qe_api:compat_examples/dd_1",
-    "qe_api:compat_examples/repair_test",
-    "qe_api:compat_examples/spellbound_weapon",
-    "qe_api:compat_examples/dd_2",
-    "qe_api:compat_examples/enchantment_limiter",
-    "qe_api:compat_examples/dd_3",
-    "qe_api:compat_examples/spell_cleanse"
+    "qe_api:compat_examples/levelz_test"
   ]
 }

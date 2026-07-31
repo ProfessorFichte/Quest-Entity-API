@@ -22,6 +22,7 @@ public sealed interface QuestReward permits
         StatusEffectReward,
         SkillExperienceReward,
         SkillLevelReward,
+        LevelZSkillLevelReward,
         SpellScrollReward,
         EnchantRandomlyReward,
         EnchantSpecificReward,
@@ -70,6 +71,7 @@ public sealed interface QuestReward permits
         registerType(QuestEntityAPI.id("status_effect"), StatusEffectReward.CODEC);
         registerType(QuestEntityAPI.id("skill_experience"), SkillExperienceReward.CODEC);
         registerType(QuestEntityAPI.id("skill_level"), SkillLevelReward.CODEC);
+        registerType(QuestEntityAPI.id("levelz_skill_level"), LevelZSkillLevelReward.CODEC);
         registerType(QuestEntityAPI.id("spell_scroll"), SpellScrollReward.CODEC);
         registerType(QuestEntityAPI.id("enchant_randomly"), EnchantRandomlyReward.CODEC);
         registerType(QuestEntityAPI.id("enchant_specific"), EnchantSpecificReward.CODEC);

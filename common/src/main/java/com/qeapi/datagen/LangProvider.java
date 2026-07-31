@@ -111,6 +111,8 @@ public class LangProvider implements DataProvider {
         LangEntries.add("requirement.qe_api.has_level.failure", "You need to be at least level %d");
         LangEntries.add("requirement.qe_api.has_item", "Requires %dx %s");
         LangEntries.add("requirement.qe_api.has_item.failure", "You need %dx %s");
+        LangEntries.add("requirement.qe_api.has_levelz_skill", "Requires level %d in %s");
+        LangEntries.add("requirement.qe_api.has_levelz_skill.failure", "You need level %d in %s");
 
         // Rewards
         LangEntries.add("reward.qe_api.experience", "%d Experience Points");
@@ -122,6 +124,7 @@ public class LangProvider implements DataProvider {
         LangEntries.add("reward.qe_api.advancement", "Grants advancement: %s");
         LangEntries.add("reward.qe_api.skill_experience", "%d Skill Experience (%s)");
         LangEntries.add("reward.qe_api.skill_level", "%d Skill Level(s) (%s)");
+        LangEntries.add("reward.qe_api.levelz_skill_level", "%d Level(s) in %s");
         LangEntries.add("reward.qe_api.spell_scroll", "%dx Spell Scroll (%s)");
         LangEntries.add("reward.qe_api.enchant_randomly", "Randomly enchant an item (up to level %d)");
         LangEntries.add("reward.qe_api.enchant_specific", "Enchant an item with %2$s %1$d");
@@ -130,6 +133,21 @@ public class LangProvider implements DataProvider {
         LangEntries.add("reward.qe_api.increase_power_level", "Increase an item's power level by %d");
         LangEntries.add("reward.qe_api.increase_enchant_slots", "Grant an item %d extra enchantment slot(s)");
         LangEntries.add("reward.qe_api.set_quest_group", "Choose the %s path");
+
+        // Config screen
+        LangEntries.add("text.autoconfig.qe_api.title", "Quest Entity API");
+        LangEntries.add("text.autoconfig.qe_api.option.villager_trade_xp_enabled", "Villager trade XP on quest claim");
+        LangEntries.add("text.autoconfig.qe_api.option.villager_trade_xp_enabled.@Tooltip",
+                "Villagers gain trading-level experience when a player claims quest rewards from them.");
+        LangEntries.add("text.autoconfig.qe_api.option.villager_trade_xp_per_tier", "Trade XP per quest tier");
+        LangEntries.add("text.autoconfig.qe_api.option.villager_trade_xp_per_tier.@Tooltip",
+                "Trading XP granted per quest tier on claim (tier * this value).");
+        LangEntries.add("text.autoconfig.qe_api.option.hit_cooldown_enabled", "Hitting a quest giver cancels quests");
+        LangEntries.add("text.autoconfig.qe_api.option.hit_cooldown_enabled.@Tooltip",
+                "Attacking a quest giver cancels your active quest with them and puts them on an interaction cooldown.");
+        LangEntries.add("text.autoconfig.qe_api.option.hit_cooldown_minutes", "Hit cooldown (minutes)");
+        LangEntries.add("text.autoconfig.qe_api.option.hit_cooldown_minutes.@Tooltip",
+                "How many minutes a quest giver refuses interaction after being hit.");
 
         // Messages
         LangEntries.add("message.qe_api.quest_accepted", "Quest accepted!");

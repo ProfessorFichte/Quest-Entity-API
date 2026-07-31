@@ -40,7 +40,7 @@ dependencies {
     modLocalRuntime "net.puffish:skillsmod:$rootProject.pufferfish_skills_version:neoforge"
     modLocalRuntime "maven.modrinth:spell-engine:$rootProject.spell_engine_version-neoforge"
     modLocalRuntime "maven.modrinth:spell-power:$rootProject.spell_power_version-neoforge"
-    modLocalRuntime "me.shedaniel.cloth:cloth-config-neoforge:$rootProject.cloth_config_version"
+    modImplementation "me.shedaniel.cloth:cloth-config-neoforge:$rootProject.cloth_config_version"
     modLocalRuntime "dev.kosmx.player-anim:player-animation-lib-forge:$rootProject.player_anim_version"
     modLocalRuntime "maven.modrinth:tiny-config:$rootProject.tiny_config_version-neoforge"
     modLocalRuntime "org.sinytra.forgified-fabric-api:forgified-fabric-api:$rootProject.forgified_fabric_api_version"

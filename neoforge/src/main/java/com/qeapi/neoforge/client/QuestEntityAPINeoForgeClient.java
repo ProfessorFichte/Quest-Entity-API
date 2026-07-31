@@ -11,11 +11,15 @@ import com.qeapi.network.packet.QuestProgressPacket;
 import com.qeapi.network.packet.RequestMerchantMenuPacket;
 import com.qeapi.network.packet.RequestQuestMenuPacket;
 import com.qeapi.network.packet.SyncEntityQuestsPacket;
+import com.qeapi.config.QuestEntityAPIConfig;
+import me.shedaniel.autoconfig.AutoConfig;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -58,6 +62,9 @@ public final class QuestEntityAPINeoForgeClient {
         });
 
         modEventBus.addListener(this::registerPayloadHandlers);
+
+        ModLoadingContext.get().registerExtensionPoint(IConfigScreenFactory.class,
+                () -> (modContainer, parent) -> AutoConfig.getConfigScreen(QuestEntityAPIConfig.class, parent).get());
 
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> {
             QuestEntityAPI.LOGGER.debug("Clearing client quest cache on disconnect");

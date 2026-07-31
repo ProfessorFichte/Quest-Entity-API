@@ -21,6 +21,9 @@
     ],
     "fabric-datagen": [
       "com.qeapi.fabric.ModDataGenerator"
+    ],
+    "modmenu": [
+      "com.qeapi.fabric.client.compat.ModMenuCompatibility"
     ]
   },
   "mixins": [
@@ -31,6 +34,7 @@
     "fabricloader": ">=0.18.4",
     "minecraft": "~1.21.1",
     "java": ">=21",
-    "fabric-api": "*"
+    "fabric-api": "*",
+    "cloth-config": ">=15.0.0"
   }
 }

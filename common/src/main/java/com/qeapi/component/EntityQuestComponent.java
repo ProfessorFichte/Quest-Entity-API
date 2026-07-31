@@ -25,8 +25,6 @@ public record EntityQuestComponent(
         Map<UUID, String> chosenQuestGroups,  // player -> quest_group chosen for this pool, via SetQuestGroupReward
         Map<UUID, Long> questCooldowns  // Player UUID -> cooldown end time (System.currentTimeMillis)
 ) {
-    public static final long COOLDOWN_DURATION_MS = 5 * 60 * 1000;
-
     public static final Codec<EntityQuestComponent> CODEC = RecordCodecBuilder.create(instance ->
             instance.group(
                     ResourceLocation.CODEC.fieldOf("quest_pool").forGetter(EntityQuestComponent::questPoolId),
@@ -235,9 +233,9 @@ public record EntityQuestComponent(
         return Math.max(0, remaining);
     }
 
-    public EntityQuestComponent withCooldown(UUID playerId) {
+    public EntityQuestComponent withCooldown(UUID playerId, long durationMs) {
         Map<UUID, Long> newCooldowns = new HashMap<>(questCooldowns);
-        newCooldowns.put(playerId, System.currentTimeMillis() + COOLDOWN_DURATION_MS);
+        newCooldowns.put(playerId, System.currentTimeMillis() + durationMs);
 
         // cooldown replaces active quest
         Map<UUID, ActiveQuestData> newActiveQuests = new HashMap<>(activeQuests);

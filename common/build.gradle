@@ -23,4 +23,6 @@ dependencies {
     modCompileOnly "maven.modrinth:spell-power:$rootProject.spell_power_version-fabric"
     modCompileOnly files(rootProject.file("libs/dungeon_difficulty-fabric-3.6.10+1.21.1.jar"))
     modCompileOnly "maven.modrinth:enchant-limiter:$rootProject.enchant_limiter_version-fabric"
+    modCompileOnly "maven.modrinth:levelz:$rootProject.levelz_version-fabric"
+    modCompileOnly "me.shedaniel.cloth:cloth-config-fabric:$rootProject.cloth_config_version"
 }

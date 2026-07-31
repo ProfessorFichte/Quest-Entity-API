@@ -211,6 +211,10 @@ public final class QuestEntityAPIFabric implements ModInitializer {
                 return InteractionResult.PASS;
             }
 
+            if (!com.qeapi.config.QuestEntityAPIConfig.get().hit_cooldown_enabled) {
+                return InteractionResult.PASS;
+            }
+
             EntityQuestComponent component = entity.getAttached(ENTITY_QUEST_ATTACHMENT);
             if (component == null || component.isNoQuestMarker()) {
                 return InteractionResult.PASS;
@@ -222,9 +226,11 @@ public final class QuestEntityAPIFabric implements ModInitializer {
                 return InteractionResult.PASS;
             }
 
+            int cooldownMinutes = com.qeapi.config.QuestEntityAPIConfig.get().hit_cooldown_minutes;
+
             // penalty applies regardless of whether the player had an active quest
             boolean hasActiveQuest = component.hasActiveQuest(playerId);
-            EntityQuestComponent updated = component.withCooldown(playerId);
+            EntityQuestComponent updated = component.withCooldown(playerId, cooldownMinutes * 60_000L);
             entity.setAttached(ENTITY_QUEST_ATTACHMENT, updated);
 
             if (player instanceof ServerPlayer serverPlayer) {
@@ -258,7 +264,7 @@ public final class QuestEntityAPIFabric implements ModInitializer {
                 );
 
                 serverPlayer.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
-                        "message.qe_api.cooldown_active", 5).withStyle(net.minecraft.ChatFormatting.YELLOW));
+                        "message.qe_api.cooldown_active", cooldownMinutes).withStyle(net.minecraft.ChatFormatting.YELLOW));
             }
 
             QuestEntityAPI.LOGGER.info("Player {} hit quest villager - cooldown applied (had active quest: {})",

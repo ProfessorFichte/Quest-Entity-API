@@ -4,6 +4,7 @@ import com.qeapi.QuestEntityAPI;
 import com.qeapi.api.QuestEntityAccess;
 import com.qeapi.component.EntityQuestComponent;
 import com.qeapi.component.PlayerQuestData;
+import com.qeapi.config.QuestEntityAPIConfig;
 import com.qeapi.data.QuestManager;
 import com.qeapi.quest.Quest;
 import com.qeapi.quest.QuestProgress;
@@ -53,8 +54,9 @@ public final class QuestEventHandler {
     // vanilla's timer).
     public static void grantVillagerTradeXp(Entity entity, int tier) {
         if (!(entity instanceof Villager villager)) return;
+        if (!QuestEntityAPIConfig.get().villager_trade_xp_enabled) return;
 
-        int xpAmount = tier * 5;
+        int xpAmount = tier * QuestEntityAPIConfig.get().villager_trade_xp_per_tier;
         villager.setVillagerXp(villager.getVillagerXp() + xpAmount);
 
         VillagerXpAccessor accessor = (VillagerXpAccessor) villager;

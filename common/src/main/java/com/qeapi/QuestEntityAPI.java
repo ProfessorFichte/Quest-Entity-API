@@ -1,5 +1,6 @@
 package com.qeapi;
 
+import com.qeapi.config.QuestEntityAPIConfig;
 import com.qeapi.registry.QEDataComponents;
 import com.qeapi.registry.QERegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -12,6 +13,8 @@ public final class QuestEntityAPI {
 
     public static void init() {
         LOGGER.info("Initializing Quest Entity API");
+
+        QuestEntityAPIConfig.register();
 
         // Register built-in task, requirement, and reward types
         QERegistries.init();
