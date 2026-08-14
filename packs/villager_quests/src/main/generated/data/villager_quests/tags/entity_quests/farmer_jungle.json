@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "villager_quests:farmer_jungle/cocoa_harvest",
+    "villager_quests:farmer_jungle/melon_grove",
+    "villager_quests:farmer_jungle/bamboo_run",
+    "#villager_quests:farmer"
+  ]
+}

@@ -40,6 +40,9 @@ public abstract class ServerPlayerMixin {
     @Unique
     private Set<ResourceLocation> qe_api$currentStructures = new HashSet<>();
 
+    @Unique
+    private ResourceLocation qe_api$currentBiome = null;
+
     @Inject(method = "tick", at = @At("TAIL"))
     private void qe_api$onTick(CallbackInfo ci) {
         ServerPlayer self = (ServerPlayer) (Object) this;
@@ -70,7 +73,22 @@ public abstract class ServerPlayerMixin {
         if (qe_api$structureCheckCooldown <= 0) {
             qe_api$structureCheckCooldown = 20;
             qe_api$checkStructures(self);
+            qe_api$checkBiome(self);
         }
+    }
+
+    @Unique
+    private void qe_api$checkBiome(ServerPlayer player) {
+        ServerLevel level = player.serverLevel();
+        BlockPos playerPos = player.blockPosition();
+
+        level.getBiome(playerPos).unwrapKey().ifPresent(key -> {
+            ResourceLocation biomeId = key.location();
+            if (!biomeId.equals(qe_api$currentBiome)) {
+                qe_api$currentBiome = biomeId;
+                QuestEventHandler.onBiomeEntered(player, biomeId);
+            }
+        });
     }
 
     @Unique

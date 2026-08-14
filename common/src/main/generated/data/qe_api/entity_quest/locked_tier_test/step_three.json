@@ -1,0 +1,17 @@
+{
+  "id": "qe_api:locked_tier_test/step_three",
+  "rewards": [
+    {
+      "amount": 150,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 2,
+      "item_id": "minecraft:diamond",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 3
+}

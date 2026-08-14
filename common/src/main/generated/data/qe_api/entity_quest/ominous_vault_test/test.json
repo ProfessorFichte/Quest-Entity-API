@@ -1,0 +1,16 @@
+{
+  "id": "qe_api:ominous_vault_test/test",
+  "rewards": [
+    {
+      "amount": 200,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "ominous": true,
+      "task": "qe_api:trial_spawner_complete"
+    }
+  ],
+  "tier": 1
+}

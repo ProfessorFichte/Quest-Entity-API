@@ -1,0 +1,18 @@
+{
+  "id": "qe_api:empowered_mineshaft/test",
+  "required_mod": "dungeon_difficulty",
+  "rewards": [
+    {
+      "amount": 150,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "min_power_level": 2,
+      "structure_id": "minecraft:mineshaft",
+      "task": "qe_api:find_structure"
+    }
+  ],
+  "tier": 1
+}

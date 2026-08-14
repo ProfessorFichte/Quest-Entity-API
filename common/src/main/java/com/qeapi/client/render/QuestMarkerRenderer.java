@@ -12,6 +12,8 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix4f;
 
 // Renders the exclamation mark indicator above quest entities.
@@ -21,6 +23,7 @@ public class QuestMarkerRenderer {
     public static final ResourceLocation MARKER_GREY = QuestEntityAPI.id("textures/gui/marker/quest_grey.png");
     public static final ResourceLocation MARKER_GREEN = QuestEntityAPI.id("textures/gui/marker/quest_green.png");
     public static final ResourceLocation MARKER_DONE_CHECKMARK = QuestEntityAPI.id("textures/gui/marker/green_checkmark.png");
+    public static final ResourceLocation MARKER_ENRAGED = QuestEntityAPI.id("textures/gui/marker/quest_entity_enraged.png");
 
     private static final float BOB_AMPLITUDE = 0.1f;
     private static final float BOB_SPEED = 0.12f;
@@ -57,6 +60,7 @@ public class QuestMarkerRenderer {
             case ACTIVE -> MARKER_GREY;
             case READY -> MARKER_GREEN;
             case DONE -> MARKER_DONE_CHECKMARK;
+            case ENRAGED -> MARKER_ENRAGED;
             default -> MARKER_RED;
         };
 
@@ -112,6 +116,10 @@ public class QuestMarkerRenderer {
             }
         }
 
+        if (ClientQuestCache.isEnraged(entity.getUUID())) {
+            return MarkerState.ENRAGED;
+        }
+
         if (ClientQuestCache.hasQuests(entity.getUUID())) {
             if (ClientQuestCache.hasActiveQuest(entity.getUUID())) {
                 if (ClientQuestCache.isQuestReadyToClaim(entity.getUUID())) {
@@ -132,11 +140,46 @@ public class QuestMarkerRenderer {
         return getMarkerState(entity) != MarkerState.NONE;
     }
 
+    // deliver_item's resolved target gets its own floating icon, entirely independent of the
+    // exclamation-mark state above - the item this specific entity wants, not "does it have quests"
+    public static boolean shouldRenderDeliveryItem(Entity entity) {
+        ItemStack item = ClientQuestCache.getDeliveryTargetItem(entity.getUUID());
+        return item != null && !item.isEmpty();
+    }
+
+    // same bob-animation math as render() above, just rendering the required item's real icon
+    // instead of a flat marker texture
+    public static void renderDeliveryItem(Entity entity, PoseStack poseStack, MultiBufferSource buffer,
+                                           float partialTick, int packedLight) {
+        ItemStack item = ClientQuestCache.getDeliveryTargetItem(entity.getUUID());
+        if (item == null || item.isEmpty()) return;
+
+        Minecraft mc = Minecraft.getInstance();
+
+        poseStack.pushPose();
+
+        float height = entity.getBbHeight() + 0.6f;
+        poseStack.translate(0, height, 0);
+
+        float time = (entity.level().getGameTime() + partialTick) * BOB_SPEED;
+        float bob = Mth.sin(time) * BOB_AMPLITUDE;
+        poseStack.translate(0, bob, 0);
+
+        poseStack.mulPose(mc.getEntityRenderDispatcher().cameraOrientation());
+        poseStack.scale(0.5f, 0.5f, 0.5f);
+
+        mc.getItemRenderer().renderStatic(item, ItemDisplayContext.FIXED, packedLight, OverlayTexture.NO_OVERLAY,
+                poseStack, buffer, entity.level(), 0);
+
+        poseStack.popPose();
+    }
+
     public enum MarkerState {
         NONE,       // No marker
         AVAILABLE,  // Red animated marker - quests available, none active
         ACTIVE,     // Grey static marker - quest in progress
         READY,      // Green animated marker - quest complete, ready to claim
-        DONE        // Green checkmark, static marker - every quest already completed
+        DONE,       // Green checkmark, static marker - every quest already completed
+        ENRAGED     // Static marker - entity refuses to interact (hit cooldown)
     }
 }

@@ -1,0 +1,18 @@
+{
+  "accept_quest_sound_override": "minecraft:entity.experience_orb.pickup",
+  "finish_quest_sound_override": "minecraft:ui.toast.challenge_complete",
+  "id": "qe_api:sound_and_fireworks_test/test",
+  "rewards": [
+    {
+      "amount": 50,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "item_id": "minecraft:stick",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

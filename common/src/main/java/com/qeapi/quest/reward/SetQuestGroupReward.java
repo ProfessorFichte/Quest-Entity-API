@@ -15,21 +15,24 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.Optional;
 
-// Records the player's choice of quest_group for the granting entity's pool - see Quest.questGroup.
-// Typically one option among several in a RewardChoicePool, so completing a "pick your path" quest
-// commits the player to one branch. No-op with a warning if granted without entity context (see
-// EntityAwareReward) - that only happens via direct API completion that doesn't pass one through.
+// Records which quest_group the player picked for this entity's pool (see Quest.questGroup) -
+// usually one option in a RewardChoicePool, so a "pick your path" quest locks the player into one
+// branch. No-op if granted without entity context (see EntityAwareReward); that only happens
+// through the direct-completion API, which doesn't pass an entity through.
 //
-// icon: required texture for this path (e.g. that school's own symbol), always shown bordered
-// with selection.png so the player can see which path they've picked - unlike
-// SkillExperienceReward/SkillLevelReward's icon, this one isn't optional, since a path choice
-// with no visual mark of what's selected defeats the point.
-public record SetQuestGroupReward(String group, ResourceLocation icon) implements QuestReward, EntityAwareReward {
+// textureOverrideId is that path's own icon (e.g. a school's symbol), shown bordered with
+// selection.png so the player can see what they picked. Falls back to a generic XP-bottle icon if
+// omitted, same as SkillExperienceReward/SkillLevelReward.
+public record SetQuestGroupReward(String group, Optional<ResourceLocation> textureOverrideId) implements QuestReward, EntityAwareReward {
+
+    public SetQuestGroupReward(String group, ResourceLocation textureOverrideId) {
+        this(group, Optional.of(textureOverrideId));
+    }
 
     public static final MapCodec<SetQuestGroupReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     Codec.STRING.fieldOf("group").forGetter(SetQuestGroupReward::group),
-                    ResourceLocation.CODEC.fieldOf("icon").forGetter(SetQuestGroupReward::icon)
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(SetQuestGroupReward::textureOverrideId)
             ).apply(instance, SetQuestGroupReward::new)
     );
 

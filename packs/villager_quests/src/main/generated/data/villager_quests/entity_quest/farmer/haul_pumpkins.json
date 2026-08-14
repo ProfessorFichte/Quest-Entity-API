@@ -1,0 +1,39 @@
+{
+  "id": "villager_quests:farmer/haul_pumpkins",
+  "rewards": [
+    {
+      "functions": [
+        {
+          "enchantments": [
+            {
+              "id": "minecraft:unbreaking"
+            }
+          ],
+          "function": "qe_api:set_enchantments"
+        },
+        {
+          "function": "qe_api:set_name",
+          "name": {
+            "color": "yellow",
+            "text": "Farmhand's Hoe"
+          }
+        }
+      ],
+      "item_id": "minecraft:iron_hoe",
+      "reward": "qe_api:item"
+    },
+    {
+      "amount": 4,
+      "item_id": "minecraft:emerald",
+      "reward": "qe_api:item"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 10,
+      "item_id": "minecraft:pumpkin",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 2
+}

@@ -13,14 +13,15 @@ import net.minecraft.world.item.Items;
 
 import java.util.Optional;
 
-// Reward that grants an advancement to the player.
 public record AdvancementReward(
-        ResourceLocation advancementId
+        ResourceLocation advancementId,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestReward {
 
     public static final MapCodec<AdvancementReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
-                    ResourceLocation.CODEC.fieldOf("advancement_id").forGetter(AdvancementReward::advancementId)
+                    ResourceLocation.CODEC.fieldOf("advancement_id").forGetter(AdvancementReward::advancementId),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(AdvancementReward::textureOverrideId)
             ).apply(instance, AdvancementReward::new)
     );
 
@@ -59,10 +60,10 @@ public record AdvancementReward(
     }
 
     public static AdvancementReward of(ResourceLocation advancementId) {
-        return new AdvancementReward(advancementId);
+        return new AdvancementReward(advancementId, Optional.empty());
     }
 
     public static AdvancementReward of(String advancementId) {
-        return new AdvancementReward(ResourceLocation.parse(advancementId));
+        return new AdvancementReward(ResourceLocation.parse(advancementId), Optional.empty());
     }
 }

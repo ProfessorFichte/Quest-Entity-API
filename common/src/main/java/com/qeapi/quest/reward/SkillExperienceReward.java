@@ -12,25 +12,22 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.Optional;
 
-// Reward that grants experience in a specific Pufferfish's Skills skill tree. No-op with a
-// warning if Pufferfish's Skills isn't loaded.
-//
-// Pufferfish's Skills doesn't expose a category's icon through its stable cross-mod API (the
-// client-side icon data is internal and only synced lazily per-category, per-player), so `icon`
-// lets a quest author reference that skill tree's own icon texture directly (from its
-// category.json, e.g. "skill_tree_rpgs:textures/gui/icon.png"). Falls back to a generic
-// experience-bottle icon if omitted.
+// Pufferfish's Skills doesn't expose a category's icon through its cross-mod API - the icon data
+// is internal and only synced lazily per-category, per-player - so this leans on
+// texture_override_id to let a quest author point at that skill tree's own icon texture directly
+// (e.g. "skill_tree_rpgs:textures/gui/icon.png" from its category.json). Falls back to a generic
+// XP-bottle icon if omitted.
 public record SkillExperienceReward(
         ResourceLocation skillTreeId,
         int amount,
-        Optional<ResourceLocation> icon
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestReward {
 
     public static final MapCodec<SkillExperienceReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.fieldOf("skill_tree_id").forGetter(SkillExperienceReward::skillTreeId),
                     Codec.INT.fieldOf("amount").forGetter(SkillExperienceReward::amount),
-                    ResourceLocation.CODEC.optionalFieldOf("icon").forGetter(SkillExperienceReward::icon)
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(SkillExperienceReward::textureOverrideId)
             ).apply(instance, SkillExperienceReward::new)
     );
 

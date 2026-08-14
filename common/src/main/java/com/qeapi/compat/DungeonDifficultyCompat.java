@@ -1,7 +1,11 @@
 package com.qeapi.compat;
 
+import net.dungeon_difficulty.logic.Difficulty;
 import net.dungeon_difficulty.logic.EntityDifficultyScalable;
 import net.dungeon_difficulty.logic.ItemScaling;
+import net.dungeon_difficulty.logic.PatternMatching;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 
@@ -41,5 +45,14 @@ public final class DungeonDifficultyCompat {
     public static int getPowerLevel(LivingEntity entity) {
         EntityDifficultyScalable scalable = (EntityDifficultyScalable) entity;
         return scalable.isAlreadyScaled() ? scalable.getScalingLevel() : 0;
+    }
+
+    // Location-only power level, independent of any entity - resolves Dungeon Difficulty's own
+    // pattern-matching config (the same config that decides how much to scale a mob spawned there)
+    // for the given position. 0 if the position doesn't match any configured pattern.
+    public static int getLocationPowerLevel(ServerLevel level, BlockPos pos) {
+        PatternMatching.LocationData locationData = PatternMatching.LocationData.create(level, pos);
+        Difficulty difficulty = PatternMatching.getDifficulty(locationData, level);
+        return difficulty != null ? difficulty.level() : 0;
     }
 }

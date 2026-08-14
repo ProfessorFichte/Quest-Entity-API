@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "villager_quests:farmer_snow/sweet_berries",
+    "villager_quests:farmer_snow/pack_the_cellar",
+    "#villager_quests:farmer"
+  ]
+}

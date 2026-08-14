@@ -1,0 +1,91 @@
+package com.qeapi.quest.task;
+
+import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
+import com.mojang.serialization.codecs.RecordCodecBuilder;
+import com.qeapi.QuestEntityAPI;
+import com.qeapi.quest.QuestProgress;
+import com.qeapi.util.TextMutator;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
+
+import java.util.Map;
+import java.util.Optional;
+
+// a trial spawner wave has no single "killer" either, credited the same way raid_complete is -
+// see QuestEventHandler.onTrialSpawnerComplete and TrialSpawnerEjectRewardMixin. Absent ominous
+// means either counts; true/false requires that specific state
+public record TrialSpawnerCompleteTask(
+        int amount,
+        Optional<Boolean> ominous,
+        Optional<ResourceLocation> textureOverrideId
+) implements QuestTask {
+
+    public static final MapCodec<TrialSpawnerCompleteTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
+            instance.group(
+                    Codec.INT.optionalFieldOf("amount", 1).forGetter(TrialSpawnerCompleteTask::amount),
+                    Codec.BOOL.optionalFieldOf("ominous").forGetter(TrialSpawnerCompleteTask::ominous),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(TrialSpawnerCompleteTask::textureOverrideId)
+            ).apply(instance, TrialSpawnerCompleteTask::new)
+    );
+
+    @Override
+    public ResourceLocation getTypeId() {
+        return QuestEntityAPI.id("trial_spawner_complete");
+    }
+
+    @Override
+    public Component getDisplayText(QuestProgress progress, int taskIndex) {
+        int current = Math.min(progress.getTaskProgress(taskIndex), amount);
+        return TextMutator.mutate(
+                Component.translatable(getDefaultTranslationKey()),
+                Map.of(
+                        "spawner_amount", String.valueOf(amount),
+                        "current_spawners", String.valueOf(current)
+                )
+        );
+    }
+
+    @Override
+    public String getDefaultTranslationKey() {
+        return "task.qe_api.trial_spawner_complete";
+    }
+
+    @Override
+    public int getTargetAmount() {
+        return amount;
+    }
+
+    public boolean matches(boolean isOminous) {
+        return ominous.isEmpty() || ominous.get() == isOminous;
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private int amount = 1;
+        private Optional<Boolean> ominous = Optional.empty();
+        private Optional<ResourceLocation> textureOverrideId = Optional.empty();
+
+        public Builder amount(int amount) {
+            this.amount = amount;
+            return this;
+        }
+
+        public Builder ominous(boolean ominous) {
+            this.ominous = Optional.of(ominous);
+            return this;
+        }
+
+        public Builder textureOverrideId(ResourceLocation id) {
+            this.textureOverrideId = Optional.of(id);
+            return this;
+        }
+
+        public TrialSpawnerCompleteTask build() {
+            return new TrialSpawnerCompleteTask(amount, ominous, textureOverrideId);
+        }
+    }
+}

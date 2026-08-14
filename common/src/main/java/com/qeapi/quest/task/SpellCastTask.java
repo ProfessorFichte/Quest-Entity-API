@@ -14,12 +14,13 @@ import net.minecraft.server.level.ServerLevel;
 import java.util.Map;
 import java.util.Optional;
 
-// Spell Engine integration - matches any spell if none of spell_id/spell_pool/spell_school are given
+// matches any spell cast if none of spell_id/spell_pool/spell_school are set
 public record SpellCastTask(
         Optional<ResourceLocation> spellId,
         Optional<ResourceLocation> spellPool,
         Optional<ResourceLocation> spellSchool,
-        int amount
+        int amount,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
     public static final MapCodec<SpellCastTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
@@ -27,13 +28,19 @@ public record SpellCastTask(
                     ResourceLocation.CODEC.optionalFieldOf("spell_id").forGetter(SpellCastTask::spellId),
                     ResourceLocation.CODEC.optionalFieldOf("spell_pool").forGetter(SpellCastTask::spellPool),
                     ResourceLocation.CODEC.optionalFieldOf("spell_school").forGetter(SpellCastTask::spellSchool),
-                    Codec.INT.optionalFieldOf("amount", 1).forGetter(SpellCastTask::amount)
+                    Codec.INT.optionalFieldOf("amount", 1).forGetter(SpellCastTask::amount),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(SpellCastTask::textureOverrideId)
             ).apply(instance, SpellCastTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
         return QuestEntityAPI.id("spell_cast");
+    }
+
+    @Override
+    public Optional<ResourceLocation> getDisplayTexture() {
+        return textureOverrideId;
     }
 
     @Override
@@ -79,6 +86,7 @@ public record SpellCastTask(
         private Optional<ResourceLocation> spellPool = Optional.empty();
         private Optional<ResourceLocation> spellSchool = Optional.empty();
         private int amount = 1;
+        private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder spellId(ResourceLocation id) {
             this.spellId = Optional.of(id);
@@ -112,8 +120,13 @@ public record SpellCastTask(
             return this;
         }
 
+        public Builder textureOverrideId(ResourceLocation id) {
+            this.textureOverrideId = Optional.of(id);
+            return this;
+        }
+
         public SpellCastTask build() {
-            return new SpellCastTask(spellId, spellPool, spellSchool, amount);
+            return new SpellCastTask(spellId, spellPool, spellSchool, amount, textureOverrideId);
         }
     }
 }

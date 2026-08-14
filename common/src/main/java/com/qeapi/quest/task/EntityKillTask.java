@@ -1,5 +1,6 @@
 package com.qeapi.quest.task;
 
+import com.mojang.datafixers.util.Pair;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
@@ -7,36 +8,38 @@ import com.qeapi.QuestEntityAPI;
 import com.qeapi.compat.DungeonDifficultyCompat;
 import com.qeapi.compat.SpellEngineCompat;
 import com.qeapi.quest.QuestProgress;
+import com.qeapi.util.LocationMatchUtil;
 import com.qeapi.util.TextMutator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
-import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.levelgen.structure.Structure;
-import net.minecraft.world.level.levelgen.structure.StructureStart;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-// filterable by entity type/tag, damage type, structure/biome/dimension location - all OR logic where a list is involved
+// filterable by entity type/tag, damage type, location/spell attribution/power level, main-hand
+// item, status effects, and a generalized attribute check - all OR logic where a list is involved
 public record EntityKillTask(
         Optional<ResourceLocation> entityId,
         Optional<TagKey<EntityType<?>>> entityTag,
-        List<ResourceLocation> entityIds,  // OR logic
+        List<ResourceLocation> entityIds,
         int amount,
         List<ResourceLocation> damageTypes,
         Optional<ResourceLocation> inStructure,
@@ -47,8 +50,33 @@ public record EntityKillTask(
         Optional<ResourceLocation> inSpellPool,
         Optional<ResourceLocation> inSpellSchool,
         Optional<Integer> minPowerLevel,
-        boolean providesMap
+        Optional<Double> minRange,
+        Optional<Double> maxRange,
+        Optional<ResourceLocation> requiredItemId,
+        Optional<TagKey<Item>> requiredItemTag,
+        Optional<ResourceLocation> requiredEffectOnKilled,
+        Optional<ResourceLocation> requiredEffectOnKiller,
+        ResourceLocation requiredAttributeId,
+        Optional<Double> minAttributeValue,
+        Optional<Double> maxAttributeValue,
+        boolean providesMap,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
+
+    private static final ResourceLocation DEFAULT_ATTRIBUTE_ID = ResourceLocation.withDefaultNamespace("max_health");
+
+    // RecordCodecBuilder's group()/apply() tops out at 16 args; nested here to fit the rest.
+    private record ExtraFilters(
+            Optional<Double> minRange,
+            Optional<Double> maxRange,
+            Optional<ResourceLocation> requiredItemId,
+            Optional<TagKey<Item>> requiredItemTag,
+            Optional<ResourceLocation> requiredEffectOnKilled,
+            Optional<ResourceLocation> requiredEffectOnKiller,
+            ResourceLocation requiredAttributeId,
+            Optional<Double> minAttributeValue,
+            Optional<Double> maxAttributeValue
+    ) {}
 
     public static final MapCodec<EntityKillTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
@@ -65,8 +93,27 @@ public record EntityKillTask(
                     ResourceLocation.CODEC.optionalFieldOf("in_spell_pool").forGetter(EntityKillTask::inSpellPool),
                     ResourceLocation.CODEC.optionalFieldOf("in_spell_school").forGetter(EntityKillTask::inSpellSchool),
                     Codec.INT.optionalFieldOf("min_power_level").forGetter(EntityKillTask::minPowerLevel),
-                    Codec.BOOL.optionalFieldOf("provides_map", false).forGetter(EntityKillTask::providesMap)
-            ).apply(instance, EntityKillTask::new)
+                    instance.group(
+                            Codec.DOUBLE.optionalFieldOf("min_range").forGetter(EntityKillTask::minRange),
+                            Codec.DOUBLE.optionalFieldOf("max_range").forGetter(EntityKillTask::maxRange),
+                            ResourceLocation.CODEC.optionalFieldOf("required_item_id").forGetter(EntityKillTask::requiredItemId),
+                            TagKey.codec(Registries.ITEM).optionalFieldOf("required_item_tag").forGetter(EntityKillTask::requiredItemTag),
+                            ResourceLocation.CODEC.optionalFieldOf("required_effect_on_killed").forGetter(EntityKillTask::requiredEffectOnKilled),
+                            ResourceLocation.CODEC.optionalFieldOf("required_effect_on_killer").forGetter(EntityKillTask::requiredEffectOnKiller),
+                            ResourceLocation.CODEC.optionalFieldOf("required_attribute_id", DEFAULT_ATTRIBUTE_ID).forGetter(EntityKillTask::requiredAttributeId),
+                            Codec.DOUBLE.optionalFieldOf("min_attribute_value").forGetter(EntityKillTask::minAttributeValue),
+                            Codec.DOUBLE.optionalFieldOf("max_attribute_value").forGetter(EntityKillTask::maxAttributeValue)
+                    ).apply(instance, ExtraFilters::new),
+                    Codec.BOOL.optionalFieldOf("provides_map", false).forGetter(EntityKillTask::providesMap),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(EntityKillTask::textureOverrideId)
+            ).apply(instance, (entityId, entityTag, entityIds, amount, damageTypes, inStructure, inBiome,
+                    inBiomeTag, inDimension, inSpellId, inSpellPool, inSpellSchool, minPowerLevel, extra,
+                    providesMap, textureOverrideId) ->
+                    new EntityKillTask(entityId, entityTag, entityIds, amount, damageTypes, inStructure, inBiome,
+                            inBiomeTag, inDimension, inSpellId, inSpellPool, inSpellSchool, minPowerLevel,
+                            extra.minRange(), extra.maxRange(), extra.requiredItemId(), extra.requiredItemTag(),
+                            extra.requiredEffectOnKilled(), extra.requiredEffectOnKiller(), extra.requiredAttributeId(),
+                            extra.minAttributeValue(), extra.maxAttributeValue(), providesMap, textureOverrideId))
     );
 
     @Override
@@ -79,14 +126,32 @@ public record EntityKillTask(
         int current = Math.min(progress.getTaskProgress(taskIndex), amount);
         String entityName = getEntityDisplayName();
 
-        return TextMutator.mutate(
-                Component.translatable(getDefaultTranslationKey()),
-                Map.of(
-                        "kill_amount", String.valueOf(amount),
-                        "current_kills", String.valueOf(current),
-                        "entity_name", entityName
-                )
-        );
+        Map<String, String> values = new java.util.HashMap<>(Map.of(
+                "kill_amount", String.valueOf(amount),
+                "current_kills", String.valueOf(current),
+                "entity_name", entityName,
+                "min_power_level", String.valueOf(minPowerLevel.orElse(0)),
+                "min_range", String.valueOf(minRange.orElse(0.0)),
+                "max_range", String.valueOf(maxRange.orElse(0.0))
+        ));
+        values.put("required_item", getRequiredItemDisplayName());
+        values.put("min_attribute_value", String.valueOf(minAttributeValue.orElse(0.0)));
+        values.put("max_attribute_value", String.valueOf(maxAttributeValue.orElse(0.0)));
+
+        return TextMutator.mutate(Component.translatable(getDefaultTranslationKey()), values);
+    }
+
+    @Override
+    public Map<String, String> getDescriptionValues() {
+        Map<String, String> values = new java.util.HashMap<>();
+        minRange.ifPresent(r -> values.put("min_range", formatNumber(r)));
+        maxRange.ifPresent(r -> values.put("max_range", formatNumber(r)));
+        minPowerLevel.ifPresent(p -> values.put("min_power_level", String.valueOf(p)));
+        return values;
+    }
+
+    private static String formatNumber(double value) {
+        return value == Math.floor(value) ? String.valueOf((long) value) : String.valueOf(value);
     }
 
     public String getEntityDisplayName() {
@@ -110,6 +175,17 @@ public record EntityKillTask(
         }
 
         return "entity";
+    }
+
+    public String getRequiredItemDisplayName() {
+        if (requiredItemId.isPresent()) {
+            Item item = BuiltInRegistries.ITEM.get(requiredItemId.get());
+            return item != null ? item.getDescription().getString() : requiredItemId.get().toString();
+        }
+        if (requiredItemTag.isPresent()) {
+            return "#" + requiredItemTag.get().location();
+        }
+        return "";
     }
 
     // tooltip-only detail lines
@@ -160,7 +236,43 @@ public record EntityKillTask(
             info.add(Component.translatable("task.qe_api.entity_kill.min_power_level", minPowerLevel.get()));
         }
 
+        if (minRange.isPresent()) {
+            info.add(Component.translatable("task.qe_api.entity_kill.min_range", minRange.get()));
+        }
+        if (maxRange.isPresent()) {
+            info.add(Component.translatable("task.qe_api.entity_kill.max_range", maxRange.get()));
+        }
+
+        if (requiredItemId.isPresent() || requiredItemTag.isPresent()) {
+            info.add(Component.translatable("task.qe_api.entity_kill.required_item", getRequiredItemDisplayName()));
+        }
+
+        if (requiredEffectOnKilled.isPresent()) {
+            info.add(Component.translatable("task.qe_api.entity_kill.required_effect_on_killed",
+                    getEffectDisplayName(requiredEffectOnKilled.get())));
+        }
+        if (requiredEffectOnKiller.isPresent()) {
+            info.add(Component.translatable("task.qe_api.entity_kill.required_effect_on_killer",
+                    getEffectDisplayName(requiredEffectOnKiller.get())));
+        }
+
+        if (minAttributeValue.isPresent() || maxAttributeValue.isPresent()) {
+            if (minAttributeValue.isPresent()) {
+                info.add(Component.translatable("task.qe_api.entity_kill.min_attribute_value",
+                        requiredAttributeId.toString(), minAttributeValue.get()));
+            }
+            if (maxAttributeValue.isPresent()) {
+                info.add(Component.translatable("task.qe_api.entity_kill.max_attribute_value",
+                        requiredAttributeId.toString(), maxAttributeValue.get()));
+            }
+        }
+
         return info;
+    }
+
+    private static String getEffectDisplayName(ResourceLocation effectId) {
+        MobEffect effect = BuiltInRegistries.MOB_EFFECT.get(effectId);
+        return effect != null ? effect.getDisplayName().getString() : effectId.toString();
     }
 
     @Override
@@ -173,7 +285,10 @@ public record EntityKillTask(
         return amount;
     }
 
-    public boolean matches(LivingEntity killed, DamageSource source, Level level) {
+    // player is the credited killer (the actual attacker for a direct kill, or the nearby player
+    // being checked for teammate/environmental-kill crediting) - used for the min_range/max_range,
+    // main-hand item, killer-effect, and killed-entity-effect/attribute checks
+    public boolean matches(LivingEntity killed, DamageSource source, Level level, ServerPlayer player) {
         ResourceLocation killedId = BuiltInRegistries.ENTITY_TYPE.getKey(killed.getType());
 
         if (entityId.isPresent()) {
@@ -234,14 +349,14 @@ public record EntityKillTask(
                 QuestEntityAPI.LOGGER.debug("Spell Engine not loaded - cannot verify spell attribution");
                 return false;
             }
-            if (!(source.getEntity() instanceof ServerPlayer player)) {
+            if (!(source.getEntity() instanceof ServerPlayer caster)) {
                 return false;
             }
             if (!(level instanceof ServerLevel serverLevel)) {
                 return false;
             }
             long currentTick = level.getGameTime();
-            Optional<ResourceLocation> recentSpell = SpellEngineCompat.recentCastSpellId(player.getUUID(), currentTick);
+            Optional<ResourceLocation> recentSpell = SpellEngineCompat.recentCastSpellId(caster.getUUID(), currentTick);
             if (recentSpell.isEmpty()) {
                 QuestEntityAPI.LOGGER.debug("No recently cast spell for spell attribution check");
                 return false;
@@ -261,12 +376,71 @@ public record EntityKillTask(
             QuestEntityAPI.LOGGER.debug("Dimension matched: {}", currentDimension);
         }
 
-        // biome/structure checks need a server-side level
+        if (minRange.isPresent() || maxRange.isPresent()) {
+            double distance = player.position().distanceTo(killed.position());
+            if (minRange.isPresent() && distance < minRange.get()) {
+                QuestEntityAPI.LOGGER.debug("Kill too close: {} < min_range {}", distance, minRange.get());
+                return false;
+            }
+            if (maxRange.isPresent() && distance > maxRange.get()) {
+                QuestEntityAPI.LOGGER.debug("Kill too far: {} > max_range {}", distance, maxRange.get());
+                return false;
+            }
+        }
+
+        if (requiredItemId.isPresent() || requiredItemTag.isPresent()) {
+            ItemStack mainHand = player.getMainHandItem();
+            boolean itemMatches = false;
+            if (requiredItemId.isPresent() && BuiltInRegistries.ITEM.getKey(mainHand.getItem()).equals(requiredItemId.get())) {
+                itemMatches = true;
+            }
+            if (!itemMatches && requiredItemTag.isPresent() && mainHand.is(requiredItemTag.get())) {
+                itemMatches = true;
+            }
+            if (!itemMatches) {
+                QuestEntityAPI.LOGGER.debug("Main-hand item mismatch: {}", BuiltInRegistries.ITEM.getKey(mainHand.getItem()));
+                return false;
+            }
+        }
+
+        if (requiredEffectOnKilled.isPresent()) {
+            Holder<MobEffect> effect = BuiltInRegistries.MOB_EFFECT.getHolder(requiredEffectOnKilled.get()).orElse(null);
+            if (effect == null || !killed.hasEffect(effect)) {
+                QuestEntityAPI.LOGGER.debug("Killed entity missing required effect: {}", requiredEffectOnKilled.get());
+                return false;
+            }
+        }
+
+        if (requiredEffectOnKiller.isPresent()) {
+            Holder<MobEffect> effect = BuiltInRegistries.MOB_EFFECT.getHolder(requiredEffectOnKiller.get()).orElse(null);
+            if (effect == null || !player.hasEffect(effect)) {
+                QuestEntityAPI.LOGGER.debug("Killer missing required effect: {}", requiredEffectOnKiller.get());
+                return false;
+            }
+        }
+
+        if (minAttributeValue.isPresent() || maxAttributeValue.isPresent()) {
+            Holder<Attribute> attribute = BuiltInRegistries.ATTRIBUTE.getHolder(requiredAttributeId).orElse(null);
+            if (attribute == null || !killed.getAttributes().hasAttribute(attribute)) {
+                QuestEntityAPI.LOGGER.debug("Killed entity has no attribute: {}", requiredAttributeId);
+                return false;
+            }
+            double value = killed.getAttributeValue(attribute);
+            if (minAttributeValue.isPresent() && value < minAttributeValue.get()) {
+                QuestEntityAPI.LOGGER.debug("Attribute value too low: {} < {}", value, minAttributeValue.get());
+                return false;
+            }
+            if (maxAttributeValue.isPresent() && value > maxAttributeValue.get()) {
+                QuestEntityAPI.LOGGER.debug("Attribute value too high: {} > {}", value, maxAttributeValue.get());
+                return false;
+            }
+        }
+
         if (level instanceof ServerLevel serverLevel) {
             BlockPos pos = killed.blockPosition();
 
             if (inBiome.isPresent()) {
-                if (!isInBiome(serverLevel, pos, inBiome.get())) {
+                if (!LocationMatchUtil.isInBiome(serverLevel, pos, inBiome.get())) {
                     QuestEntityAPI.LOGGER.debug("Biome mismatch: not in {}", inBiome.get());
                     return false;
                 }
@@ -274,7 +448,7 @@ public record EntityKillTask(
             }
 
             if (inBiomeTag.isPresent()) {
-                if (!isInBiomeTag(serverLevel, pos, inBiomeTag.get())) {
+                if (!LocationMatchUtil.isInBiomeTag(serverLevel, pos, inBiomeTag.get())) {
                     QuestEntityAPI.LOGGER.debug("Biome tag mismatch: not in {}", inBiomeTag.get().location());
                     return false;
                 }
@@ -282,7 +456,7 @@ public record EntityKillTask(
             }
 
             if (inStructure.isPresent()) {
-                if (!isInStructure(serverLevel, pos, inStructure.get())) {
+                if (!LocationMatchUtil.isInStructure(serverLevel, pos, inStructure.get())) {
                     QuestEntityAPI.LOGGER.debug("Structure mismatch: not in {}", inStructure.get());
                     return false;
                 }
@@ -292,35 +466,6 @@ public record EntityKillTask(
 
         QuestEntityAPI.LOGGER.debug("Kill task matched! Entity: {}", killedId);
         return true;
-    }
-
-    private boolean isInBiome(ServerLevel level, BlockPos pos, ResourceLocation biomeId) {
-        Holder<Biome> biomeHolder = level.getBiome(pos);
-        Optional<ResourceKey<Biome>> biomeKey = biomeHolder.unwrapKey();
-
-        if (biomeKey.isEmpty()) {
-            return false;
-        }
-
-        return biomeKey.get().location().equals(biomeId);
-    }
-
-    private boolean isInBiomeTag(ServerLevel level, BlockPos pos, TagKey<Biome> biomeTag) {
-        Holder<Biome> biomeHolder = level.getBiome(pos);
-        return biomeHolder.is(biomeTag);
-    }
-
-    private boolean isInStructure(ServerLevel level, BlockPos pos, ResourceLocation structureId) {
-        Registry<Structure> structureRegistry = level.registryAccess().registryOrThrow(Registries.STRUCTURE);
-
-        Structure targetStructure = structureRegistry.get(structureId);
-        if (targetStructure == null) {
-            QuestEntityAPI.LOGGER.warn("Structure {} not found in registry", structureId);
-            return false;
-        }
-
-        StructureStart structureStart = level.structureManager().getStructureWithPieceAt(pos, targetStructure);
-        return structureStart.isValid();
     }
 
     public static Builder builder() {
@@ -341,7 +486,17 @@ public record EntityKillTask(
         private Optional<ResourceLocation> inSpellPool = Optional.empty();
         private Optional<ResourceLocation> inSpellSchool = Optional.empty();
         private Optional<Integer> minPowerLevel = Optional.empty();
+        private Optional<Double> minRange = Optional.empty();
+        private Optional<Double> maxRange = Optional.empty();
+        private Optional<ResourceLocation> requiredItemId = Optional.empty();
+        private Optional<TagKey<Item>> requiredItemTag = Optional.empty();
+        private Optional<ResourceLocation> requiredEffectOnKilled = Optional.empty();
+        private Optional<ResourceLocation> requiredEffectOnKiller = Optional.empty();
+        private ResourceLocation requiredAttributeId = DEFAULT_ATTRIBUTE_ID;
+        private Optional<Double> minAttributeValue = Optional.empty();
+        private Optional<Double> maxAttributeValue = Optional.empty();
         private boolean providesMap = false;
+        private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder entityId(ResourceLocation id) {
             this.entityId = Optional.of(id);
@@ -352,7 +507,6 @@ public record EntityKillTask(
             return entityId(ResourceLocation.parse(id));
         }
 
-        // OR logic - kill any of these
         public Builder entityIds(ResourceLocation... ids) {
             this.entityIds = List.of(ids);
             return this;
@@ -427,8 +581,8 @@ public record EntityKillTask(
             return inDimension(ResourceLocation.parse(dimension));
         }
 
-        // best-effort spell attribution: matches if the killing player cast this spell shortly
-        // before the kill - see SpellEngineCompat.recentlyCastSpell
+        // matches if the killing player cast this spell shortly before the kill (best-effort,
+        // see SpellEngineCompat.recentlyCastSpell)
         public Builder inSpellId(ResourceLocation spellId) {
             this.inSpellId = Optional.of(spellId);
             return this;
@@ -438,7 +592,6 @@ public record EntityKillTask(
             return inSpellId(ResourceLocation.parse(spellId));
         }
 
-        // same best-effort attribution as inSpellId, but for a spell pool tag
         public Builder inSpellPool(ResourceLocation spellPool) {
             this.inSpellPool = Optional.of(spellPool);
             return this;
@@ -448,7 +601,6 @@ public record EntityKillTask(
             return inSpellPool(ResourceLocation.parse(spellPool));
         }
 
-        // same best-effort attribution as inSpellId, but for a spell school
         public Builder inSpellSchool(ResourceLocation spellSchool) {
             this.inSpellSchool = Optional.of(spellSchool);
             return this;
@@ -458,11 +610,59 @@ public record EntityKillTask(
             return inSpellSchool(ResourceLocation.parse(spellSchool));
         }
 
-        // (Dungeon Difficulty compat) the killed entity must have been scaled to at least this
-        // power level - e.g. mobs Dungeon Difficulty buffed for spawning in a high-tier structure
-        // or dimension, same power-level concept as its item scaling.
+        // the killed entity must have been scaled to at least this power level by Dungeon
+        // Difficulty's mob scaling (same power-level concept as its item scaling)
         public Builder minPowerLevel(int minPowerLevel) {
             this.minPowerLevel = Optional.of(minPowerLevel);
+            return this;
+        }
+
+        public Builder minRange(double minRange) {
+            this.minRange = Optional.of(minRange);
+            return this;
+        }
+
+        public Builder maxRange(double maxRange) {
+            this.maxRange = Optional.of(maxRange);
+            return this;
+        }
+
+        public Builder requiredItemId(ResourceLocation itemId) {
+            this.requiredItemId = Optional.of(itemId);
+            return this;
+        }
+
+        public Builder requiredItemId(Item item) {
+            return requiredItemId(BuiltInRegistries.ITEM.getKey(item));
+        }
+
+        public Builder requiredItemTag(TagKey<Item> tag) {
+            this.requiredItemTag = Optional.of(tag);
+            return this;
+        }
+
+        public Builder requiredEffectOnKilled(ResourceLocation effectId) {
+            this.requiredEffectOnKilled = Optional.of(effectId);
+            return this;
+        }
+
+        public Builder requiredEffectOnKiller(ResourceLocation effectId) {
+            this.requiredEffectOnKiller = Optional.of(effectId);
+            return this;
+        }
+
+        public Builder requiredAttributeId(ResourceLocation attributeId) {
+            this.requiredAttributeId = attributeId;
+            return this;
+        }
+
+        public Builder minAttributeValue(double value) {
+            this.minAttributeValue = Optional.of(value);
+            return this;
+        }
+
+        public Builder maxAttributeValue(double value) {
+            this.maxAttributeValue = Optional.of(value);
             return this;
         }
 
@@ -472,13 +672,20 @@ public record EntityKillTask(
             return this;
         }
 
+        public Builder textureOverrideId(ResourceLocation id) {
+            this.textureOverrideId = Optional.of(id);
+            return this;
+        }
+
         public EntityKillTask build() {
             if (entityId.isEmpty() && entityTag.isEmpty() && entityIds.isEmpty()) {
                 throw new IllegalStateException("EntityKillTask requires entityId, entityIds, or entityTag");
             }
             return new EntityKillTask(entityId, entityTag, entityIds, amount, damageTypes,
                     inStructure, inBiome, inBiomeTag, inDimension, inSpellId, inSpellPool, inSpellSchool,
-                    minPowerLevel, providesMap);
+                    minPowerLevel, minRange, maxRange, requiredItemId, requiredItemTag,
+                    requiredEffectOnKilled, requiredEffectOnKiller, requiredAttributeId,
+                    minAttributeValue, maxAttributeValue, providesMap, textureOverrideId);
         }
     }
 }

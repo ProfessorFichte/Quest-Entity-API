@@ -1,0 +1,30 @@
+{
+  "id": "villager_quests:farmer/hay_stores",
+  "rewards": [
+    {
+      "operations": [
+        {
+          "type": "qe_api:repair_item"
+        },
+        {
+          "type": "qe_api:enchant_specific",
+          "enchantment_id": "minecraft:fortune"
+        }
+      ],
+      "reward": "qe_api:enhance_item"
+    },
+    {
+      "amount": 8,
+      "item_id": "minecraft:emerald",
+      "reward": "qe_api:item"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 6,
+      "item_id": "minecraft:hay_block",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 3
+}

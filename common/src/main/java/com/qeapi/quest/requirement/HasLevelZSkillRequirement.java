@@ -12,18 +12,19 @@ import net.minecraft.world.entity.player.Player;
 
 import java.util.Optional;
 
-// Requirement that the player has a minimum level in a specific LevelZ skill (e.g. "melee",
-// "mining" - see LevelZ's data/levelz/skill/default.json for the full list). No-op (never met) if
-// LevelZ isn't loaded.
+// e.g. "melee", "mining" - see LevelZ's data/levelz/skill/default.json for the full list. Never
+// met if LevelZ isn't loaded, so a quest gated on this becomes permanently unavailable without it.
 public record HasLevelZSkillRequirement(
         String skillId,
-        int level
+        int level,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestRequirement {
 
     public static final MapCodec<HasLevelZSkillRequirement> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     Codec.STRING.fieldOf("skill_id").forGetter(HasLevelZSkillRequirement::skillId),
-                    Codec.INT.fieldOf("level").forGetter(HasLevelZSkillRequirement::level)
+                    Codec.INT.fieldOf("level").forGetter(HasLevelZSkillRequirement::level),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(HasLevelZSkillRequirement::textureOverrideId)
             ).apply(instance, HasLevelZSkillRequirement::new)
     );
 
@@ -61,10 +62,11 @@ public record HasLevelZSkillRequirement(
 
     @Override
     public Optional<ResourceLocation> getDisplayTexture() {
+        if (textureOverrideId.isPresent()) return textureOverrideId;
         return LevelZCompat.isLoaded() ? Optional.of(LevelZCompat.skillIcon(skillId)) : Optional.empty();
     }
 
     public static HasLevelZSkillRequirement of(String skillId, int level) {
-        return new HasLevelZSkillRequirement(skillId, level);
+        return new HasLevelZSkillRequirement(skillId, level, Optional.empty());
     }
 }

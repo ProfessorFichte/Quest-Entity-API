@@ -13,16 +13,17 @@ import net.minecraft.world.item.Items;
 
 import java.util.Optional;
 
-// Reward that executes a command on completion. Supports {player}, {uuid}, {x}/{y}/{z} placeholders.
 public record CommandReward(
         String command,
-        Optional<String> displayName
+        Optional<String> displayName,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestReward {
 
     public static final MapCodec<CommandReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     Codec.STRING.fieldOf("command").forGetter(CommandReward::command),
-                    Codec.STRING.optionalFieldOf("display_name").forGetter(CommandReward::displayName)
+                    Codec.STRING.optionalFieldOf("display_name").forGetter(CommandReward::displayName),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(CommandReward::textureOverrideId)
             ).apply(instance, CommandReward::new)
     );
 
@@ -40,7 +41,6 @@ public record CommandReward(
                 .replace("{y}", String.valueOf((int) player.getY()))
                 .replace("{z}", String.valueOf((int) player.getZ()));
 
-        // level 2 permission, same as command blocks
         try {
             CommandSourceStack source = player.getServer().createCommandSourceStack()
                     .withPermission(2)
@@ -68,10 +68,10 @@ public record CommandReward(
     }
 
     public static CommandReward of(String command) {
-        return new CommandReward(command, Optional.empty());
+        return new CommandReward(command, Optional.empty(), Optional.empty());
     }
 
     public static CommandReward of(String command, String displayName) {
-        return new CommandReward(command, Optional.of(displayName));
+        return new CommandReward(command, Optional.of(displayName), Optional.empty());
     }
 }

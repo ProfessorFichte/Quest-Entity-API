@@ -1,0 +1,45 @@
+{
+  "id": "qe_api:brew_master/test",
+  "reward_choice_pools": [
+    {
+      "options": [
+        {
+          "reward": {
+            "amount": 2,
+            "item_id": "minecraft:diamond",
+            "reward": "qe_api:item"
+          }
+        },
+        {
+          "reward": {
+            "amount": 6,
+            "item_id": "minecraft:emerald",
+            "reward": "qe_api:item"
+          }
+        },
+        {
+          "reward": {
+            "duration": 300,
+            "effect_id": "minecraft:luck",
+            "reward": "qe_api:status_effect"
+          }
+        }
+      ]
+    }
+  ],
+  "rewards": [
+    {
+      "amount": 120,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 3,
+      "potion_id": "minecraft:swiftness",
+      "task": "qe_api:brew_potion"
+    }
+  ],
+  "tier": 1,
+  "weight": 60
+}

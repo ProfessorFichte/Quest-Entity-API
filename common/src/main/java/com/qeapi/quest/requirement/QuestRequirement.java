@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-// A requirement that must be met before a player can accept a quest.
 public sealed interface QuestRequirement permits
         HasAdvancementRequirement,
         HasItemRequirement,
@@ -56,15 +55,18 @@ public sealed interface QuestRequirement permits
         return Optional.empty();
     }
 
+    // see QuestTask.textureOverrideId
+    Optional<ResourceLocation> textureOverrideId();
+
     static <T extends QuestRequirement> void registerType(ResourceLocation id, MapCodec<T> codec) {
         REQUIREMENT_TYPES.put(id, new RequirementType<>(id, codec));
     }
 
     static void registerBuiltInTypes() {
-        registerType(QuestEntityAPI.id("has_advancement"), HasAdvancementRequirement.CODEC);
-        registerType(QuestEntityAPI.id("has_item"), HasItemRequirement.CODEC);
-        registerType(QuestEntityAPI.id("has_level"), HasLevelRequirement.CODEC);
-        registerType(QuestEntityAPI.id("has_levelz_skill"), HasLevelZSkillRequirement.CODEC);
+        registerType(QuestEntityAPI.id("has_advancement"), HasAdvancementRequirement.CODEC); // player has unlocked a specific advancement
+        registerType(QuestEntityAPI.id("has_item"), HasItemRequirement.CODEC); // player is carrying a specific item (checked, not consumed)
+        registerType(QuestEntityAPI.id("has_level"), HasLevelRequirement.CODEC); // player has at least a minimum XP level
+        registerType(QuestEntityAPI.id("has_levelz_skill"), HasLevelZSkillRequirement.CODEC); // player has at least a minimum level in a LevelZ skill
     }
 
     record RequirementType<T extends QuestRequirement>(ResourceLocation id, MapCodec<T> codec) {

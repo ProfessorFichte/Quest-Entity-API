@@ -1,0 +1,35 @@
+{
+  "id": "qe_api:conditional_drop_test/test",
+  "rewards": [
+    {
+      "amount": 200,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "entity_id": "minecraft:pillager",
+      "in_structure": "minecraft:pillager_outpost",
+      "mob_drop_chance": 0.5,
+      "quest_item": {
+        "custom_model_data": 1001,
+        "name": {
+          "translate": "quest_item.qe_api.1001"
+        },
+        "texture": "qe_api:item/test_hammer"
+      },
+      "task": "qe_api:conditional_drop"
+    },
+    {
+      "quest_item": {
+        "custom_model_data": 1001,
+        "name": {
+          "translate": "quest_item.qe_api.1001"
+        },
+        "texture": "qe_api:item/test_hammer"
+      },
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

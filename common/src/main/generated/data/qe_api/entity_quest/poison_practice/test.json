@@ -1,0 +1,18 @@
+{
+  "id": "qe_api:poison_practice/test",
+  "rewards": [
+    {
+      "amount": 150,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 3,
+      "effect_id": "minecraft:poison",
+      "target": "others",
+      "task": "qe_api:apply_status_effect"
+    }
+  ],
+  "tier": 1
+}

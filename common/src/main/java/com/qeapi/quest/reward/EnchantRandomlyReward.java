@@ -19,16 +19,16 @@ import net.minecraft.world.level.Level;
 import java.util.List;
 import java.util.Optional;
 
-// Enchants a player-chosen item with a random enchantment valid for it (same supported_items
-// check the enchanting table uses), excluding enchantments already present, at a random level up
-// to levelCap (also capped by the enchantment's own max level). No-op (with a warning) if the
-// target has no valid enchantment left to roll - the player still gets to pick a target, but
-// nothing changes if every compatible enchantment is already present.
-public record EnchantRandomlyReward(int levelCap) implements QuestReward, TargetItemReward, EnhanceOperation {
+public record EnchantRandomlyReward(int levelCap, Optional<ResourceLocation> textureOverrideId) implements QuestReward, TargetItemReward, EnhanceOperation {
+
+    public EnchantRandomlyReward(int levelCap) {
+        this(levelCap, Optional.empty());
+    }
 
     public static final MapCodec<EnchantRandomlyReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
-                    Codec.intRange(1, 255).optionalFieldOf("level_cap", 1).forGetter(EnchantRandomlyReward::levelCap)
+                    Codec.intRange(1, 255).optionalFieldOf("level_cap", 1).forGetter(EnchantRandomlyReward::levelCap),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(EnchantRandomlyReward::textureOverrideId)
             ).apply(instance, EnchantRandomlyReward::new)
     );
 

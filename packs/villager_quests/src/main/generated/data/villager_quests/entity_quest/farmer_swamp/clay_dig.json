@@ -1,0 +1,39 @@
+{
+  "id": "villager_quests:farmer_swamp/clay_dig",
+  "rewards": [
+    {
+      "functions": [
+        {
+          "enchantments": [
+            {
+              "id": "minecraft:unbreaking"
+            }
+          ],
+          "function": "qe_api:set_enchantments"
+        },
+        {
+          "function": "qe_api:set_name",
+          "name": {
+            "color": "yellow",
+            "text": "Farmhand's Hoe"
+          }
+        }
+      ],
+      "item_id": "minecraft:iron_hoe",
+      "reward": "qe_api:item"
+    },
+    {
+      "amount": 4,
+      "item_id": "minecraft:emerald",
+      "reward": "qe_api:item"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 16,
+      "item_id": "minecraft:clay_ball",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 2
+}

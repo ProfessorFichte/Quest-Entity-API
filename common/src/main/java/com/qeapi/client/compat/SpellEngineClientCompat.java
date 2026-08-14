@@ -2,6 +2,7 @@ package com.qeapi.client.compat;
 
 import com.qeapi.compat.ModCompatUtil;
 import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Player;
@@ -71,6 +72,13 @@ public final class SpellEngineClientCompat {
             }
         }
         return Component.literal(schoolId.getPath());
+    }
+
+    private static final ResourceLocation SPELL_BINDING_TABLE_ID =
+            ResourceLocation.fromNamespaceAndPath("spell_engine", "spell_binding");
+
+    public static ItemStack spellBindingTableItemStack() {
+        return new ItemStack(BuiltInRegistries.ITEM.get(SPELL_BINDING_TABLE_ID));
     }
 
     // Placeholder stack for previewing SpellScrollReward in the GUI - the real spell isn't picked

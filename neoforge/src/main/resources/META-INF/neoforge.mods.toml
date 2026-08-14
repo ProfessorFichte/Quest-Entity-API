@@ -39,3 +39,6 @@ config = "qe_api.mixins.json"
 
 [[mixins]]
 config = "qe_api.neoforge.mixins.json"
+
+[[mixins]]
+config = "qe_api.spellengine.mixins.json"

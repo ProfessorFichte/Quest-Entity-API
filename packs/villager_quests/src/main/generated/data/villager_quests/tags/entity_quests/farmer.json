@@ -1,0 +1,22 @@
+{
+  "replace": false,
+  "values": [
+    "villager_quests:farmer/harvest_wheat",
+    "villager_quests:farmer/harvest_carrots",
+    "villager_quests:farmer/harvest_potatoes",
+    "villager_quests:farmer/harvest_beetroot",
+    "villager_quests:farmer/gather_seeds",
+    "villager_quests:farmer/bake_bread",
+    "villager_quests:farmer/haul_pumpkins",
+    "villager_quests:farmer/haul_melons",
+    "villager_quests:farmer/spread_growth",
+    "villager_quests:farmer/feed_the_livestock",
+    "villager_quests:farmer/mega_harvest",
+    "villager_quests:farmer/fertilizer_run",
+    "villager_quests:farmer/sweeten_the_deal",
+    "villager_quests:farmer/hay_stores",
+    "villager_quests:farmer/harvest_festival",
+    "villager_quests:farmer/the_golden_orchard",
+    "villager_quests:farmer/prize_livestock"
+  ]
+}

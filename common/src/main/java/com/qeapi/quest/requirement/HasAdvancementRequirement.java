@@ -12,16 +12,17 @@ import net.minecraft.server.level.ServerPlayer;
 
 import java.util.Optional;
 
-// Requirement that the player has unlocked a specific advancement.
 public record HasAdvancementRequirement(
-        ResourceLocation advancementId
+        ResourceLocation advancementId,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestRequirement {
 
     public static final ResourceLocation DEFAULT_TEXTURE = QuestEntityAPI.id("textures/gui/quest_requirements/has_advancement.png");
 
     public static final MapCodec<HasAdvancementRequirement> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
-                    ResourceLocation.CODEC.fieldOf("advancement_id").forGetter(HasAdvancementRequirement::advancementId)
+                    ResourceLocation.CODEC.fieldOf("advancement_id").forGetter(HasAdvancementRequirement::advancementId),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(HasAdvancementRequirement::textureOverrideId)
             ).apply(instance, HasAdvancementRequirement::new)
     );
 
@@ -51,15 +52,13 @@ public record HasAdvancementRequirement(
         return Component.translatable("requirement.qe_api.has_advancement.failure", getAdvancementText());
     }
 
-    // Translated title if the vanilla advancements.<namespace>.<path>.title key exists,
-    // otherwise a formatted fallback.
     private String getAdvancementText() {
         String translationKey = "advancements." + advancementId.getNamespace() + "." +
                 advancementId.getPath().replace("/", ".") + ".title";
         String advancementText = Component.translatable(translationKey).getString();
 
         if (advancementText.equals(translationKey)) {
-            // no translation found - format the path nicely, e.g. "adventure/kill_a_mob" -> "Adventure Kill A Mob"
+            // e.g. "adventure/kill_a_mob" -> "Adventure Kill A Mob"
             advancementText = TextFormatting.titleCaseWords(advancementId.getPath().replace("/", "_"));
         }
 
@@ -68,14 +67,14 @@ public record HasAdvancementRequirement(
 
     @Override
     public Optional<ResourceLocation> getDisplayTexture() {
-        return Optional.of(DEFAULT_TEXTURE);
+        return Optional.of(textureOverrideId.orElse(DEFAULT_TEXTURE));
     }
 
     public static HasAdvancementRequirement of(ResourceLocation advancementId) {
-        return new HasAdvancementRequirement(advancementId);
+        return new HasAdvancementRequirement(advancementId, Optional.empty());
     }
 
     public static HasAdvancementRequirement of(String advancementId) {
-        return new HasAdvancementRequirement(ResourceLocation.parse(advancementId));
+        return new HasAdvancementRequirement(ResourceLocation.parse(advancementId), Optional.empty());
     }
 }

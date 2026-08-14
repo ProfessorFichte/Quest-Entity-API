@@ -115,7 +115,7 @@ public final class EntityQuestAssignmentManager {
                 roll, selected.questChance(), selected.questChance() * 100);
 
         if (roll < selected.questChance()) {
-            QuestEntityAPI.LOGGER.info("[AssignmentManager] Assignment {} PASSED chance check (roll={} < {})",
+            QuestEntityAPI.LOGGER.debug("[AssignmentManager] Assignment {} PASSED chance check (roll={} < {})",
                     selected.questPools(), roll, selected.questChance());
             return Optional.of(selected);
         }

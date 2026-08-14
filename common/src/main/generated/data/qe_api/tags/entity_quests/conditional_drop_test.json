@@ -1,0 +1,6 @@
+{
+  "replace": false,
+  "values": [
+    "qe_api:conditional_drop_test/test"
+  ]
+}

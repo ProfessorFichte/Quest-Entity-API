@@ -16,13 +16,12 @@ import net.minecraft.world.item.ItemStack;
 import java.util.List;
 import java.util.Optional;
 
-// Reward that grants an item to the player. Supports setting components via DataComponentPatch
-// (legacy) or via loot-table-like ItemFunctions.
 public record ItemReward(
         ResourceLocation itemId,
         int amount,
         Optional<DataComponentPatch> components,
-        List<ItemFunction> functions
+        List<ItemFunction> functions,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestReward {
 
     public static final MapCodec<ItemReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
@@ -30,12 +29,13 @@ public record ItemReward(
                     ResourceLocation.CODEC.fieldOf("item_id").forGetter(ItemReward::itemId),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(ItemReward::amount),
                     DataComponentPatch.CODEC.optionalFieldOf("components").forGetter(ItemReward::components),
-                    ItemFunction.CODEC.listOf().optionalFieldOf("functions", List.of()).forGetter(ItemReward::functions)
+                    ItemFunction.CODEC.listOf().optionalFieldOf("functions", List.of()).forGetter(ItemReward::functions),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(ItemReward::textureOverrideId)
             ).apply(instance, ItemReward::new)
     );
 
     public ItemReward(ResourceLocation itemId, int amount, Optional<DataComponentPatch> components) {
-        this(itemId, amount, components, List.of());
+        this(itemId, amount, components, List.of(), Optional.empty());
     }
 
     @Override
@@ -64,7 +64,6 @@ public record ItemReward(
         return Optional.of(createItemStack(null));
     }
 
-    // For display purposes, without player context.
     public ItemStack createItemStack() {
         return createItemStack(null);
     }
@@ -102,6 +101,7 @@ public record ItemReward(
         private int amount = 1;
         private Optional<DataComponentPatch> components = Optional.empty();
         private List<ItemFunction> functions = List.of();
+        private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder itemId(ResourceLocation id) {
             this.itemId = id;
@@ -139,11 +139,16 @@ public record ItemReward(
             return this;
         }
 
+        public Builder textureOverrideId(ResourceLocation id) {
+            this.textureOverrideId = Optional.of(id);
+            return this;
+        }
+
         public ItemReward build() {
             if (itemId == null) {
                 throw new IllegalStateException("ItemReward requires itemId");
             }
-            return new ItemReward(itemId, amount, components, functions);
+            return new ItemReward(itemId, amount, components, functions, textureOverrideId);
         }
     }
 }

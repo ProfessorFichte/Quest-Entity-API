@@ -17,21 +17,35 @@ public record SyncEntityQuestsPacket(
         ResourceLocation questPoolId,
         boolean hasActiveQuest,
         boolean isQuestComplete,
-        boolean allQuestsCompleted
+        boolean allQuestsCompleted,
+        boolean enraged
 ) implements CustomPacketPayload {
 
     public static final ResourceLocation ID = QuestEntityAPI.id("sync_entity_quests");
     public static final Type<SyncEntityQuestsPacket> TYPE = new Type<>(ID);
 
+    // The four booleans are packed into one flags byte so this stays within StreamCodec.composite's
+    // 6-slot limit (and leaves room to grow), hence a hand-written codec rather than composite.
     public static final StreamCodec<RegistryFriendlyByteBuf, SyncEntityQuestsPacket> STREAM_CODEC =
-            StreamCodec.composite(
-                    ByteBufCodecs.INT, SyncEntityQuestsPacket::entityId,
-                    ByteBufCodecs.STRING_UTF8.map(UUID::fromString, UUID::toString), SyncEntityQuestsPacket::entityUuid,
-                    ResourceLocation.STREAM_CODEC, SyncEntityQuestsPacket::questPoolId,
-                    ByteBufCodecs.BOOL, SyncEntityQuestsPacket::hasActiveQuest,
-                    ByteBufCodecs.BOOL, SyncEntityQuestsPacket::isQuestComplete,
-                    ByteBufCodecs.BOOL, SyncEntityQuestsPacket::allQuestsCompleted,
-                    SyncEntityQuestsPacket::new
+            StreamCodec.of(
+                    (buf, packet) -> {
+                        ByteBufCodecs.INT.encode(buf, packet.entityId);
+                        ByteBufCodecs.STRING_UTF8.encode(buf, packet.entityUuid.toString());
+                        ResourceLocation.STREAM_CODEC.encode(buf, packet.questPoolId);
+                        int flags = (packet.hasActiveQuest ? 1 : 0)
+                                | (packet.isQuestComplete ? 2 : 0)
+                                | (packet.allQuestsCompleted ? 4 : 0)
+                                | (packet.enraged ? 8 : 0);
+                        buf.writeByte(flags);
+                    },
+                    buf -> {
+                        int entityId = ByteBufCodecs.INT.decode(buf);
+                        UUID entityUuid = UUID.fromString(ByteBufCodecs.STRING_UTF8.decode(buf));
+                        ResourceLocation questPoolId = ResourceLocation.STREAM_CODEC.decode(buf);
+                        int flags = buf.readByte();
+                        return new SyncEntityQuestsPacket(entityId, entityUuid, questPoolId,
+                                (flags & 1) != 0, (flags & 2) != 0, (flags & 4) != 0, (flags & 8) != 0);
+                    }
             );
 
     @Override

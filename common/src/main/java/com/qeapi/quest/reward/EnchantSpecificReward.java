@@ -19,15 +19,17 @@ import net.minecraft.world.level.Level;
 
 import java.util.Optional;
 
-// Enchants a player-chosen item with one specific enchantment - like a survival enchanting table
-// or anvil, isValidTarget only allows items that enchantment actually supports (its own
-// supported_items tag), so the picker only ever offers compatible items.
-public record EnchantSpecificReward(ResourceLocation enchantmentId, int level) implements QuestReward, TargetItemReward, EnhanceOperation {
+public record EnchantSpecificReward(ResourceLocation enchantmentId, int level, Optional<ResourceLocation> textureOverrideId) implements QuestReward, TargetItemReward, EnhanceOperation {
+
+    public EnchantSpecificReward(ResourceLocation enchantmentId, int level) {
+        this(enchantmentId, level, Optional.empty());
+    }
 
     public static final MapCodec<EnchantSpecificReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.fieldOf("enchantment_id").forGetter(EnchantSpecificReward::enchantmentId),
-                    Codec.intRange(1, 255).optionalFieldOf("level", 1).forGetter(EnchantSpecificReward::level)
+                    Codec.intRange(1, 255).optionalFieldOf("level", 1).forGetter(EnchantSpecificReward::level),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(EnchantSpecificReward::textureOverrideId)
             ).apply(instance, EnchantSpecificReward::new)
     );
 

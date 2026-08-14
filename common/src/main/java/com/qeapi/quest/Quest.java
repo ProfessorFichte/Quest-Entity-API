@@ -9,6 +9,8 @@ import com.qeapi.quest.reward.QuestReward;
 import com.qeapi.quest.reward.RewardChoicePool;
 import com.qeapi.quest.reward.TargetItemReward;
 import com.qeapi.quest.task.QuestTask;
+import com.qeapi.util.EntityNameResolver;
+import com.qeapi.util.TextMutator;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
@@ -19,7 +21,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public record Quest(
@@ -35,7 +39,10 @@ public record Quest(
         List<RewardChoicePool> rewardChoicePools,
         int weight,
         Optional<Integer> repeatAfterDays,
-        Optional<String> questGroup
+        Optional<String> questGroup,
+        Optional<String> questLine,
+        Optional<ResourceLocation> acceptQuestSoundOverride,
+        Optional<ResourceLocation> finishQuestSoundOverride
 ) {
     public static final int MIN_TIER = 1;
     public static final int MAX_TIER = 8;
@@ -59,19 +66,20 @@ public record Quest(
                     Codec.intRange(1, 1000).optionalFieldOf("weight", 100).forGetter(Quest::weight),
                     Codec.intRange(1, Integer.MAX_VALUE).optionalFieldOf("repeat_after_days")
                             .forGetter(Quest::repeatAfterDays),
-                    Codec.STRING.optionalFieldOf("quest_group").forGetter(Quest::questGroup)
+                    Codec.STRING.optionalFieldOf("quest_group").forGetter(Quest::questGroup),
+                    Codec.STRING.optionalFieldOf("quest_line").forGetter(Quest::questLine),
+                    ResourceLocation.CODEC.optionalFieldOf("accept_quest_sound_override").forGetter(Quest::acceptQuestSoundOverride),
+                    ResourceLocation.CODEC.optionalFieldOf("finish_quest_sound_override").forGetter(Quest::finishQuestSoundOverride)
             ).apply(instance, Quest::new)
     );
 
     public static final StreamCodec<RegistryFriendlyByteBuf, Quest> STREAM_CODEC =
             ByteBufCodecs.fromCodecWithRegistries(CODEC);
 
-    // Translation key used when quest_name is omitted from the JSON.
     public static String defaultNameKey(ResourceLocation id) {
         return "quest." + id.getNamespace() + "." + id.getPath().replace("/", ".") + ".name";
     }
 
-    // Translation key used when quest_description is omitted from the JSON.
     public static String defaultDescriptionKey(ResourceLocation id) {
         return "quest." + id.getNamespace() + "." + id.getPath().replace("/", ".") + ".desc";
     }
@@ -84,6 +92,38 @@ public record Quest(
         return questDescription.orElseGet(() ->
                 Component.translatable(defaultDescriptionKey(id))
         );
+    }
+
+    // Resolves the {entity_name} placeholder against the quest-giving entity - see TextMutator.
+    public Component getDescription(Entity givingEntity) {
+        return getDescription(EntityNameResolver.resolve(givingEntity));
+    }
+
+    public Component getDisplayName(Entity givingEntity) {
+        return getDisplayName(EntityNameResolver.resolve(givingEntity));
+    }
+
+    // Same as above, but for callers that only have a previously-resolved name string on hand (e.g.
+    // the Active Quests screen, whose entries describe a quest-giver that may not be currently
+    // loaded - see PlayerQuestData.QuestGiverLocation).
+    public Component getDescription(String entityName) {
+        Map<String, String> replacements = new HashMap<>();
+        replacements.put("entity_name", entityName);
+        for (int i = 0; i < tasks.size(); i++) {
+            QuestTask task = tasks.get(i);
+            String amount = String.valueOf(task.getTargetAmount());
+            replacements.put("amount_" + i, amount);
+            replacements.putIfAbsent("amount", amount);
+            for (Map.Entry<String, String> value : task.getDescriptionValues().entrySet()) {
+                replacements.put(value.getKey() + "_" + i, value.getValue());
+                replacements.putIfAbsent(value.getKey(), value.getValue());
+            }
+        }
+        return TextMutator.mutate(getDescription(), replacements);
+    }
+
+    public Component getDisplayName(String entityName) {
+        return TextMutator.mutate(getDisplayName(), Map.of("entity_name", entityName));
     }
 
     // completedAtDayTime: EntityQuestComponent.getCompletionDayTime's result for this quest (-1 if
@@ -151,7 +191,7 @@ public record Quest(
         for (int i = 0; i < rewardChoicePools.size(); i++) {
             RewardChoicePool pool = rewardChoicePools.get(i);
             for (int index : poolChoices.get(i)) {
-                QuestReward option = pool.options().get(index);
+                QuestReward option = pool.options().get(index).reward();
                 if (option instanceof EntityAwareReward entityAware) {
                     entityAware.grantWithEntity(player, entity);
                 } else {
@@ -170,7 +210,6 @@ public record Quest(
         return true;
     }
 
-    // True if no required_mod is specified or if the mod is loaded.
     public boolean isModLoaded() {
         if (requiredMod.isEmpty()) {
             return true;
@@ -197,7 +236,8 @@ public record Quest(
 
     public Quest withId(ResourceLocation newId) {
         return new Quest(newId, tier, requiredMod, followQuestOrder, questName, questDescription,
-                requirements, tasks, rewards, rewardChoicePools, weight, repeatAfterDays, questGroup);
+                requirements, tasks, rewards, rewardChoicePools, weight, repeatAfterDays, questGroup, questLine,
+                acceptQuestSoundOverride, finishQuestSoundOverride);
     }
 
     public static Builder builder(ResourceLocation id) {
@@ -218,6 +258,9 @@ public record Quest(
         private int weight = 100;
         private Optional<Integer> repeatAfterDays = Optional.empty();
         private Optional<String> questGroup = Optional.empty();
+        private Optional<String> questLine = Optional.empty();
+        private Optional<ResourceLocation> acceptQuestSoundOverride = Optional.empty();
+        private Optional<ResourceLocation> finishQuestSoundOverride = Optional.empty();
 
         public Builder(ResourceLocation id) {
             this.id = id;
@@ -245,7 +288,6 @@ public record Quest(
             return this;
         }
 
-        // Same as repeatAfterDays(int), defaulting to DEFAULT_REPEAT_AFTER_DAYS.
         public Builder repeatable() {
             return repeatAfterDays(DEFAULT_REPEAT_AFTER_DAYS);
         }
@@ -254,6 +296,15 @@ public record Quest(
         // Absent (the default) means the quest is offered regardless of any chosen group.
         public Builder questGroup(String group) {
             this.questGroup = Optional.of(group);
+            return this;
+        }
+
+        // Marks this quest as one step of a named quest line - only offered while that line is
+        // the player's active line for this giver (see the questLine filter in
+        // FabricNetworking/NeoForgeNetworking.getAvailableQuestsForPlayer). Absent (the default)
+        // means this quest isn't part of any line.
+        public Builder questLine(String lineId) {
+            this.questLine = Optional.of(lineId);
             return this;
         }
 
@@ -298,12 +349,23 @@ public record Quest(
         }
 
         public Builder rewardChoicePool(int pick, QuestReward... options) {
-            this.rewardChoicePools.add(new RewardChoicePool(List.of(options), pick));
+            this.rewardChoicePools.add(new RewardChoicePool(
+                    java.util.Arrays.stream(options).map(RewardChoicePool.Option::of).toList(), pick));
             return this;
         }
 
         public Builder weight(int weight) {
             this.weight = weight;
+            return this;
+        }
+
+        public Builder acceptQuestSoundOverride(ResourceLocation soundId) {
+            this.acceptQuestSoundOverride = Optional.of(soundId);
+            return this;
+        }
+
+        public Builder finishQuestSoundOverride(ResourceLocation soundId) {
+            this.finishQuestSoundOverride = Optional.of(soundId);
             return this;
         }
 
@@ -315,7 +377,8 @@ public record Quest(
                 throw new IllegalStateException("Quest must have at least one reward");
             }
             return new Quest(id, tier, requiredMod, followQuestOrder, questName, questDescription,
-                    requirements, tasks, rewards, List.copyOf(rewardChoicePools), weight, repeatAfterDays, questGroup);
+                    requirements, tasks, rewards, List.copyOf(rewardChoicePools), weight, repeatAfterDays, questGroup, questLine,
+                    acceptQuestSoundOverride, finishQuestSoundOverride);
         }
     }
 }

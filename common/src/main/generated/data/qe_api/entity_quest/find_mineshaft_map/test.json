@@ -1,0 +1,33 @@
+{
+  "id": "qe_api:find_mineshaft_map/test",
+  "requirements": [
+    {
+      "experience_level": 3,
+      "requirement": "qe_api:has_level"
+    }
+  ],
+  "rewards": [
+    {
+      "item_id": "minecraft:iron_pickaxe",
+      "reward": "qe_api:item"
+    },
+    {
+      "amount": 32,
+      "item_id": "minecraft:torch",
+      "reward": "qe_api:item"
+    },
+    {
+      "amount": 150,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "provides_map": true,
+      "structure_id": "minecraft:mineshaft",
+      "task": "qe_api:find_structure"
+    }
+  ],
+  "tier": 1,
+  "weight": 80
+}

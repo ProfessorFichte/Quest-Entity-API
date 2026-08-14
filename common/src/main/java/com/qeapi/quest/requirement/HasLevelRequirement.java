@@ -11,16 +11,17 @@ import net.minecraft.world.entity.player.Player;
 
 import java.util.Optional;
 
-// Requirement that the player has a minimum experience level.
 public record HasLevelRequirement(
-        int experienceLevel
+        int experienceLevel,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestRequirement {
 
     public static final ResourceLocation DEFAULT_TEXTURE = QuestEntityAPI.id("textures/gui/quest_requirements/has_level.png");
 
     public static final MapCodec<HasLevelRequirement> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
-                    Codec.INT.fieldOf("experience_level").forGetter(HasLevelRequirement::experienceLevel)
+                    Codec.INT.fieldOf("experience_level").forGetter(HasLevelRequirement::experienceLevel),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(HasLevelRequirement::textureOverrideId)
             ).apply(instance, HasLevelRequirement::new)
     );
 
@@ -56,10 +57,10 @@ public record HasLevelRequirement(
 
     @Override
     public Optional<ResourceLocation> getDisplayTexture() {
-        return Optional.of(DEFAULT_TEXTURE);
+        return Optional.of(textureOverrideId.orElse(DEFAULT_TEXTURE));
     }
 
     public static HasLevelRequirement of(int level) {
-        return new HasLevelRequirement(level);
+        return new HasLevelRequirement(level, Optional.empty());
     }
 }

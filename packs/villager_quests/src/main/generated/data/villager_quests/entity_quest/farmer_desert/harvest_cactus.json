@@ -1,0 +1,23 @@
+{
+  "id": "villager_quests:farmer_desert/harvest_cactus",
+  "repeat_after_days": 3,
+  "rewards": [
+    {
+      "amount": 20,
+      "reward": "qe_api:experience"
+    },
+    {
+      "amount": 5,
+      "item_id": "minecraft:emerald",
+      "reward": "qe_api:item"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 16,
+      "item_id": "minecraft:cactus",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

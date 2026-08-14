@@ -1,0 +1,17 @@
+{
+  "id": "qe_api:amount_mutator_test/test",
+  "rewards": [
+    {
+      "amount": 100,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 5,
+      "item_id": "minecraft:diamond",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

@@ -1,0 +1,17 @@
+{
+  "id": "qe_api:spell_pool_complete_test/test",
+  "required_mod": "spell_engine",
+  "rewards": [
+    {
+      "amount": 300,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "spell_pool": "wizards:spell_book/frost",
+      "task": "qe_api:spell_pool_complete"
+    }
+  ],
+  "tier": 1
+}

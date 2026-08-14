@@ -1,0 +1,22 @@
+{
+  "id": "qe_api:amount_mutator_multi_test/test",
+  "rewards": [
+    {
+      "amount": 100,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 8,
+      "item_id": "minecraft:iron_ingot",
+      "task": "qe_api:bring_item"
+    },
+    {
+      "amount": 4,
+      "item_id": "minecraft:gold_ingot",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

@@ -1,0 +1,29 @@
+{
+  "id": "villager_quests:farmer/mega_harvest",
+  "rewards": [
+    {
+      "operations": [
+        {
+          "type": "qe_api:repair_item"
+        },
+        {
+          "type": "qe_api:enchant_specific",
+          "enchantment_id": "minecraft:fortune"
+        }
+      ],
+      "reward": "qe_api:enhance_item"
+    },
+    {
+      "amount": 8,
+      "item_id": "minecraft:emerald",
+      "reward": "qe_api:item"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 48,
+      "task": "qe_api:harvest_crops"
+    }
+  ],
+  "tier": 3
+}

@@ -12,9 +12,13 @@ import com.qeapi.data.EntityQuestAssignmentManager;
 import com.qeapi.data.QuestManager;
 import com.qeapi.event.QuestEventHandler;
 import com.qeapi.fabric.network.FabricNetworking;
+import com.qeapi.item.QuestItems;
+import com.qeapi.loot.ConditionalDropLootSupport;
 import com.qeapi.quest.Quest;
 import com.qeapi.quest.QuestPool;
 import com.qeapi.quest.QuestProgress;
+import com.qeapi.quest.task.BringItemTask;
+import com.qeapi.quest.task.ConditionalDropTask;
 import com.qeapi.quest.task.EntityKillTask;
 import com.qeapi.quest.task.QuestTask;
 import net.minecraft.advancements.CriteriaTriggers;
@@ -24,9 +28,11 @@ import net.fabricmc.fabric.api.attachment.v1.AttachmentRegistry;
 import net.fabricmc.fabric.api.attachment.v1.AttachmentType;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.fabricmc.fabric.api.loot.v2.LootTableEvents;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -46,7 +52,6 @@ import net.minecraft.world.scores.PlayerTeam;
 
 import java.util.*;
 
-// Fabric entrypoint - registers all Fabric-specific components and events for Quest Entity API.
 public final class QuestEntityAPIFabric implements ModInitializer {
 
     public static final AttachmentType<EntityQuestComponent> ENTITY_QUEST_ATTACHMENT =
@@ -69,6 +74,8 @@ public final class QuestEntityAPIFabric implements ModInitializer {
     public static void init() {
         QuestEntityAPI.LOGGER.info("Initializing Fabric-specific Quest Entity API components");
 
+        net.minecraft.core.Registry.register(BuiltInRegistries.ITEM, QuestItems.QUEST_ITEM_ID, QuestItems.QUEST_ITEM);
+
         CriteriaTriggers.register(QuestCompleteTrigger.ID.toString(), QuestCompleteTrigger.INSTANCE);
         QuestEntityAPI.LOGGER.info("Registered advancement trigger: {}", QuestCompleteTrigger.ID);
 
@@ -86,6 +93,7 @@ public final class QuestEntityAPIFabric implements ModInitializer {
                 player -> player.getAttachedOrCreate(PLAYER_QUEST_ATTACHMENT, PlayerQuestData::new),
                 (player, data) -> player.setAttached(PLAYER_QUEST_ATTACHMENT, data)
         );
+        QuestEntityAccess.initNearbyResyncTrigger(QuestEntityAPIFabric::forceResyncForNearbyPlayers);
     }
 
     private static void registerDataLoader() {
@@ -107,6 +115,11 @@ public final class QuestEntityAPIFabric implements ModInitializer {
     // entities each player has already received a sync packet for
     private static final Map<UUID, Set<UUID>> SYNCED_ENTITIES_PER_PLAYER = new HashMap<>();
     private static final double SYNC_DISTANCE = 32.0;
+
+    // resolved deliver_item target UUIDs each player has already received a sync packet for -
+    // same "sync once while nearby" shape as SYNCED_ENTITIES_PER_PLAYER, just keyed by the
+    // resolved target's UUID instead of a quest giver's
+    private static final Map<UUID, Set<UUID>> SYNCED_DELIVERY_TARGETS_PER_PLAYER = new HashMap<>();
 
     // call after an entity's quest data changes externally (e.g. villager job conversion) -
     // clears it from nearby players' synced sets so it re-syncs next tick
@@ -134,15 +147,17 @@ public final class QuestEntityAPIFabric implements ModInitializer {
     }
 
     private static void registerEventHandlers() {
-        // checkNearbyQuestEntities only ever syncs an entity once, on first proximity detection, so
-        // without this a passively-tracked task (kill, brew, travel, item-use) reaching completion
-        // while the entity stays continuously nearby would never flip the marker to green/grey
+        // see QuestEventHandler.progressSyncHandler for why this exists
         QuestEventHandler.setProgressSyncHandler((player, entityUuid) -> {
             Set<UUID> synced = SYNCED_ENTITIES_PER_PLAYER.get(player.getUUID());
             if (synced != null) {
                 synced.remove(entityUuid);
             }
         });
+
+        QuestEventHandler.setDeliveryClearedHandler((player, target) ->
+                FabricNetworking.sendSyncDeliveryTarget(player, target.getId(), target.getUUID(), false,
+                        java.util.Optional.empty(), java.util.Optional.empty()));
 
         if (com.qeapi.compat.SpellEngineCompat.isLoaded()) {
             com.qeapi.compat.SpellEngineCompat.registerCastListener();
@@ -154,13 +169,25 @@ public final class QuestEntityAPIFabric implements ModInitializer {
 
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 checkNearbyQuestEntities(player);
+                checkDeliveryTargets(player);
             }
         });
+
+        // the structure-distance cache is keyed by chunk coords only, not by world seed - clear it
+        // so a later world (same JVM, e.g. singleplayer "save and quit" then load a different save)
+        // never reuses another world's structure positions
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> com.qeapi.util.StructureDistanceUtil.clearCache());
+
+        // appended to every loot table - a no-op for tables no ConditionalDropTask targets, see
+        // ConditionalDropLootSupport for why the actual matching happens at roll time, not here
+        LootTableEvents.MODIFY.register((key, tableBuilder, source) ->
+                tableBuilder.withPool(ConditionalDropLootSupport.buildPoolBuilder(key.location())));
 
         net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents.DISCONNECT.register(
                 (handler, server) -> {
                     UUID playerUuid = handler.getPlayer().getUUID();
                     SYNCED_ENTITIES_PER_PLAYER.remove(playerUuid);
+                    SYNCED_DELIVERY_TARGETS_PER_PLAYER.remove(playerUuid);
                 }
         );
 
@@ -241,11 +268,6 @@ public final class QuestEntityAPIFabric implements ModInitializer {
                         serverPlayer.setAttached(PLAYER_QUEST_ATTACHMENT, playerData);
                     }
 
-                    serverPlayer.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
-                            "message.qe_api.quest_cancelled_hit").withStyle(net.minecraft.ChatFormatting.RED));
-                } else {
-                    serverPlayer.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
-                            "message.qe_api.hit_quest_giver").withStyle(net.minecraft.ChatFormatting.RED));
                 }
 
                 Set<UUID> syncedEntities = SYNCED_ENTITIES_PER_PLAYER.get(playerId);
@@ -260,20 +282,18 @@ public final class QuestEntityAPIFabric implements ModInitializer {
                         updated.questPoolId(),
                         false,
                         false,
-                        false
+                        false,
+                        true
                 );
 
-                serverPlayer.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
-                        "message.qe_api.cooldown_active", cooldownMinutes).withStyle(net.minecraft.ChatFormatting.YELLOW));
             }
 
-            QuestEntityAPI.LOGGER.info("Player {} hit quest villager - cooldown applied (had active quest: {})",
+            QuestEntityAPI.LOGGER.debug("Player {} hit quest villager - cooldown applied (had active quest: {})",
                     player.getName().getString(), hasActiveQuest);
 
             return InteractionResult.PASS;
         });
 
-        // villagers/merchants aren't intercepted here - they use the Q button in the trade screen instead
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
             if (hand != InteractionHand.MAIN_HAND) {
                 return InteractionResult.PASS;
@@ -324,15 +344,25 @@ public final class QuestEntityAPIFabric implements ModInitializer {
             }
 
             if (player instanceof ServerPlayer serverPlayer && component.isOnCooldown(serverPlayer.getUUID())) {
-                long remainingMs = component.getRemainingCooldownMs(serverPlayer.getUUID());
-                int remainingMinutes = (int) Math.ceil(remainingMs / 60000.0);
-                serverPlayer.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
-                        "message.qe_api.cooldown_active", remainingMinutes).withStyle(net.minecraft.ChatFormatting.YELLOW));
                 return InteractionResult.SUCCESS;
             }
 
             if (player instanceof ServerPlayer serverPlayer) {
                 openQuestGuiForPlayer(serverPlayer, entity, component);
+                return InteractionResult.SUCCESS;
+            }
+
+            return InteractionResult.PASS;
+        });
+
+        // separate from the quest-giver GUI hook above - this fires on ANY entity, checking whether
+        // it's the resolved deliver_item target for one of the interacting player's active quests
+        UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) -> {
+            if (hand != InteractionHand.MAIN_HAND || world.isClientSide()) {
+                return InteractionResult.PASS;
+            }
+
+            if (player instanceof ServerPlayer serverPlayer && QuestEventHandler.tryDeliverItem(serverPlayer, entity)) {
                 return InteractionResult.SUCCESS;
             }
 
@@ -348,7 +378,7 @@ public final class QuestEntityAPIFabric implements ModInitializer {
             return;
         }
 
-        List<Quest> quests = FabricNetworking.getAvailableQuestsForPlayer(allPools, component, player.getUUID(),entity.getUUID());
+        List<Quest> quests = FabricNetworking.getAvailableQuestsForPlayer(allPools, component, player, entity);
 
         if (quests.isEmpty()) {
             QuestEntityAPI.LOGGER.warn("No quests available for entity {}", entity.getId());
@@ -608,13 +638,24 @@ public final class QuestEntityAPIFabric implements ModInitializer {
                 for (int i = 0; i < quest.tasks().size(); i++) {
                     QuestTask task = quest.tasks().get(i);
                     if (task instanceof EntityKillTask killTask) {
-                        if (killTask.matches(killed, damageSource, level)) {
+                        if (killTask.matches(killed, damageSource, level, player)) {
                             int currentProgress = progress.getTaskProgress(i);
                             if (currentProgress < killTask.amount()) {
                                 progress.setTaskProgress(i, currentProgress + 1);
                                 progressUpdated = true;
                                 QuestEntityAPI.LOGGER.debug("Player {} killed matching entity for unloaded quest entity {}, task {}: {}/{}",
                                         player.getName().getString(), entityUuid, i, currentProgress + 1, killTask.amount());
+                            }
+                        }
+                    } else if (task instanceof ConditionalDropTask dropTask) {
+                        if (dropTask.matchesKill(killed, damageSource, level)) {
+                            int currentProgress = progress.getTaskProgress(i);
+                            if (currentProgress < dropTask.amount() && level.getRandom().nextDouble() < dropTask.mobDropChance()) {
+                                killed.spawnAtLocation(dropTask.createGrantStack(1));
+                                progress.setTaskProgress(i, currentProgress + 1);
+                                progressUpdated = true;
+                                QuestEntityAPI.LOGGER.debug("Player {} got a conditional drop for unloaded quest entity {}, task {}: {}/{}",
+                                        player.getName().getString(), entityUuid, i, currentProgress + 1, dropTask.amount());
                             }
                         }
                     }
@@ -655,13 +696,24 @@ public final class QuestEntityAPIFabric implements ModInitializer {
         for (int i = 0; i < quest.tasks().size(); i++) {
             QuestTask task = quest.tasks().get(i);
             if (task instanceof EntityKillTask killTask) {
-                if (killTask.matches(killed, damageSource, level)) {
+                if (killTask.matches(killed, damageSource, level, player)) {
                     int currentProgress = progress.getTaskProgress(i);
                     if (currentProgress < killTask.amount()) {
                         progress.setTaskProgress(i, currentProgress + 1);
                         progressUpdated = true;
                         QuestEntityAPI.LOGGER.debug("Player {} killed matching entity for task {}: {}/{}",
                                 player.getName().getString(), i, currentProgress + 1, killTask.amount());
+                    }
+                }
+            } else if (task instanceof ConditionalDropTask dropTask) {
+                if (dropTask.matchesKill(killed, damageSource, level)) {
+                    int currentProgress = progress.getTaskProgress(i);
+                    if (currentProgress < dropTask.amount() && level.getRandom().nextDouble() < dropTask.mobDropChance()) {
+                        killed.spawnAtLocation(dropTask.createGrantStack(1));
+                        progress.setTaskProgress(i, currentProgress + 1);
+                        progressUpdated = true;
+                        QuestEntityAPI.LOGGER.debug("Player {} got a conditional drop for task {}: {}/{}",
+                                player.getName().getString(), i, currentProgress + 1, dropTask.amount());
                     }
                 }
             }
@@ -787,6 +839,13 @@ public final class QuestEntityAPIFabric implements ModInitializer {
                         if (!refreshPools.isEmpty()) {
                             component = FabricNetworking.checkAndUpdateBringItemProgress(player, entity, component, refreshPools.get(0));
                         }
+
+                        // opportunistic refresh for the Active Quest screen - this entity is right here,
+                        // in range of the same proximity scan that's already running once a second
+                        if (playerData != null) {
+                            playerData.recordEntityLocation(entity);
+                            player.setAttached(PLAYER_QUEST_ATTACHMENT, playerData);
+                        }
                     }
 
                     boolean isQuestComplete = false;
@@ -799,7 +858,7 @@ public final class QuestEntityAPIFabric implements ModInitializer {
                     if (!hasActiveQuest) {
                         List<QuestPool> pools = component.getAllQuestPools();
                         if (!pools.isEmpty()) {
-                            List<Quest> avail = FabricNetworking.getAvailableQuestsForPlayer(pools, component, playerId, entityUuid);
+                            List<Quest> avail = FabricNetworking.getAvailableQuestsForPlayer(pools, component, player, entity);
                             Set<ResourceLocation> completed = component.getCompletedQuests(playerId);
                             allQuestsCompleted = !avail.isEmpty() && avail.stream()
                                     .allMatch(q -> completed.contains(q.id()));
@@ -813,17 +872,116 @@ public final class QuestEntityAPIFabric implements ModInitializer {
                             component.questPoolId(),
                             hasActiveQuest,
                             isQuestComplete,
-                            allQuestsCompleted
+                            allQuestsCompleted,
+                            component.isOnCooldown(playerId)
                     );
 
                     syncedEntities.add(entityUuid);
                     QuestEntityAPI.LOGGER.debug("Sent quest sync for entity {} to player {}, active={}, complete={}",
                             entityUuid, player.getName().getString(), hasActiveQuest, isQuestComplete);
                 }
+            } else {
+                // already synced this window, but bring_item completion is live (recomputed from
+                // current inventory, can flip back to false) unlike every other task's monotonic
+                // stored progress - resync those specifically every tick instead of waiting for the
+                // player to leave and re-enter range
+                EntityQuestComponent component = QuestEntityAccess.getEntityQuestComponent(entity);
+                if (component != null && !component.isNoQuestMarker() && component.hasActiveQuest(playerId)
+                        && hasActiveBringItemTask(component, playerId)) {
+                    List<QuestPool> refreshPools = component.getAllQuestPools();
+                    if (!refreshPools.isEmpty()) {
+                        component = FabricNetworking.checkAndUpdateBringItemProgress(player, entity, component, refreshPools.get(0));
+                    }
+
+                    if (playerData != null) {
+                        playerData.recordEntityLocation(entity);
+                        player.setAttached(PLAYER_QUEST_ATTACHMENT, playerData);
+                    }
+
+                    boolean isQuestComplete = checkQuestCompletion(player, component);
+
+                    FabricNetworking.sendSyncEntityQuests(
+                            player,
+                            entity.getId(),
+                            entityUuid,
+                            component.questPoolId(),
+                            true,
+                            isQuestComplete,
+                            false,
+                            component.isOnCooldown(playerId)
+                    );
+                }
             }
         }
 
         syncedEntities.retainAll(currentlyNearby); // entities no longer nearby get re-synced when they come back
+    }
+
+    // true if the player's active quest with this entity has a bring_item task - see the resync
+    // branch above for why those specifically need to bypass the already-synced skip
+    private static boolean hasActiveBringItemTask(EntityQuestComponent component, UUID playerId) {
+        Optional<EntityQuestComponent.ActiveQuestData> activeQuestOpt = component.getActiveQuest(playerId);
+        if (activeQuestOpt.isEmpty()) {
+            return false;
+        }
+        ResourceLocation questId = activeQuestOpt.get().questId();
+        for (QuestPool pool : component.getAllQuestPools()) {
+            Quest quest = findQuestInPool(pool, questId);
+            if (quest != null) {
+                for (QuestTask task : quest.tasks()) {
+                    if (task instanceof BringItemTask) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+        return false;
+    }
+
+    // syncs the floating item marker to nearby resolved deliver_item targets - entirely separate
+    // from checkNearbyQuestEntities above, since a delivery target usually isn't a quest giver at
+    // all and wouldn't otherwise show up in that scan
+    private static void checkDeliveryTargets(ServerPlayer player) {
+        PlayerQuestData playerData = player.getAttached(PLAYER_QUEST_ATTACHMENT);
+        if (playerData == null || playerData.isEmpty()) {
+            return;
+        }
+
+        ServerLevel level = player.serverLevel();
+        UUID playerId = player.getUUID();
+        Set<UUID> synced = SYNCED_DELIVERY_TARGETS_PER_PLAYER.computeIfAbsent(playerId, k -> new HashSet<>());
+        Set<UUID> currentlyNearby = new HashSet<>();
+        AABB searchBox = player.getBoundingBox().inflate(SYNC_DISTANCE);
+
+        for (Map.Entry<UUID, QuestProgress> entry : playerData.getAllProgress().entrySet()) {
+            Optional<UUID> targetUuidOpt = playerData.getDeliveryTarget(entry.getKey());
+            if (targetUuidOpt.isEmpty()) continue;
+            UUID targetUuid = targetUuidOpt.get();
+
+            QuestProgress progress = entry.getValue();
+            Optional<Quest> questOpt = QuestManager.getQuest(progress.getQuestId());
+            if (questOpt.isEmpty()) continue;
+
+            for (int i = 0; i < questOpt.get().tasks().size(); i++) {
+                QuestTask task = questOpt.get().tasks().get(i);
+                if (!(task instanceof com.qeapi.quest.task.DeliverItemTask deliverTask)) continue;
+                if (progress.getTaskProgress(i) >= deliverTask.amount()) break; // already delivered
+
+                List<Entity> found = level.getEntities(player, searchBox, e -> e.getUUID().equals(targetUuid));
+                if (found.isEmpty()) break;
+
+                currentlyNearby.add(targetUuid);
+                if (!synced.contains(targetUuid)) {
+                    FabricNetworking.sendSyncDeliveryTarget(player, found.get(0).getId(), targetUuid, true,
+                            deliverTask.itemId(), deliverTask.questItem());
+                    synced.add(targetUuid);
+                }
+                break;
+            }
+        }
+
+        synced.retainAll(currentlyNearby);
     }
 
     private static boolean checkQuestCompletion(ServerPlayer player, EntityQuestComponent component) {

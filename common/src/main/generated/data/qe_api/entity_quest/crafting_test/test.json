@@ -1,0 +1,16 @@
+{
+  "id": "qe_api:crafting_test/test",
+  "rewards": [
+    {
+      "amount": 50,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "result_item_id": "minecraft:crafting_table",
+      "task": "qe_api:crafting"
+    }
+  ],
+  "tier": 1
+}

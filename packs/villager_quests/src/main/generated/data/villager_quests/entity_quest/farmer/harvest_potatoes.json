@@ -1,0 +1,23 @@
+{
+  "id": "villager_quests:farmer/harvest_potatoes",
+  "repeat_after_days": 3,
+  "rewards": [
+    {
+      "amount": 20,
+      "reward": "qe_api:experience"
+    },
+    {
+      "amount": 5,
+      "item_id": "minecraft:emerald",
+      "reward": "qe_api:item"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 26,
+      "crop_id": "minecraft:potatoes",
+      "task": "qe_api:harvest_crops"
+    }
+  ],
+  "tier": 1
+}

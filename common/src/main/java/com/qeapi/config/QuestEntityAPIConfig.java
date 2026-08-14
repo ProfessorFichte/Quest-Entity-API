@@ -27,6 +27,26 @@ public class QuestEntityAPIConfig implements ConfigData {
     @ConfigEntry.Gui.Tooltip
     public int hit_cooldown_minutes = 5;
 
+    @Comment("Show the quest giver's coordinates in the Active Quests screen. Always shown in creative mode regardless of this setting.")
+    @ConfigEntry.Gui.Tooltip
+    public boolean show_quest_coordinates = true;
+
+    @Comment("Spawn a colorful firework burst on the player when they claim quest rewards.")
+    @ConfigEntry.Gui.Tooltip
+    public boolean finish_quest_fireworks_enabled = true;
+
+    @Comment("Reveal a quest's description one character at a time the first time its detail pane is opened in a client session.")
+    @ConfigEntry.Gui.Tooltip
+    public boolean quest_description_typewriter_enabled = true;
+
+    @Comment("Milliseconds per revealed character for the quest description typewriter effect.")
+    @ConfigEntry.Gui.Tooltip
+    public int quest_description_typewriter_speed_ms = 30;
+
+    @Comment("Show all quest tiers in the list at once, with not-yet-unlocked ones marked as locked. Turn off to reveal each tier only after completing the previous one.")
+    @ConfigEntry.Gui.Tooltip
+    public boolean show_all_quests = true;
+
     public static void register() {
         AutoConfig.register(QuestEntityAPIConfig.class, JanksonConfigSerializer::new);
     }

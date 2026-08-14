@@ -3,14 +3,16 @@ package com.qeapi.fabric.client;
 import com.qeapi.QuestEntityAPI;
 import com.qeapi.client.ClientQuestCache;
 import com.qeapi.client.QuestEntityAPIClient;
+import com.qeapi.client.QuestKeybinds;
 import com.qeapi.client.render.QuestMarkerRenderer;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.LivingEntityFeatureRendererRegistrationCallback;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 
-// Fabric client entrypoint - registers client-side rendering, networking, and events.
 public final class QuestEntityAPIFabricClient implements ClientModInitializer {
 
     @Override
@@ -25,6 +27,12 @@ public final class QuestEntityAPIFabricClient implements ClientModInitializer {
         registerRenderLayers();
         registerPacketHandlers();
         registerClientEvents();
+        registerKeybinds();
+    }
+
+    private static void registerKeybinds() {
+        KeyBindingHelper.registerKeyBinding(QuestKeybinds.OPEN_ACTIVE_QUESTS);
+        ClientTickEvents.END_CLIENT_TICK.register(client -> QuestKeybinds.tick());
     }
 
     private static void registerRenderLayers() {

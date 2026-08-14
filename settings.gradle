@@ -12,3 +12,6 @@ rootProject.name = 'qe_api'
 include 'common'
 include 'fabric'
 include 'neoforge'
+
+include 'packs:villager_quests'
+include 'packs:rpg_series_quests'

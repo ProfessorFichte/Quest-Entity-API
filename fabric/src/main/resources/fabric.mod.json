@@ -28,7 +28,8 @@
   },
   "mixins": [
     "qe_api.mixins.json",
-    "qe_api.fabric.mixins.json"
+    "qe_api.fabric.mixins.json",
+    "qe_api.spellengine.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=0.18.4",

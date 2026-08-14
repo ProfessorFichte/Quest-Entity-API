@@ -12,14 +12,15 @@ import net.minecraft.world.item.Items;
 
 import java.util.Optional;
 
-// Reward that grants experience points to the player.
 public record ExperienceReward(
-        int amount
+        int amount,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestReward {
 
     public static final MapCodec<ExperienceReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
-                    Codec.INT.fieldOf("amount").forGetter(ExperienceReward::amount)
+                    Codec.INT.fieldOf("amount").forGetter(ExperienceReward::amount),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(ExperienceReward::textureOverrideId)
             ).apply(instance, ExperienceReward::new)
     );
 
@@ -44,6 +45,6 @@ public record ExperienceReward(
     }
 
     public static ExperienceReward of(int amount) {
-        return new ExperienceReward(amount);
+        return new ExperienceReward(amount, Optional.empty());
     }
 }

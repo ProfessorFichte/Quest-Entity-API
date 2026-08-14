@@ -1,0 +1,17 @@
+{
+  "id": "qe_api:epic_monster_story/adventurers_task",
+  "rewards": [
+    {
+      "amount": 100,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 5,
+      "entity_id": "minecraft:zombie",
+      "task": "qe_api:entity_kill"
+    }
+  ],
+  "tier": 1
+}

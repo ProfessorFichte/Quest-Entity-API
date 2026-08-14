@@ -20,15 +20,15 @@ import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import java.util.List;
 import java.util.Optional;
 
-// Reward that rolls a loot table for random rewards. In the Quest GUI, displays a random item
-// from the loot table that changes every 3 seconds.
 public record LootTableReward(
-        ResourceLocation lootTableId
+        ResourceLocation lootTableId,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestReward {
 
     public static final MapCodec<LootTableReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
-                    ResourceLocation.CODEC.fieldOf("loot_table_id").forGetter(LootTableReward::lootTableId)
+                    ResourceLocation.CODEC.fieldOf("loot_table_id").forGetter(LootTableReward::lootTableId),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(LootTableReward::textureOverrideId)
             ).apply(instance, LootTableReward::new)
     );
 
@@ -77,7 +77,7 @@ public record LootTableReward(
         return Optional.of(new ItemStack(Items.CHEST));
     }
 
-    // Used by the GUI to show rotating previews.
+    // QuestScreen calls this every 3 seconds to rotate the preview icon.
     public Optional<ItemStack> getRandomPreviewItem(Player player) {
         if (!(player.level() instanceof ServerLevel level)) {
             return Optional.empty();
@@ -105,10 +105,10 @@ public record LootTableReward(
     }
 
     public static LootTableReward of(ResourceLocation lootTableId) {
-        return new LootTableReward(lootTableId);
+        return new LootTableReward(lootTableId, Optional.empty());
     }
 
     public static LootTableReward of(String lootTableId) {
-        return new LootTableReward(ResourceLocation.parse(lootTableId));
+        return new LootTableReward(ResourceLocation.parse(lootTableId), Optional.empty());
     }
 }

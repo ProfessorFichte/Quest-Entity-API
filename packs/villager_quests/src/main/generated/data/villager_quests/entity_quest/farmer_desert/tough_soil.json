@@ -1,0 +1,39 @@
+{
+  "id": "villager_quests:farmer_desert/tough_soil",
+  "rewards": [
+    {
+      "functions": [
+        {
+          "enchantments": [
+            {
+              "id": "minecraft:unbreaking"
+            }
+          ],
+          "function": "qe_api:set_enchantments"
+        },
+        {
+          "function": "qe_api:set_name",
+          "name": {
+            "color": "yellow",
+            "text": "Farmhand's Hoe"
+          }
+        }
+      ],
+      "item_id": "minecraft:iron_hoe",
+      "reward": "qe_api:item"
+    },
+    {
+      "amount": 4,
+      "item_id": "minecraft:emerald",
+      "reward": "qe_api:item"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 24,
+      "item_id": "minecraft:bone_meal",
+      "task": "qe_api:item_used"
+    }
+  ],
+  "tier": 2
+}

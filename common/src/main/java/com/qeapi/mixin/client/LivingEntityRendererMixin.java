@@ -28,5 +28,8 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity> extends 
         if (QuestMarkerRenderer.shouldRender(entity)) {
             QuestMarkerRenderer.render(entity, poseStack, buffer, partialTick, packedLight);
         }
+        if (QuestMarkerRenderer.shouldRenderDeliveryItem(entity)) {
+            QuestMarkerRenderer.renderDeliveryItem(entity, poseStack, buffer, partialTick, packedLight);
+        }
     }
 }

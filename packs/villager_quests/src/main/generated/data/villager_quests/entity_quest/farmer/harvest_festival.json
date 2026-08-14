@@ -1,0 +1,59 @@
+{
+  "id": "villager_quests:farmer/harvest_festival",
+  "requirements": [
+    {
+      "experience_level": 5,
+      "requirement": "qe_api:has_level"
+    }
+  ],
+  "rewards": [
+    {
+      "functions": [
+        {
+          "enchantments": [
+            {
+              "id": "minecraft:efficiency",
+              "level": 2
+            },
+            {
+              "id": "minecraft:unbreaking",
+              "level": 2
+            }
+          ],
+          "function": "qe_api:set_enchantments"
+        },
+        {
+          "function": "qe_api:set_name",
+          "name": {
+            "color": "gold",
+            "text": "Golden Hoe"
+          }
+        }
+      ],
+      "item_id": "minecraft:golden_hoe",
+      "reward": "qe_api:item"
+    },
+    {
+      "amount": 16,
+      "item_id": "minecraft:emerald",
+      "reward": "qe_api:item"
+    },
+    {
+      "amount": 100,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 3,
+      "result_item_id": "minecraft:pumpkin_pie",
+      "task": "qe_api:crafting"
+    },
+    {
+      "amount": 6,
+      "item_id": "minecraft:bread",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 4
+}

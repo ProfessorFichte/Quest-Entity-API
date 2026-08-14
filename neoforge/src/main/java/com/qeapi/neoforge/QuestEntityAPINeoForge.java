@@ -14,15 +14,21 @@ import com.qeapi.data.EntityQuestTagLoader;
 import com.qeapi.data.QuestLoader;
 import com.qeapi.data.QuestManager;
 import com.qeapi.event.QuestEventHandler;
+import com.qeapi.item.QuestItems;
+import com.qeapi.loot.ConditionalDropLootSupport;
+import com.qeapi.mixin.LootTableAccessor;
 import com.qeapi.neoforge.network.NeoForgeNetworking;
 import com.qeapi.quest.Quest;
 import com.qeapi.quest.QuestPool;
 import com.qeapi.quest.QuestProgress;
+import com.qeapi.quest.task.BringItemTask;
+import com.qeapi.quest.task.ConditionalDropTask;
 import com.qeapi.quest.task.EntityKillTask;
 import com.qeapi.quest.task.QuestTask;
 import net.minecraft.ChatFormatting;
 import net.minecraft.advancements.CriteriaTriggers;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
@@ -37,7 +43,9 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.npc.VillagerProfession;
 import net.minecraft.world.entity.npc.WanderingTrader;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.storage.loot.LootPool;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.scores.PlayerTeam;
 import net.neoforged.bus.api.IEventBus;
@@ -47,6 +55,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.data.event.GatherDataEvent;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.neoforged.neoforge.event.LootTableLoadEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -56,6 +65,7 @@ import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -74,6 +84,11 @@ public final class QuestEntityAPINeoForge {
 
     public static final DeferredRegister<AttachmentType<?>> ATTACHMENT_TYPES =
             DeferredRegister.create(NeoForgeRegistries.Keys.ATTACHMENT_TYPES, QuestEntityAPI.MOD_ID);
+
+    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(Registries.ITEM, QuestEntityAPI.MOD_ID);
+
+    public static final DeferredHolder<Item, Item> QUEST_ITEM =
+            ITEMS.register(QuestItems.QUEST_ITEM_ID.getPath(), () -> QuestItems.QUEST_ITEM);
 
     public static final DeferredHolder<AttachmentType<?>, AttachmentType<EntityQuestComponent>> ENTITY_QUEST_ATTACHMENT =
             ATTACHMENT_TYPES.register("entity_quests",
@@ -97,6 +112,7 @@ public final class QuestEntityAPINeoForge {
         QuestEntityAPI.LOGGER.info("Initializing NeoForge-specific Quest Entity API components");
 
         ATTACHMENT_TYPES.register(modEventBus);
+        ITEMS.register(modEventBus);
 
         CriteriaTriggers.register(QuestCompleteTrigger.ID.toString(), QuestCompleteTrigger.INSTANCE);
         QuestEntityAPI.LOGGER.info("Registered advancement trigger: {}", QuestCompleteTrigger.ID);
@@ -112,19 +128,24 @@ public final class QuestEntityAPINeoForge {
         NeoForge.EVENT_BUS.addListener(QuestEntityAPINeoForge::onLivingDeath);
         NeoForge.EVENT_BUS.addListener(QuestEntityAPINeoForge::onAttackEntity);
         NeoForge.EVENT_BUS.addListener(QuestEntityAPINeoForge::onPlayerInteract);
+        NeoForge.EVENT_BUS.addListener(QuestEntityAPINeoForge::onDeliverItemInteract);
         NeoForge.EVENT_BUS.addListener(QuestEntityAPINeoForge::onPlayerLoggedOut);
+        NeoForge.EVENT_BUS.addListener(QuestEntityAPINeoForge::onServerStopping);
+        NeoForge.EVENT_BUS.addListener(QuestEntityAPINeoForge::onLootTableLoad);
 
         QuestCommands.QuestGuiOpener.setImpl(NeoForgeNetworking::sendOpenQuestMenu);
 
-        // the nearby-entity sync only ever runs once per entity per player, on first proximity
-        // detection, so without this a passively-tracked task (kill, brew, travel, item-use) reaching
-        // completion while the entity stays nearby would never flip the marker to green/grey
+        // see QuestEventHandler.progressSyncHandler for why this exists
         QuestEventHandler.setProgressSyncHandler((player, entityUuid) -> {
             Set<UUID> synced = SYNCED_ENTITIES_PER_PLAYER.get(player.getUUID());
             if (synced != null) {
                 synced.remove(entityUuid);
             }
         });
+
+        QuestEventHandler.setDeliveryClearedHandler((player, target) ->
+                NeoForgeNetworking.sendSyncDeliveryTarget(player, target.getId(), target.getUUID(), false,
+                        java.util.Optional.empty(), java.util.Optional.empty()));
 
         if (com.qeapi.compat.SpellEngineCompat.isLoaded()) {
             com.qeapi.compat.SpellEngineCompat.registerCastListener();
@@ -139,6 +160,7 @@ public final class QuestEntityAPINeoForge {
                 player -> player.getData(PLAYER_QUEST_ATTACHMENT),
                 (player, data) -> player.setData(PLAYER_QUEST_ATTACHMENT, data)
         );
+        QuestEntityAccess.initNearbyResyncTrigger(QuestEntityAPINeoForge::forceResyncForNearbyPlayers);
     }
 
     private static void onAddReloadListeners(AddReloadListenerEvent event) {
@@ -156,15 +178,25 @@ public final class QuestEntityAPINeoForge {
     private static void onGatherData(GatherDataEvent event) {
         event.getGenerator().addProvider(event.includeServer(),
                 (net.minecraft.data.DataProvider.Factory<com.qeapi.datagen.ExampleQuestProvider>) com.qeapi.datagen.ExampleQuestProvider::new);
-        // lang is a client-side asset, unlike the server-side quest JSON above
+        event.getGenerator().addProvider(event.includeServer(),
+                (net.minecraft.data.DataProvider.Factory<com.qeapi.datagen.ExampleAssignmentProvider>) com.qeapi.datagen.ExampleAssignmentProvider::new);
+        // lang and item models are client-side assets, unlike the server-side quest JSON above
         event.getGenerator().addProvider(event.includeClient(),
                 (net.minecraft.data.DataProvider.Factory<com.qeapi.datagen.LangProvider>) output ->
                         new com.qeapi.datagen.LangProvider(output, "qe_api", new com.qeapi.datagen.ExampleQuestProvider(output)));
+        event.getGenerator().addProvider(event.includeClient(),
+                (net.minecraft.data.DataProvider.Factory<com.qeapi.datagen.QuestItemModelProvider>) output ->
+                        new com.qeapi.datagen.QuestItemModelProvider(output, "qe_api", new com.qeapi.datagen.ExampleQuestProvider(output)));
     }
 
     // entities each player has already received a sync packet for
     private static final Map<UUID, Set<UUID>> SYNCED_ENTITIES_PER_PLAYER = new HashMap<>();
     private static final double SYNC_DISTANCE = 32.0;
+
+    // resolved deliver_item target UUIDs each player has already received a sync packet for -
+    // same "sync once while nearby" shape as SYNCED_ENTITIES_PER_PLAYER, just keyed by the
+    // resolved target's UUID instead of a quest giver's
+    private static final Map<UUID, Set<UUID>> SYNCED_DELIVERY_TARGETS_PER_PLAYER = new HashMap<>();
 
     // call after an entity's quest data changes externally (e.g. villager job conversion) -
     // clears it from nearby players' synced sets so it re-syncs next tick
@@ -191,18 +223,39 @@ public final class QuestEntityAPINeoForge {
         }
     }
 
+    // the structure-distance cache is keyed by chunk coords only, not by world seed - clear it so a
+    // later world (same JVM, e.g. singleplayer "save and quit" then load a different save) never
+    // reuses another world's structure positions
+    private static void onServerStopping(net.neoforged.neoforge.event.server.ServerStoppingEvent event) {
+        com.qeapi.util.StructureDistanceUtil.clearCache();
+    }
+
+    // appended to every loot table - a no-op for tables no ConditionalDropTask targets, see
+    // ConditionalDropLootSupport for why the actual matching happens at roll time, not here.
+    // LootTableLoadEvent only ever hands out the already-built LootTable (unlike Fabric's
+    // LootTableEvents.MODIFY), so the extra pool is spliced in via LootTableAccessor instead.
+    private static void onLootTableLoad(LootTableLoadEvent event) {
+        LootPool pool = ConditionalDropLootSupport.buildPoolBuilder(event.getName()).build();
+        LootTableAccessor accessor = (LootTableAccessor) (Object) event.getTable();
+        List<LootPool> pools = new ArrayList<>(accessor.qe_api$getPools());
+        pools.add(pool);
+        accessor.qe_api$setPools(List.copyOf(pools));
+    }
+
     private static void onServerTick(ServerTickEvent.Post event) {
         MinecraftServer server = event.getServer();
         if (server.getTickCount() % 20 != 0) return; // once a second is enough
 
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
             checkNearbyQuestEntities(player);
+            checkDeliveryTargets(player);
         }
     }
 
     private static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         UUID playerUuid = event.getEntity().getUUID();
         SYNCED_ENTITIES_PER_PLAYER.remove(playerUuid);
+        SYNCED_DELIVERY_TARGETS_PER_PLAYER.remove(playerUuid);
     }
 
     private static void onLivingDeath(LivingDeathEvent event) {
@@ -285,12 +338,6 @@ public final class QuestEntityAPINeoForge {
                 PlayerQuestData playerData = serverPlayer.getData(PLAYER_QUEST_ATTACHMENT);
                 playerData.clearEntityProgress(entity.getUUID());
                 serverPlayer.setData(PLAYER_QUEST_ATTACHMENT, playerData);
-
-                serverPlayer.sendSystemMessage(Component.translatable(
-                        "message.qe_api.quest_cancelled_hit").withStyle(ChatFormatting.RED));
-            } else {
-                serverPlayer.sendSystemMessage(Component.translatable(
-                        "message.qe_api.hit_quest_giver").withStyle(ChatFormatting.RED));
             }
 
             Set<UUID> syncedEntities = SYNCED_ENTITIES_PER_PLAYER.get(playerId);
@@ -305,14 +352,13 @@ public final class QuestEntityAPINeoForge {
                     updated.questPoolId(),
                     false,
                     false,
-                    false
+                    false,
+                    true
             );
 
-            serverPlayer.sendSystemMessage(Component.translatable(
-                    "message.qe_api.cooldown_active", cooldownMinutes).withStyle(ChatFormatting.YELLOW));
         }
 
-        QuestEntityAPI.LOGGER.info("Player {} hit quest villager - cooldown applied (had active quest: {})",
+        QuestEntityAPI.LOGGER.debug("Player {} hit quest villager - cooldown applied (had active quest: {})",
                 player.getName().getString(), hasActiveQuest);
     }
 
@@ -369,10 +415,6 @@ public final class QuestEntityAPINeoForge {
         }
 
         if (player instanceof ServerPlayer serverPlayer && component.isOnCooldown(serverPlayer.getUUID())) {
-            long remainingMs = component.getRemainingCooldownMs(serverPlayer.getUUID());
-            int remainingMinutes = (int) Math.ceil(remainingMs / 60000.0);
-            serverPlayer.sendSystemMessage(Component.translatable(
-                    "message.qe_api.cooldown_active", remainingMinutes).withStyle(ChatFormatting.YELLOW));
             event.setCanceled(true);
             event.setCancellationResult(InteractionResult.SUCCESS);
             return;
@@ -380,6 +422,26 @@ public final class QuestEntityAPINeoForge {
 
         if (player instanceof ServerPlayer serverPlayer) {
             openQuestGuiForPlayer(serverPlayer, entity, component);
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+        }
+    }
+
+    // separate from onPlayerInteract above - this fires on ANY entity, checking whether it's the
+    // resolved deliver_item target for one of the interacting player's active quests
+    private static void onDeliverItemInteract(PlayerInteractEvent.EntityInteract event) {
+        if (event.getHand() != InteractionHand.MAIN_HAND) {
+            return;
+        }
+
+        Player player = event.getEntity();
+        Entity entity = event.getTarget();
+
+        if (player.level().isClientSide()) {
+            return;
+        }
+
+        if (player instanceof ServerPlayer serverPlayer && QuestEventHandler.tryDeliverItem(serverPlayer, entity)) {
             event.setCanceled(true);
             event.setCancellationResult(InteractionResult.SUCCESS);
         }
@@ -393,7 +455,7 @@ public final class QuestEntityAPINeoForge {
             return;
         }
 
-        List<Quest> quests = NeoForgeNetworking.getAvailableQuestsForPlayer(allPools, component, player.getUUID(), entity.getUUID());
+        List<Quest> quests = NeoForgeNetworking.getAvailableQuestsForPlayer(allPools, component, player, entity);
 
         if (quests.isEmpty()) {
             QuestEntityAPI.LOGGER.warn("No quests available for entity {}", entity.getId());
@@ -649,13 +711,24 @@ public final class QuestEntityAPINeoForge {
                 for (int i = 0; i < quest.tasks().size(); i++) {
                     QuestTask task = quest.tasks().get(i);
                     if (task instanceof EntityKillTask killTask) {
-                        if (killTask.matches(killed, damageSource, level)) {
+                        if (killTask.matches(killed, damageSource, level, player)) {
                             int currentProgress = progress.getTaskProgress(i);
                             if (currentProgress < killTask.amount()) {
                                 progress.setTaskProgress(i, currentProgress + 1);
                                 progressUpdated = true;
                                 QuestEntityAPI.LOGGER.debug("Player {} killed matching entity for unloaded quest entity {}, task {}: {}/{}",
                                         player.getName().getString(), entityUuid, i, currentProgress + 1, killTask.amount());
+                            }
+                        }
+                    } else if (task instanceof ConditionalDropTask dropTask) {
+                        if (dropTask.matchesKill(killed, damageSource, level)) {
+                            int currentProgress = progress.getTaskProgress(i);
+                            if (currentProgress < dropTask.amount() && level.getRandom().nextDouble() < dropTask.mobDropChance()) {
+                                killed.spawnAtLocation(dropTask.createGrantStack(1));
+                                progress.setTaskProgress(i, currentProgress + 1);
+                                progressUpdated = true;
+                                QuestEntityAPI.LOGGER.debug("Player {} got a conditional drop for unloaded quest entity {}, task {}: {}/{}",
+                                        player.getName().getString(), entityUuid, i, currentProgress + 1, dropTask.amount());
                             }
                         }
                     }
@@ -696,13 +769,24 @@ public final class QuestEntityAPINeoForge {
         for (int i = 0; i < quest.tasks().size(); i++) {
             QuestTask task = quest.tasks().get(i);
             if (task instanceof EntityKillTask killTask) {
-                if (killTask.matches(killed, damageSource, level)) {
+                if (killTask.matches(killed, damageSource, level, player)) {
                     int currentProgress = progress.getTaskProgress(i);
                     if (currentProgress < killTask.amount()) {
                         progress.setTaskProgress(i, currentProgress + 1);
                         progressUpdated = true;
                         QuestEntityAPI.LOGGER.debug("Player {} killed matching entity for task {}: {}/{}",
                                 player.getName().getString(), i, currentProgress + 1, killTask.amount());
+                    }
+                }
+            } else if (task instanceof ConditionalDropTask dropTask) {
+                if (dropTask.matchesKill(killed, damageSource, level)) {
+                    int currentProgress = progress.getTaskProgress(i);
+                    if (currentProgress < dropTask.amount() && level.getRandom().nextDouble() < dropTask.mobDropChance()) {
+                        killed.spawnAtLocation(dropTask.createGrantStack(1));
+                        progress.setTaskProgress(i, currentProgress + 1);
+                        progressUpdated = true;
+                        QuestEntityAPI.LOGGER.debug("Player {} got a conditional drop for task {}: {}/{}",
+                                player.getName().getString(), i, currentProgress + 1, dropTask.amount());
                     }
                 }
             }
@@ -825,6 +909,11 @@ public final class QuestEntityAPINeoForge {
                         if (!refreshPools.isEmpty()) {
                             component = NeoForgeNetworking.checkAndUpdateBringItemProgress(player, entity, component, refreshPools.get(0));
                         }
+
+                        // opportunistic refresh for the Active Quest screen - this entity is right here,
+                        // in range of the same proximity scan that's already running once a second
+                        playerData.recordEntityLocation(entity);
+                        player.setData(PLAYER_QUEST_ATTACHMENT, playerData);
                     }
 
                     boolean isQuestComplete = false;
@@ -837,7 +926,7 @@ public final class QuestEntityAPINeoForge {
                     if (!hasActiveQuest) {
                         List<QuestPool> pools = component.getAllQuestPools();
                         if (!pools.isEmpty()) {
-                            List<Quest> avail = NeoForgeNetworking.getAvailableQuestsForPlayer(pools, component, playerId, entityUuid);
+                            List<Quest> avail = NeoForgeNetworking.getAvailableQuestsForPlayer(pools, component, player, entity);
                             Set<ResourceLocation> completed = component.getCompletedQuests(playerId);
                             allQuestsCompleted = !avail.isEmpty() && avail.stream()
                                     .allMatch(q -> completed.contains(q.id()));
@@ -851,17 +940,114 @@ public final class QuestEntityAPINeoForge {
                             component.questPoolId(),
                             hasActiveQuest,
                             isQuestComplete,
-                            allQuestsCompleted
+                            allQuestsCompleted,
+                            component.isOnCooldown(playerId)
                     );
 
                     syncedEntities.add(entityUuid);
                     QuestEntityAPI.LOGGER.debug("Sent quest sync for entity {} to player {}, active={}, complete={}",
                             entityUuid, player.getName().getString(), hasActiveQuest, isQuestComplete);
                 }
+            } else {
+                // already synced this window, but bring_item completion is live (recomputed from
+                // current inventory, can flip back to false) unlike every other task's monotonic
+                // stored progress - resync those specifically every tick instead of waiting for the
+                // player to leave and re-enter range
+                EntityQuestComponent component = QuestEntityAccess.getEntityQuestComponent(entity);
+                if (component != null && !component.isNoQuestMarker() && component.hasActiveQuest(playerId)
+                        && hasActiveBringItemTask(component, playerId)) {
+                    List<QuestPool> refreshPools = component.getAllQuestPools();
+                    if (!refreshPools.isEmpty()) {
+                        component = NeoForgeNetworking.checkAndUpdateBringItemProgress(player, entity, component, refreshPools.get(0));
+                    }
+
+                    playerData.recordEntityLocation(entity);
+                    player.setData(PLAYER_QUEST_ATTACHMENT, playerData);
+
+                    boolean isQuestComplete = checkQuestCompletion(player, component);
+
+                    NeoForgeNetworking.sendSyncEntityQuests(
+                            player,
+                            entity.getId(),
+                            entityUuid,
+                            component.questPoolId(),
+                            true,
+                            isQuestComplete,
+                            false,
+                            component.isOnCooldown(playerId)
+                    );
+                }
             }
         }
 
         syncedEntities.retainAll(currentlyNearby);
+    }
+
+    // true if the player's active quest with this entity has a bring_item task - see the resync
+    // branch above for why those specifically need to bypass the already-synced skip
+    private static boolean hasActiveBringItemTask(EntityQuestComponent component, UUID playerId) {
+        Optional<EntityQuestComponent.ActiveQuestData> activeQuestOpt = component.getActiveQuest(playerId);
+        if (activeQuestOpt.isEmpty()) {
+            return false;
+        }
+        ResourceLocation questId = activeQuestOpt.get().questId();
+        for (QuestPool pool : component.getAllQuestPools()) {
+            Quest quest = findQuestInPool(pool, questId);
+            if (quest != null) {
+                for (QuestTask task : quest.tasks()) {
+                    if (task instanceof BringItemTask) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+        return false;
+    }
+
+    // syncs the floating item marker to nearby resolved deliver_item targets - entirely separate
+    // from checkNearbyQuestEntities above, since a delivery target usually isn't a quest giver at
+    // all and wouldn't otherwise show up in that scan
+    private static void checkDeliveryTargets(ServerPlayer player) {
+        PlayerQuestData playerData = player.getData(PLAYER_QUEST_ATTACHMENT);
+        if (playerData.isEmpty()) {
+            return;
+        }
+
+        ServerLevel level = player.serverLevel();
+        UUID playerId = player.getUUID();
+        Set<UUID> synced = SYNCED_DELIVERY_TARGETS_PER_PLAYER.computeIfAbsent(playerId, k -> new HashSet<>());
+        Set<UUID> currentlyNearby = new HashSet<>();
+        AABB searchBox = player.getBoundingBox().inflate(SYNC_DISTANCE);
+
+        for (Map.Entry<UUID, QuestProgress> entry : playerData.getAllProgress().entrySet()) {
+            Optional<UUID> targetUuidOpt = playerData.getDeliveryTarget(entry.getKey());
+            if (targetUuidOpt.isEmpty()) continue;
+            UUID targetUuid = targetUuidOpt.get();
+
+            QuestProgress progress = entry.getValue();
+            Optional<Quest> questOpt = QuestManager.getQuest(progress.getQuestId());
+            if (questOpt.isEmpty()) continue;
+
+            for (int i = 0; i < questOpt.get().tasks().size(); i++) {
+                QuestTask task = questOpt.get().tasks().get(i);
+                if (!(task instanceof com.qeapi.quest.task.DeliverItemTask deliverTask)) continue;
+                if (progress.getTaskProgress(i) >= deliverTask.amount()) break; // already delivered
+
+                List<Entity> found = level.getEntities(player, searchBox, e -> e.getUUID().equals(targetUuid));
+                if (found.isEmpty()) break;
+
+                currentlyNearby.add(targetUuid);
+                if (!synced.contains(targetUuid)) {
+                    NeoForgeNetworking.sendSyncDeliveryTarget(player, found.get(0).getId(), targetUuid, true,
+                            deliverTask.itemId(), deliverTask.questItem());
+                    synced.add(targetUuid);
+                }
+                break;
+            }
+        }
+
+        synced.retainAll(currentlyNearby);
     }
 
     private static boolean checkQuestCompletion(ServerPlayer player, EntityQuestComponent component) {

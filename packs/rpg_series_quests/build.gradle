@@ -1,0 +1,58 @@
+architectury {
+    platformSetupLoomIde()
+    fabric()
+}
+
+def datagenOutputDir = project.file('src/main/generated')
+
+loom {
+    runs {
+        datagen {
+            client()
+            name 'Data Generation'
+            vmArg "-Dfabric-api.datagen"
+            vmArg "-Dfabric-api.datagen.output-dir=${datagenOutputDir}"
+            vmArg "-Dfabric-api.datagen.modid=rpg_series_quests"
+            runDir 'build/datagen'
+        }
+    }
+}
+
+sourceSets {
+    main {
+        resources {
+            srcDir 'src/main/generated'
+        }
+    }
+}
+
+configurations {
+    common {
+        canBeResolved = true
+        canBeConsumed = false
+    }
+    compileClasspath.extendsFrom common
+    runtimeClasspath.extendsFrom common
+    developmentFabric.extendsFrom common
+}
+
+dependencies {
+    modImplementation "net.fabricmc:fabric-loader:$rootProject.fabric_loader_version"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:$rootProject.fabric_api_version"
+
+    common(project(path: ':common', configuration: 'namedElements')) { transitive = false }
+}
+
+tasks.register('zipPack', Zip) {
+    group = 'quest entity api packs'
+    description = "Bundles rpg_series_quests' data/assets folders and pack.mcmeta into a distributable zip"
+    archiveFileName = 'rpg_series_quests.zip'
+    destinationDirectory = layout.buildDirectory.dir('distributions')
+
+    from('src/main/resources') {
+        include 'pack.mcmeta'
+    }
+    from('src/main/generated') {
+        include 'data/**', 'assets/**'
+    }
+}

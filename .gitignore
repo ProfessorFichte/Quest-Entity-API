@@ -10,6 +10,10 @@
 /neoforge/.gradle/
 /neoforge/build/
 /neoforge/build/classes/java/main/
+/packs/villager_quests/.gradle/
+/packs/villager_quests/build/
+/packs/rpg_series_quests/.gradle/
+/packs/rpg_series_quests/build/
 /libs
 /fabric/run
 /.idea

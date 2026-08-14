@@ -14,17 +14,18 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.Optional;
 
-// Requirement that the player has a specific item in their inventory. Does NOT consume it -
-// just checks for presence.
+// checks for presence only - doesn't consume the item
 public record HasItemRequirement(
         ResourceLocation itemId,
-        int amount
+        int amount,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestRequirement {
 
     public static final MapCodec<HasItemRequirement> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.fieldOf("item_id").forGetter(HasItemRequirement::itemId),
-                    Codec.INT.optionalFieldOf("amount", 1).forGetter(HasItemRequirement::amount)
+                    Codec.INT.optionalFieldOf("amount", 1).forGetter(HasItemRequirement::amount),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(HasItemRequirement::textureOverrideId)
             ).apply(instance, HasItemRequirement::new)
     );
 
@@ -92,11 +93,11 @@ public record HasItemRequirement(
     }
 
     public static HasItemRequirement of(ResourceLocation itemId, int amount) {
-        return new HasItemRequirement(itemId, amount);
+        return new HasItemRequirement(itemId, amount, Optional.empty());
     }
 
     public static HasItemRequirement of(String itemId, int amount) {
-        return new HasItemRequirement(ResourceLocation.parse(itemId), amount);
+        return new HasItemRequirement(ResourceLocation.parse(itemId), amount, Optional.empty());
     }
 
     public static HasItemRequirement of(String itemId) {

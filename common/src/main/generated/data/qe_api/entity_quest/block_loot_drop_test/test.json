@@ -1,0 +1,36 @@
+{
+  "id": "qe_api:block_loot_drop_test/test",
+  "rewards": [
+    {
+      "amount": 150,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "chest_drop_chance": 0.5,
+      "loot_table_ids": [
+        "minecraft:blocks/stone"
+      ],
+      "quest_item": {
+        "custom_model_data": 1004,
+        "name": {
+          "translate": "quest_item.qe_api.1004"
+        },
+        "texture": "qe_api:item/block_loot_gem"
+      },
+      "task": "qe_api:conditional_drop"
+    },
+    {
+      "quest_item": {
+        "custom_model_data": 1004,
+        "name": {
+          "translate": "quest_item.qe_api.1004"
+        },
+        "texture": "qe_api:item/block_loot_gem"
+      },
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

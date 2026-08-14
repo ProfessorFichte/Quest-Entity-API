@@ -1,0 +1,4 @@
+// 1.21.1	2026-08-14T13:39:00.3295804	QuestEntityAPI/Quest Entity API Assignments: qe_api
+2d6e446d87d9a01afe0baadad10e869e6eff5c3e data\qe_api\entity_quest_assignment\villager_generic.json
+5ba580feeadca74ebd976e734e20a0acca2c3e3f data\qe_api\entity_quest_assignment\villager_farmer.json
+4782d03c525dc7d7aff1fcde07a53a183953d67d data\qe_api\entity_quest_assignment\villager_desert_librarian.json

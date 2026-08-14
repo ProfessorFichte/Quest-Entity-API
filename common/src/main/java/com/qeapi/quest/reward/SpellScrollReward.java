@@ -13,20 +13,20 @@ import net.minecraft.world.item.ItemStack;
 import java.util.List;
 import java.util.Optional;
 
-// Reward that grants a Spell Engine spell scroll. By default rolls a random spell matching the
-// given filters (pool/tier range/exclusions); set spell_id to bypass random selection and
-// always grant that exact spell instead. No-op with a warning if Spell Engine isn't loaded.
+// Rolls a random spell matching the filters (pool/tier range/exclusions) unless spell_id is set,
+// in which case that exact spell is always granted.
 //
-// Spell scrolls carry a lot of custom data components (spell container, item model, rarity,
-// display name) that Spell Engine's own ScrollItem.applySpell sets up for us, the same way a
-// naturally-found scroll would - see SpellEngineCompat.createSpellScroll.
+// Delegates to Spell Engine's own ScrollItem.applySpell (see SpellEngineCompat.createSpellScroll)
+// instead of setting the scroll's components by hand, so it ends up with the same
+// container/model/rarity/name data a naturally-found scroll would.
 public record SpellScrollReward(
         Optional<ResourceLocation> spellId,
         Optional<ResourceLocation> pool,
         int tierMin,
         int tierMax,
         List<ResourceLocation> excludedSpells,
-        int amount
+        int amount,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestReward {
 
     public static final MapCodec<SpellScrollReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
@@ -36,7 +36,8 @@ public record SpellScrollReward(
                     Codec.INT.optionalFieldOf("tier_min", 1).forGetter(SpellScrollReward::tierMin),
                     Codec.INT.optionalFieldOf("tier_max", Integer.MAX_VALUE).forGetter(SpellScrollReward::tierMax),
                     ResourceLocation.CODEC.listOf().optionalFieldOf("excluded_spells", List.of()).forGetter(SpellScrollReward::excludedSpells),
-                    Codec.INT.optionalFieldOf("amount", 1).forGetter(SpellScrollReward::amount)
+                    Codec.INT.optionalFieldOf("amount", 1).forGetter(SpellScrollReward::amount),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(SpellScrollReward::textureOverrideId)
             ).apply(instance, SpellScrollReward::new)
     );
 
@@ -63,8 +64,7 @@ public record SpellScrollReward(
 
     @Override
     public Component getDisplayText() {
-        // prefer the scroll's real item name (e.g. "Frost Spell Scroll", as registered by content
-        // mods) over the raw pool tag/spell_id - see SpellEngineCompat.scrollDisplayName.
+        // prefer the scroll's real item name (e.g. "Frost Spell Scroll") over the raw pool tag/spell_id
         Component target;
         if (SpellEngineCompat.isLoaded() && pool.isPresent()) {
             target = SpellEngineCompat.scrollDisplayName(pool.get());
@@ -78,8 +78,8 @@ public record SpellScrollReward(
 
     @Override
     public Optional<ItemStack> getDisplayItem() {
-        // actual spell is only rolled server-side at claim time - QuestScreen shows a generic
-        // scroll icon instead (see its dedicated SpellScrollReward rendering branch).
+        // the actual spell isn't rolled until claim time, so there's nothing real to preview here -
+        // QuestScreen shows a generic scroll icon instead
         return Optional.empty();
     }
 
@@ -94,6 +94,7 @@ public record SpellScrollReward(
         private int tierMax = Integer.MAX_VALUE;
         private List<ResourceLocation> excludedSpells = List.of();
         private int amount = 1;
+        private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder spellId(ResourceLocation id) {
             this.spellId = Optional.of(id);
@@ -134,8 +135,13 @@ public record SpellScrollReward(
             return this;
         }
 
+        public Builder textureOverrideId(ResourceLocation id) {
+            this.textureOverrideId = Optional.of(id);
+            return this;
+        }
+
         public SpellScrollReward build() {
-            return new SpellScrollReward(spellId, pool, tierMin, tierMax, excludedSpells, amount);
+            return new SpellScrollReward(spellId, pool, tierMin, tierMax, excludedSpells, amount, textureOverrideId);
         }
     }
 }

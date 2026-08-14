@@ -20,14 +20,16 @@ import java.util.Optional;
 public record MineBlockTask(
         Optional<ResourceLocation> blockId,
         Optional<TagKey<Block>> blockTag,
-        int amount
+        int amount,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
     public static final MapCodec<MineBlockTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.optionalFieldOf("block_id").forGetter(MineBlockTask::blockId),
                     TagKey.codec(Registries.BLOCK).optionalFieldOf("block_tag").forGetter(MineBlockTask::blockTag),
-                    Codec.INT.optionalFieldOf("amount", 1).forGetter(MineBlockTask::amount)
+                    Codec.INT.optionalFieldOf("amount", 1).forGetter(MineBlockTask::amount),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(MineBlockTask::textureOverrideId)
             ).apply(instance, MineBlockTask::new)
     );
 
@@ -84,6 +86,7 @@ public record MineBlockTask(
         private Optional<ResourceLocation> blockId = Optional.empty();
         private Optional<TagKey<Block>> blockTag = Optional.empty();
         private int amount = 1;
+        private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder blockId(ResourceLocation id) {
             this.blockId = Optional.of(id);
@@ -108,11 +111,16 @@ public record MineBlockTask(
             return this;
         }
 
+        public Builder textureOverrideId(ResourceLocation id) {
+            this.textureOverrideId = Optional.of(id);
+            return this;
+        }
+
         public MineBlockTask build() {
             if (blockId.isEmpty() && blockTag.isEmpty()) {
                 throw new IllegalStateException("MineBlockTask requires blockId or blockTag");
             }
-            return new MineBlockTask(blockId, blockTag, amount);
+            return new MineBlockTask(blockId, blockTag, amount, textureOverrideId);
         }
     }
 }

@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "villager_quests:farmer_desert/haul_water",
+    "villager_quests:farmer_desert/harvest_cactus",
+    "villager_quests:farmer_desert/tough_soil",
+    "#villager_quests:farmer"
+  ]
+}

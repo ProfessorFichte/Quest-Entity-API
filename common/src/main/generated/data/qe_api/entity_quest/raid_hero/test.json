@@ -1,0 +1,16 @@
+{
+  "id": "qe_api:raid_hero/test",
+  "rewards": [
+    {
+      "amount": 300,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "min_raid_level": 2,
+      "task": "qe_api:raid_complete"
+    }
+  ],
+  "tier": 1
+}

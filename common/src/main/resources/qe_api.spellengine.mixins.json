@@ -1,0 +1,12 @@
+{
+  "required": false,
+  "package": "com.qeapi.mixin.spellengine",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "SpellBindingCriteriaMixin",
+    "SpellBookCreationCriteriaMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

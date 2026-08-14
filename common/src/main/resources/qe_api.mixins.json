@@ -15,7 +15,18 @@
     "LivingEntityMixin",
     "BrewingStandBlockEntityMixin",
     "ServerPlayerGameModeMixin",
-    "VillagerXpAccessor"
+    "VillagerXpAccessor",
+    "LootTableAccessor",
+    "FishingRodHookedTriggerMixin",
+    "AnvilMenuMixin",
+    "SmithingMenuMixin",
+    "EnchantedItemTriggerMixin",
+    "ServerPlayerRecipeCraftedMixin",
+    "RaidTickMixin",
+    "TrialSpawnerEjectRewardMixin",
+    "LivingEntityAddEffectMixin",
+    "LivingEntityDamageMixin",
+    "LivingEntityHealMixin"
   ],
   "injectors": {
     "defaultRequire": 1

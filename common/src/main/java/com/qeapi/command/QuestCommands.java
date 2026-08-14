@@ -187,6 +187,8 @@ public class QuestCommands {
             EntityQuestComponent updated = postGrantComponent.withCompletedQuest(player.getUUID(), questId,
                     player.serverLevel().getDayTime());
             setEntityQuestComponent(entity, updated);
+            QuestEntityAccess.resolveQuestLineIfNeeded(player, entity, updated, quest);
+            QuestEntityAccess.forceResyncNearbyPlayers(entity);
 
             Quest finalQuest = quest;
             context.getSource().sendSuccess(() ->

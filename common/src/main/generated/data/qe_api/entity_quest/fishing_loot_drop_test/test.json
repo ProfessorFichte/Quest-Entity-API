@@ -1,0 +1,36 @@
+{
+  "id": "qe_api:fishing_loot_drop_test/test",
+  "rewards": [
+    {
+      "amount": 150,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "chest_drop_chance": 0.5,
+      "loot_table_ids": [
+        "minecraft:gameplay/fishing"
+      ],
+      "quest_item": {
+        "custom_model_data": 1005,
+        "name": {
+          "translate": "quest_item.qe_api.1005"
+        },
+        "texture": "qe_api:item/fishing_loot_pearl"
+      },
+      "task": "qe_api:conditional_drop"
+    },
+    {
+      "quest_item": {
+        "custom_model_data": 1005,
+        "name": {
+          "translate": "quest_item.qe_api.1005"
+        },
+        "texture": "qe_api:item/fishing_loot_pearl"
+      },
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

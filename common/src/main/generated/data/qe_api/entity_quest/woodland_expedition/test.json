@@ -1,0 +1,34 @@
+{
+  "id": "qe_api:woodland_expedition/test",
+  "requirements": [
+    {
+      "experience_level": 15,
+      "requirement": "qe_api:has_level"
+    }
+  ],
+  "rewards": [
+    {
+      "max_distance_range": 30000,
+      "reward": "qe_api:map_to_structure",
+      "structure_id": "minecraft:woodland_mansion"
+    },
+    {
+      "max_distance_range": 30000,
+      "reward": "qe_api:teleport_to_structure",
+      "structure_id": "minecraft:woodland_mansion"
+    },
+    {
+      "amount": 600,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "max_distance": 30000,
+      "structure_id": "minecraft:woodland_mansion",
+      "task": "qe_api:find_structure"
+    }
+  ],
+  "tier": 1,
+  "weight": 80
+}

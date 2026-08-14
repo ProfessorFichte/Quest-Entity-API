@@ -12,20 +12,18 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.Optional;
 
-// Reward that grants whole levels in a specific Pufferfish's Skills skill tree. No-op with a
-// warning if Pufferfish's Skills isn't loaded. See SkillExperienceReward's note on `icon` -
-// same reasoning applies here.
+// See SkillExperienceReward's note on texture_override_id - same reasoning applies here.
 public record SkillLevelReward(
         ResourceLocation skillTreeId,
         int levels,
-        Optional<ResourceLocation> icon
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestReward {
 
     public static final MapCodec<SkillLevelReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.fieldOf("skill_tree_id").forGetter(SkillLevelReward::skillTreeId),
                     Codec.INT.fieldOf("levels").forGetter(SkillLevelReward::levels),
-                    ResourceLocation.CODEC.optionalFieldOf("icon").forGetter(SkillLevelReward::icon)
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(SkillLevelReward::textureOverrideId)
             ).apply(instance, SkillLevelReward::new)
     );
 

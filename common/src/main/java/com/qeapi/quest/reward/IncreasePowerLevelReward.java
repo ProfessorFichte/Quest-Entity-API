@@ -13,16 +13,19 @@ import net.minecraft.world.level.Level;
 
 import java.util.Optional;
 
-// (Dungeon Difficulty compat) Raises a player-chosen item's power level by amount, up to cap -
-// unlike set_power_level (an ItemFunction applied to a freshly granted stack), this reads and
-// raises whatever level the item already has. No-op with a warning if Dungeon Difficulty isn't
-// loaded.
-public record IncreasePowerLevelReward(int amount, int cap) implements QuestReward, TargetItemReward, EnhanceOperation {
+// Unlike set_power_level (an ItemFunction stamped onto a freshly granted stack), this reads and
+// raises whatever power level the item already has.
+public record IncreasePowerLevelReward(int amount, int cap, Optional<ResourceLocation> textureOverrideId) implements QuestReward, TargetItemReward, EnhanceOperation {
+
+    public IncreasePowerLevelReward(int amount, int cap) {
+        this(amount, cap, Optional.empty());
+    }
 
     public static final MapCodec<IncreasePowerLevelReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(IncreasePowerLevelReward::amount),
-                    Codec.INT.optionalFieldOf("cap", Integer.MAX_VALUE).forGetter(IncreasePowerLevelReward::cap)
+                    Codec.INT.optionalFieldOf("cap", Integer.MAX_VALUE).forGetter(IncreasePowerLevelReward::cap),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(IncreasePowerLevelReward::textureOverrideId)
             ).apply(instance, IncreasePowerLevelReward::new)
     );
 

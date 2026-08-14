@@ -13,17 +13,20 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Map;
+import java.util.Optional;
 
 // "use" = right-click action (shooting a bow, eating food, using a tool, ...)
 public record ItemUsedTask(
         ResourceLocation itemId,
-        int amount
+        int amount,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
     public static final MapCodec<ItemUsedTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.fieldOf("item_id").forGetter(ItemUsedTask::itemId),
-                    Codec.INT.optionalFieldOf("amount", 1).forGetter(ItemUsedTask::amount)
+                    Codec.INT.optionalFieldOf("amount", 1).forGetter(ItemUsedTask::amount),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(ItemUsedTask::textureOverrideId)
             ).apply(instance, ItemUsedTask::new)
     );
 
@@ -71,6 +74,7 @@ public record ItemUsedTask(
     public static class Builder {
         private ResourceLocation itemId;
         private int amount = 1;
+        private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder itemId(ResourceLocation id) {
             this.itemId = id;
@@ -90,11 +94,16 @@ public record ItemUsedTask(
             return this;
         }
 
+        public Builder textureOverrideId(ResourceLocation id) {
+            this.textureOverrideId = Optional.of(id);
+            return this;
+        }
+
         public ItemUsedTask build() {
             if (itemId == null) {
                 throw new IllegalStateException("ItemUsedTask requires itemId");
             }
-            return new ItemUsedTask(itemId, amount);
+            return new ItemUsedTask(itemId, amount, textureOverrideId);
         }
     }
 }

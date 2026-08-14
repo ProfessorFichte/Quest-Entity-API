@@ -1,0 +1,19 @@
+{
+  "id": "qe_api:spell_cleanse/test",
+  "required_mod": "spell_engine",
+  "rewards": [
+    {
+      "clear_existing": true,
+      "reward": "qe_api:spell_bind",
+      "spell_id": "wizards:fireball"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 3,
+      "item_id": "minecraft:ender_pearl",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

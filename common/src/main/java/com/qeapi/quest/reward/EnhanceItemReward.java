@@ -13,17 +13,19 @@ import net.minecraft.world.level.Level;
 import java.util.List;
 import java.util.Optional;
 
-// Bundles multiple EnhanceOperations (enchant, repair, spell bind, power level, enchant slots)
-// onto a single player-picked target item, claimed with one item-picker slot instead of one
-// reward entry - and one item pick - per operation. isValidTarget only requires one operation to
-// be applicable so the item shows up in the picker; applyToTarget then re-checks each operation
-// individually and skips (with a warning) whichever ones don't apply to the chosen item, same
-// no-op convention the single-operation rewards already use.
-public record EnhanceItemReward(List<EnhanceOperation> operations) implements QuestReward, TargetItemReward {
+// Bundles several enhance operations onto one target item so the player only picks once instead
+// of once per operation. applyToTarget re-checks each op against the chosen item and skips any
+// that don't actually fit it.
+public record EnhanceItemReward(List<EnhanceOperation> operations, Optional<ResourceLocation> textureOverrideId) implements QuestReward, TargetItemReward {
+
+    public EnhanceItemReward(List<EnhanceOperation> operations) {
+        this(operations, Optional.empty());
+    }
 
     public static final MapCodec<EnhanceItemReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
-                    EnhanceOperation.CODEC.listOf().fieldOf("operations").forGetter(EnhanceItemReward::operations)
+                    EnhanceOperation.CODEC.listOf().fieldOf("operations").forGetter(EnhanceItemReward::operations),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(EnhanceItemReward::textureOverrideId)
             ).apply(instance, EnhanceItemReward::new)
     );
 

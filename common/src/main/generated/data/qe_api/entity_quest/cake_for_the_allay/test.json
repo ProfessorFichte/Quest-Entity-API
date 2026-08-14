@@ -1,0 +1,17 @@
+{
+  "id": "qe_api:cake_for_the_allay/test",
+  "rewards": [
+    {
+      "amount": 150,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "item_id": "minecraft:cake",
+      "target_entity_id": "minecraft:allay",
+      "task": "qe_api:deliver_item"
+    }
+  ],
+  "tier": 1
+}

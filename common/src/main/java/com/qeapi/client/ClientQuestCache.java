@@ -2,6 +2,7 @@ package com.qeapi.client;
 
 import com.qeapi.component.EntityQuestComponent;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.Map;
 import java.util.Set;
@@ -23,10 +24,12 @@ public final class ClientQuestCache {
     // Entity UUID -> every quest this entity offers has been completed (nothing left to accept)
     private static final Set<UUID> ENTITIES_ALL_QUESTS_COMPLETE = ConcurrentHashMap.newKeySet();
 
+    // Entity UUID -> refuses to interact right now (on hit cooldown for the local player)
+    private static final Set<UUID> ENTITIES_ENRAGED = ConcurrentHashMap.newKeySet();
+
     // Entity ID (network) -> Quest component (for current session)
     private static final Map<Integer, EntityQuestComponent> ENTITY_COMPONENTS = new ConcurrentHashMap<>();
 
-    // Entity UUID -> Entity ID mapping
     private static final Map<UUID, Integer> UUID_TO_ID = new ConcurrentHashMap<>();
 
     private ClientQuestCache() {}
@@ -47,7 +50,7 @@ public final class ClientQuestCache {
 
     // simplified variant for sync packets, when we only have basic quest state, not the full component
     public static void markEntityHasQuestsSimple(UUID entityUuid, int entityId, boolean hasActiveQuest, boolean isQuestComplete,
-                                                  boolean allQuestsCompleted) {
+                                                  boolean allQuestsCompleted, boolean enraged) {
         ENTITIES_WITH_QUESTS.add(entityUuid);
         UUID_TO_ID.put(entityUuid, entityId);
 
@@ -68,6 +71,12 @@ public final class ClientQuestCache {
         } else {
             ENTITIES_ALL_QUESTS_COMPLETE.remove(entityUuid);
         }
+
+        if (enraged) {
+            ENTITIES_ENRAGED.add(entityUuid);
+        } else {
+            ENTITIES_ENRAGED.remove(entityUuid);
+        }
     }
 
     public static boolean hasQuests(UUID entityUuid) {
@@ -84,6 +93,10 @@ public final class ClientQuestCache {
 
     public static boolean allQuestsCompleted(UUID entityUuid) {
         return ENTITIES_ALL_QUESTS_COMPLETE.contains(entityUuid);
+    }
+
+    public static boolean isEnraged(UUID entityUuid) {
+        return ENTITIES_ENRAGED.contains(entityUuid);
     }
 
     public static void setActiveQuest(UUID entityUuid, boolean active) {
@@ -108,8 +121,10 @@ public final class ClientQuestCache {
         ENTITIES_WITH_ACTIVE_QUEST.clear();
         ENTITIES_WITH_COMPLETE_QUEST.clear();
         ENTITIES_ALL_QUESTS_COMPLETE.clear();
+        ENTITIES_ENRAGED.clear();
         ENTITY_COMPONENTS.clear();
         UUID_TO_ID.clear();
+        DELIVERY_TARGET_ITEMS.clear();
     }
 
     // called when entity is removed from the world
@@ -118,8 +133,29 @@ public final class ClientQuestCache {
         ENTITIES_WITH_ACTIVE_QUEST.remove(entityUuid);
         ENTITIES_WITH_COMPLETE_QUEST.remove(entityUuid);
         ENTITIES_ALL_QUESTS_COMPLETE.remove(entityUuid);
+        ENTITIES_ENRAGED.remove(entityUuid);
         ENTITY_COMPONENTS.remove(entityId);
         UUID_TO_ID.remove(entityUuid);
+        DELIVERY_TARGET_ITEMS.remove(entityUuid);
+    }
+
+    // ==================== Delivery Target Marker (deliver_item) ====================
+
+    // Entity UUID -> the item this entity wants, for the floating item marker - see
+    // QuestMarkerRenderer.renderDeliveryItem and SyncDeliveryTargetPacket
+    private static final Map<UUID, ItemStack> DELIVERY_TARGET_ITEMS = new ConcurrentHashMap<>();
+
+    public static void setDeliveryTarget(UUID entityUuid, ItemStack item) {
+        DELIVERY_TARGET_ITEMS.put(entityUuid, item);
+    }
+
+    public static void clearDeliveryTarget(UUID entityUuid) {
+        DELIVERY_TARGET_ITEMS.remove(entityUuid);
+    }
+
+    // null if this entity isn't (currently known to be) a delivery target
+    public static ItemStack getDeliveryTargetItem(UUID entityUuid) {
+        return DELIVERY_TARGET_ITEMS.get(entityUuid);
     }
 
     // ==================== Scroll Position Caching ====================

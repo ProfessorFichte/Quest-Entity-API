@@ -16,16 +16,19 @@ import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.PotionContents;
 
 import java.util.Map;
+import java.util.Optional;
 
 public record BrewPotionTask(
         ResourceLocation potionId,
-        int amount
+        int amount,
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
     public static final MapCodec<BrewPotionTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.fieldOf("potion_id").forGetter(BrewPotionTask::potionId),
-                    Codec.INT.optionalFieldOf("amount", 1).forGetter(BrewPotionTask::amount)
+                    Codec.INT.optionalFieldOf("amount", 1).forGetter(BrewPotionTask::amount),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(BrewPotionTask::textureOverrideId)
             ).apply(instance, BrewPotionTask::new)
     );
 
@@ -86,6 +89,7 @@ public record BrewPotionTask(
     public static class Builder {
         private ResourceLocation potionId;
         private int amount = 1;
+        private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder potionId(ResourceLocation id) {
             this.potionId = id;
@@ -105,11 +109,16 @@ public record BrewPotionTask(
             return this;
         }
 
+        public Builder textureOverrideId(ResourceLocation id) {
+            this.textureOverrideId = Optional.of(id);
+            return this;
+        }
+
         public BrewPotionTask build() {
             if (potionId == null) {
                 throw new IllegalStateException("BrewPotionTask requires potionId");
             }
-            return new BrewPotionTask(potionId, amount);
+            return new BrewPotionTask(potionId, amount, textureOverrideId);
         }
     }
 }

@@ -1,0 +1,39 @@
+{
+  "id": "qe_api:bastion_treasure_hunt/test",
+  "rewards": [
+    {
+      "amount": 250,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "chest_drop_chance": 0.2,
+      "loot_table_ids": [
+        "minecraft:chests/bastion_treasure",
+        "minecraft:chests/bastion_other",
+        "minecraft:chests/bastion_bridge",
+        "minecraft:chests/bastion_hoglin_stable"
+      ],
+      "quest_item": {
+        "custom_model_data": 1002,
+        "name": {
+          "translate": "quest_item.qe_api.1002"
+        },
+        "texture": "qe_api:item/piglin_trophy"
+      },
+      "task": "qe_api:conditional_drop"
+    },
+    {
+      "quest_item": {
+        "custom_model_data": 1002,
+        "name": {
+          "translate": "quest_item.qe_api.1002"
+        },
+        "texture": "qe_api:item/piglin_trophy"
+      },
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

@@ -1,0 +1,39 @@
+{
+  "id": "villager_quests:farmer/bake_bread",
+  "rewards": [
+    {
+      "functions": [
+        {
+          "enchantments": [
+            {
+              "id": "minecraft:unbreaking"
+            }
+          ],
+          "function": "qe_api:set_enchantments"
+        },
+        {
+          "function": "qe_api:set_name",
+          "name": {
+            "color": "yellow",
+            "text": "Farmhand's Hoe"
+          }
+        }
+      ],
+      "item_id": "minecraft:iron_hoe",
+      "reward": "qe_api:item"
+    },
+    {
+      "amount": 4,
+      "item_id": "minecraft:emerald",
+      "reward": "qe_api:item"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 6,
+      "result_item_id": "minecraft:bread",
+      "task": "qe_api:crafting"
+    }
+  ],
+  "tier": 2
+}

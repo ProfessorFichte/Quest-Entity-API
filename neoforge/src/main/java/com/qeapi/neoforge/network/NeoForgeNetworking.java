@@ -5,10 +5,17 @@ import com.qeapi.component.EntityQuestComponent;
 import com.qeapi.component.PlayerQuestData;
 import com.qeapi.neoforge.QuestEntityAPINeoForge;
 import com.qeapi.network.packet.AcceptQuestPacket;
+import com.qeapi.network.packet.CancelQuestLinePacket;
+import com.qeapi.network.packet.ChooseQuestLinePacket;
+import com.qeapi.network.packet.ClaimQuestLineRootPacket;
 import com.qeapi.network.packet.ClaimRewardsPacket;
+import com.qeapi.network.packet.DismissQuestLineRootPacket;
 import com.qeapi.network.packet.DismissQuestPacket;
 import com.qeapi.network.packet.OpenQuestMenuPacket;
 import com.qeapi.network.packet.QuestProgressPacket;
+import com.qeapi.network.packet.ActiveQuestEntry;
+import com.qeapi.network.packet.ActiveQuestsPacket;
+import com.qeapi.network.packet.RequestActiveQuestsPacket;
 import com.qeapi.network.packet.RequestMerchantMenuPacket;
 import com.qeapi.network.packet.RequestQuestMenuPacket;
 import com.qeapi.network.packet.SyncEntityQuestsPacket;
@@ -16,6 +23,8 @@ import com.qeapi.quest.Quest;
 import com.qeapi.quest.QuestPool;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.quest.task.BringItemTask;
+import com.qeapi.quest.task.FindStructureTask;
+import com.qeapi.quest.task.QuestLineChoiceTask;
 import com.qeapi.quest.task.QuestTask;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -57,6 +66,21 @@ public final class NeoForgeNetworking {
 
         registrar.playToServer(RequestMerchantMenuPacket.TYPE, RequestMerchantMenuPacket.STREAM_CODEC,
                 (packet, context) -> context.enqueueWork(() -> handleRequestMerchantMenu((ServerPlayer) context.player(), packet)));
+
+        registrar.playToServer(RequestActiveQuestsPacket.TYPE, RequestActiveQuestsPacket.STREAM_CODEC,
+                (packet, context) -> context.enqueueWork(() -> handleRequestActiveQuests((ServerPlayer) context.player())));
+
+        registrar.playToServer(ChooseQuestLinePacket.TYPE, ChooseQuestLinePacket.STREAM_CODEC,
+                (packet, context) -> context.enqueueWork(() -> handleChooseQuestLine((ServerPlayer) context.player(), packet)));
+
+        registrar.playToServer(ClaimQuestLineRootPacket.TYPE, ClaimQuestLineRootPacket.STREAM_CODEC,
+                (packet, context) -> context.enqueueWork(() -> handleClaimQuestLineRoot((ServerPlayer) context.player(), packet)));
+
+        registrar.playToServer(CancelQuestLinePacket.TYPE, CancelQuestLinePacket.STREAM_CODEC,
+                (packet, context) -> context.enqueueWork(() -> handleCancelQuestLine((ServerPlayer) context.player(), packet)));
+
+        registrar.playToServer(DismissQuestLineRootPacket.TYPE, DismissQuestLineRootPacket.STREAM_CODEC,
+                (packet, context) -> context.enqueueWork(() -> handleDismissQuestLineRoot((ServerPlayer) context.player(), packet)));
     }
 
     // ==================== Server Handlers ====================
@@ -81,10 +105,6 @@ public final class NeoForgeNetworking {
         UUID entityId = entity.getUUID();
 
         if (component.isOnCooldown(playerId)) {
-            long remainingMs = component.getRemainingCooldownMs(playerId);
-            int remainingMinutes = (int) Math.ceil(remainingMs / 60000.0);
-            player.sendSystemMessage(Component.translatable("message.qe_api.cooldown_active", remainingMinutes)
-                    .withStyle(ChatFormatting.YELLOW));
             return;
         }
 
@@ -116,6 +136,21 @@ public final class NeoForgeNetworking {
             return;
         }
 
+        // A quest_line_choice root never occupies the giver's entityProgress/active-quest slot (see
+        // QuestLineChoiceTask's javadoc) - accepting it only flips its own acceptedRoots flag, which
+        // is what gates the line picker becoming interactive in QuestScreen.
+        if (com.qeapi.api.QuestEntityAccess.isLineRootQuest(quest)) {
+            PlayerQuestData rootPlayerData = player.getData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT);
+            PlayerQuestData.LineSelectionState lineState = rootPlayerData.getLineSelection(entityId);
+            if (!lineState.acceptedRoots().contains(quest.id())) {
+                rootPlayerData.setLineSelection(entityId, lineState.withAcceptedRoot(quest.id()));
+                player.setData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT, rootPlayerData);
+            }
+
+            sendOpenQuestMenu(player, packet.entityId(), component, getAvailableQuestsForPlayer(allPools, component, player, entity));
+            return;
+        }
+
         if (component.hasCompletedQuest(playerId, packet.questId())) {
             long completedAt = component.getCompletionDayTime(playerId, packet.questId());
             long currentDayTime = player.serverLevel().getDayTime();
@@ -132,20 +167,27 @@ public final class NeoForgeNetworking {
         );
         entity.setData(QuestEntityAPINeoForge.ENTITY_QUEST_ATTACHMENT, updatedComponent);
 
+        // one-way: once accepted from, this giver is protected from despawning for good, even
+        // after every quest with it wraps up - no-ops for non-Mob QuestEntity implementations
+        if (entity instanceof net.minecraft.world.entity.Mob mob) {
+            mob.setPersistenceRequired();
+        }
+
         PlayerQuestData playerData = player.getData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT);
         playerData.startQuest(entity.getUUID(), packet.questId());
+        playerData.recordEntityLocation(entity);
         player.setData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT, playerData);
 
         // Grant a one-time structure map if this quest has a provides_map task (no-op otherwise)
         com.qeapi.event.QuestEventHandler.grantStructureMapIfNeeded(player, quest);
-
-        player.sendSystemMessage(Component.translatable("message.qe_api.quest_accepted")
-                .withStyle(ChatFormatting.GREEN));
+        // resolves deliver_item's target selector to one concrete entity; no-op otherwise
+        com.qeapi.event.QuestEventHandler.resolveDeliveryTargetIfNeeded(player, entity, quest);
+        com.qeapi.event.QuestEventHandler.playAcceptSound(player, quest);
 
         QuestPool primaryPool = allPools.get(0);
         EntityQuestComponent finalComponent = checkAndUpdateBringItemProgress(player, entity, updatedComponent, primaryPool);
 
-        sendOpenQuestMenu(player, packet.entityId(), finalComponent, getAvailableQuestsForPlayer(allPools, finalComponent, playerId, entityId));
+        sendOpenQuestMenu(player, packet.entityId(), finalComponent, getAvailableQuestsForPlayer(allPools, finalComponent, player, entity));
 
         QuestEntityAPI.LOGGER.info("Player {} accepted quest {} from entity {}",
                 player.getName().getString(), packet.questId(), packet.entityId());
@@ -173,19 +215,31 @@ public final class NeoForgeNetworking {
             return;
         }
 
+        Optional<ResourceLocation> dismissedQuestId = component.getActiveQuest(playerId).map(EntityQuestComponent.ActiveQuestData::questId);
+
         EntityQuestComponent updatedComponent = component.withoutActiveQuest(playerId);
         entity.setData(QuestEntityAPINeoForge.ENTITY_QUEST_ATTACHMENT, updatedComponent);
 
+        List<QuestPool> allPools = component.getAllQuestPools();
+
         PlayerQuestData playerData = player.getData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT);
         playerData.clearEntityProgress(entity.getUUID());
+
+        Quest dismissedQuest = null;
+        for (QuestPool pool : allPools) {
+            dismissedQuest = findQuestInPool(pool, dismissedQuestId.orElse(null));
+            if (dismissedQuest != null) break;
+        }
+        if (dismissedQuest != null && dismissedQuest.questLine().isPresent()) {
+            UUID entityUuid = entity.getUUID();
+            playerData.setLineSelection(entityUuid, playerData.getLineSelection(entityUuid).withoutActiveLine());
+        }
+
         player.setData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT, playerData);
 
-        player.sendSystemMessage(Component.translatable("message.qe_api.quest_dismissed")
-                .withStyle(ChatFormatting.YELLOW));
 
-        List<QuestPool> allPools = component.getAllQuestPools();
         if (!allPools.isEmpty()) {
-            sendOpenQuestMenu(player, packet.entityId(), updatedComponent, getAvailableQuestsForPlayer(allPools, updatedComponent, playerId, entityId));
+            sendOpenQuestMenu(player, packet.entityId(), updatedComponent, getAvailableQuestsForPlayer(allPools, updatedComponent, player, entity));
         }
 
         QuestEntityAPI.LOGGER.info("Player {} dismissed quest from entity {}",
@@ -302,6 +356,7 @@ public final class NeoForgeNetworking {
         }
         quest.grantRewards(player, entity, packet.poolChoices(), packet.rewardTargetSlots());
         com.qeapi.event.QuestEventHandler.grantVillagerTradeXp(entity, quest.tier());
+        com.qeapi.event.QuestEventHandler.playClaimEffects(player, quest);
 
         // Re-fetch rather than reusing the pre-grant `component` - an EntityAwareReward (e.g.
         // SetQuestGroupReward) may have already written its own update onto the entity during
@@ -311,6 +366,7 @@ public final class NeoForgeNetworking {
         EntityQuestComponent updatedComponent = postGrantComponent.withCompletedQuest(playerId, activeQuest.questId(),
                 player.serverLevel().getDayTime());
         entity.setData(QuestEntityAPINeoForge.ENTITY_QUEST_ATTACHMENT, updatedComponent);
+        com.qeapi.api.QuestEntityAccess.resolveQuestLineIfNeeded(player, entity, updatedComponent, quest);
 
         // checkNearbyQuestEntities only syncs an entity once per continuous presence in range,
         // so without forcing this the marker (e.g. available -> complete) won't refresh after claiming.
@@ -322,13 +378,226 @@ public final class NeoForgeNetworking {
         playerData.clearEntityProgress(entity.getUUID());
         player.setData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT, playerData);
 
-        player.sendSystemMessage(Component.translatable("message.qe_api.rewards_claimed")
-                .withStyle(ChatFormatting.GREEN));
 
-        sendOpenQuestMenu(player, packet.entityId(), updatedComponent, getAvailableQuestsForPlayer(allPools, updatedComponent, playerId, entityId));
+        sendOpenQuestMenu(player, packet.entityId(), updatedComponent, getAvailableQuestsForPlayer(allPools, updatedComponent, player, entity));
 
         QuestEntityAPI.LOGGER.info("Player {} claimed rewards for quest {} from entity {}",
                 player.getName().getString(), activeQuest.questId(), packet.entityId());
+    }
+
+    private static void handleChooseQuestLine(ServerPlayer player, ChooseQuestLinePacket packet) {
+        Entity entity = player.serverLevel().getEntity(packet.entityId());
+        if (entity == null) return;
+
+        EntityQuestComponent component = entity.getExistingData(QuestEntityAPINeoForge.ENTITY_QUEST_ATTACHMENT).orElse(null);
+        if (component == null) return;
+
+        List<QuestPool> allPools = component.getAllQuestPools();
+        Quest root = null;
+        for (QuestPool pool : allPools) {
+            root = findQuestInPool(pool, packet.rootQuestId());
+            if (root != null) break;
+        }
+        if (root == null || root.tasks().size() != 1
+                || !(root.tasks().get(0) instanceof QuestLineChoiceTask lineChoiceTask)) {
+            QuestEntityAPI.LOGGER.warn("Quest {} is not a quest_line_choice root", packet.rootQuestId());
+            return;
+        }
+
+        Optional<QuestLineChoiceTask.LineOption> lineOption = lineChoiceTask.findLine(packet.lineId());
+        if (lineOption.isEmpty() || !lineOption.get().isAvailable()) {
+            QuestEntityAPI.LOGGER.warn("Line {} is not a valid/available choice on {}", packet.lineId(), packet.rootQuestId());
+            return;
+        }
+
+        UUID entityUuid = entity.getUUID();
+
+        // A quest_line-tagged step quest must be authored with follow_quest_order: false (see the
+        // README) - it never needs the root's own tier "completed" to unlock, only its questLine
+        // matching the active line, so picking a line here never has to touch completedQuests.
+        PlayerQuestData playerData = player.getData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT);
+        playerData.setLineSelection(entityUuid, playerData.getLineSelection(entityUuid).withActiveLine(packet.lineId()));
+        player.setData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT, playerData);
+
+        sendOpenQuestMenu(player, packet.entityId(), component, getAvailableQuestsForPlayer(allPools, component, player, entity));
+        QuestEntityAPINeoForge.forceResyncForNearbyPlayers(entity);
+
+        QuestEntityAPI.LOGGER.info("Player {} chose line {} for quest_line_choice root {}",
+                player.getName().getString(), packet.lineId(), packet.rootQuestId());
+    }
+
+    private static void handleClaimQuestLineRoot(ServerPlayer player, ClaimQuestLineRootPacket packet) {
+        Entity entity = player.serverLevel().getEntity(packet.entityId());
+        if (entity == null) return;
+
+        EntityQuestComponent component = entity.getExistingData(QuestEntityAPINeoForge.ENTITY_QUEST_ATTACHMENT).orElse(null);
+        if (component == null) return;
+
+        List<QuestPool> allPools = component.getAllQuestPools();
+        Quest root = null;
+        for (QuestPool pool : allPools) {
+            root = findQuestInPool(pool, packet.rootQuestId());
+            if (root != null) break;
+        }
+        if (root == null || root.tasks().size() != 1
+                || !(root.tasks().get(0) instanceof QuestLineChoiceTask lineChoiceTask)) {
+            QuestEntityAPI.LOGGER.warn("Quest {} is not a quest_line_choice root", packet.rootQuestId());
+            return;
+        }
+
+        UUID entityUuid = entity.getUUID();
+        PlayerQuestData playerData = player.getData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT);
+        PlayerQuestData.LineSelectionState lineState = playerData.getLineSelection(entityUuid);
+
+        if (lineState.claimedRoots().contains(root.id()) || !lineChoiceTask.isResolved(lineState.resolvedLines())) {
+            return;
+        }
+
+        root.grantRewards(player, entity, List.of());
+        com.qeapi.event.QuestEventHandler.grantVillagerTradeXp(entity, root.tier());
+        com.qeapi.event.QuestEventHandler.playClaimEffects(player, root);
+
+        // Marked completed here - only on the real claim, once every line is actually resolved -
+        // so follow_quest_order for a sibling root at a higher tier only unlocks once this one is
+        // genuinely done, matching every other quest's completion timing.
+        EntityQuestComponent updatedComponent = component.withCompletedQuest(player.getUUID(), root.id(), player.serverLevel().getDayTime());
+        entity.setData(QuestEntityAPINeoForge.ENTITY_QUEST_ATTACHMENT, updatedComponent);
+
+        playerData.setLineSelection(entityUuid, lineState.withClaimedRoot(root.id()));
+        player.setData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT, playerData);
+
+
+        sendOpenQuestMenu(player, packet.entityId(), updatedComponent, getAvailableQuestsForPlayer(allPools, updatedComponent, player, entity));
+        QuestEntityAPINeoForge.forceResyncForNearbyPlayers(entity);
+
+        QuestEntityAPI.LOGGER.info("Player {} claimed quest_line_choice root reward {}",
+                player.getName().getString(), packet.rootQuestId());
+    }
+
+    // Cancels the player's currently active line for a quest_line_choice root, sent from clicking
+    // that line's own bordered icon (see QuestScreen's confirm-dismiss dialog reuse). Clears
+    // activeLine unconditionally, and additionally clears entityProgress/the component's active
+    // quest if the giver's active quest happens to be a step of the line being canceled - mirrors
+    // handleDismissQuest's questLine-clearing hook, just triggered from the root side instead.
+    private static void handleCancelQuestLine(ServerPlayer player, CancelQuestLinePacket packet) {
+        Entity entity = player.serverLevel().getEntity(packet.entityId());
+        if (entity == null) return;
+
+        EntityQuestComponent component = entity.getExistingData(QuestEntityAPINeoForge.ENTITY_QUEST_ATTACHMENT).orElse(null);
+        if (component == null) return;
+
+        List<QuestPool> allPools = component.getAllQuestPools();
+        Quest root = null;
+        for (QuestPool pool : allPools) {
+            root = findQuestInPool(pool, packet.rootQuestId());
+            if (root != null) break;
+        }
+        if (root == null || root.tasks().size() != 1
+                || !(root.tasks().get(0) instanceof QuestLineChoiceTask)) {
+            QuestEntityAPI.LOGGER.warn("Quest {} is not a quest_line_choice root", packet.rootQuestId());
+            return;
+        }
+
+        UUID entityUuid = entity.getUUID();
+
+        PlayerQuestData playerData = player.getData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT);
+        PlayerQuestData.LineSelectionState lineState = playerData.getLineSelection(entityUuid);
+
+        if (lineState.activeLine().isEmpty() || !lineState.activeLine().get().equals(packet.lineId())) {
+            return;
+        }
+
+        playerData.setLineSelection(entityUuid, lineState.withoutActiveLine());
+
+        EntityQuestComponent updatedComponent = clearActiveLineStep(component, allPools, player, entity, playerData, packet.lineId());
+
+        player.setData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT, playerData);
+
+
+        sendOpenQuestMenu(player, packet.entityId(), updatedComponent, getAvailableQuestsForPlayer(allPools, updatedComponent, player, entity));
+        QuestEntityAPINeoForge.forceResyncForNearbyPlayers(entity);
+
+        QuestEntityAPI.LOGGER.info("Player {} canceled line {} for quest_line_choice root {}",
+                player.getName().getString(), packet.lineId(), packet.rootQuestId());
+    }
+
+    // Un-accepts an already-accepted, not-yet-claimed quest_line_choice root, sent from clicking
+    // that root's own checkbox a second time (see QuestScreen's confirm-dismiss dialog reuse).
+    // Clears activeLine and acceptedRoots unconditionally, and additionally clears
+    // entityProgress/the component's active quest if the giver's active quest happens to be a step
+    // of whichever line was active - same clearActiveLineStep helper handleCancelQuestLine uses.
+    // Never touches resolvedLines/claimedRoots, so already-claimed steps stay claimed.
+    private static void handleDismissQuestLineRoot(ServerPlayer player, DismissQuestLineRootPacket packet) {
+        Entity entity = player.serverLevel().getEntity(packet.entityId());
+        if (entity == null) return;
+
+        EntityQuestComponent component = entity.getExistingData(QuestEntityAPINeoForge.ENTITY_QUEST_ATTACHMENT).orElse(null);
+        if (component == null) return;
+
+        List<QuestPool> allPools = component.getAllQuestPools();
+        Quest root = null;
+        for (QuestPool pool : allPools) {
+            root = findQuestInPool(pool, packet.rootQuestId());
+            if (root != null) break;
+        }
+        if (root == null || root.tasks().size() != 1
+                || !(root.tasks().get(0) instanceof QuestLineChoiceTask)) {
+            QuestEntityAPI.LOGGER.warn("Quest {} is not a quest_line_choice root", packet.rootQuestId());
+            return;
+        }
+
+        UUID entityUuid = entity.getUUID();
+
+        PlayerQuestData playerData = player.getData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT);
+        PlayerQuestData.LineSelectionState lineState = playerData.getLineSelection(entityUuid);
+
+        if (!lineState.acceptedRoots().contains(root.id()) || lineState.claimedRoots().contains(root.id())) {
+            return;
+        }
+
+        EntityQuestComponent updatedComponent = component;
+        if (lineState.activeLine().isPresent()) {
+            updatedComponent = clearActiveLineStep(component, allPools, player, entity, playerData, lineState.activeLine().get());
+        }
+
+        playerData.setLineSelection(entityUuid, lineState.withoutActiveLine().withoutAcceptedRoot(root.id()));
+        player.setData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT, playerData);
+
+
+        sendOpenQuestMenu(player, packet.entityId(), updatedComponent, getAvailableQuestsForPlayer(allPools, updatedComponent, player, entity));
+        QuestEntityAPINeoForge.forceResyncForNearbyPlayers(entity);
+
+        QuestEntityAPI.LOGGER.info("Player {} dismissed quest_line_choice root {}",
+                player.getName().getString(), packet.rootQuestId());
+    }
+
+    // Clears the giver's active quest + entityProgress if the player's current in-progress step
+    // belongs to lineId - shared by handleCancelQuestLine (lineId is the line being explicitly
+    // canceled) and handleDismissQuestLineRoot (lineId is whatever line was active on the root
+    // being dismissed). Only touches entityProgress/the active-quest pointer, never
+    // completedQuests, so already-claimed steps stay claimed.
+    private static EntityQuestComponent clearActiveLineStep(EntityQuestComponent component, List<QuestPool> allPools,
+                                                              ServerPlayer player, Entity entity,
+                                                              PlayerQuestData playerData, String lineId) {
+        UUID playerId = player.getUUID();
+        if (!component.hasActiveQuest(playerId)) return component;
+
+        Optional<ResourceLocation> activeQuestId = component.getActiveQuest(playerId)
+                .map(EntityQuestComponent.ActiveQuestData::questId);
+        Quest activeStepQuest = null;
+        for (QuestPool pool : allPools) {
+            activeStepQuest = findQuestInPool(pool, activeQuestId.orElse(null));
+            if (activeStepQuest != null) break;
+        }
+        if (activeStepQuest == null || activeStepQuest.questLine().isEmpty()
+                || !activeStepQuest.questLine().get().equals(lineId)) {
+            return component;
+        }
+
+        EntityQuestComponent updatedComponent = component.withoutActiveQuest(playerId);
+        entity.setData(QuestEntityAPINeoForge.ENTITY_QUEST_ATTACHMENT, updatedComponent);
+        playerData.clearEntityProgress(entity.getUUID());
+        return updatedComponent;
     }
 
     private static void handleRequestQuestMenu(ServerPlayer player, RequestQuestMenuPacket packet) {
@@ -360,7 +629,7 @@ public final class NeoForgeNetworking {
             return;
         }
 
-        List<Quest> availableQuests = getAvailableQuestsForPlayer(allPools, component, player.getUUID(), entity.getUUID());
+        List<Quest> availableQuests = getAvailableQuestsForPlayer(allPools, component, player, entity);
 
         sendOpenQuestMenu(player, packet.entityId(), component, availableQuests);
 
@@ -418,6 +687,35 @@ public final class NeoForgeNetworking {
                 player.getName().getString(), packet.entityId());
     }
 
+    // Gathers every quest the player currently has active, across every quest-giver, using only
+    // PlayerQuestData (no world/entity scan - see PlayerQuestData.QuestGiverLocation for how giver
+    // positions are kept fresh without one).
+    private static void handleRequestActiveQuests(ServerPlayer player) {
+        PlayerQuestData playerData = player.getData(QuestEntityAPINeoForge.PLAYER_QUEST_ATTACHMENT);
+        List<ActiveQuestEntry> entries = new java.util.ArrayList<>();
+
+        boolean showCoords = com.qeapi.config.QuestEntityAPIConfig.get().show_quest_coordinates || player.isCreative();
+
+        for (Map.Entry<UUID, QuestProgress> e : playerData.getAllProgress().entrySet()) {
+            UUID entityUuid = e.getKey();
+            QuestProgress progress = e.getValue();
+
+            Optional<Quest> questOpt = com.qeapi.data.QuestManager.getQuest(progress.getQuestId());
+            if (questOpt.isEmpty()) continue;
+
+            Optional<PlayerQuestData.QuestGiverLocation> locOpt = playerData.getEntityLocation(entityUuid);
+            ActiveQuestEntry.GiverLocation location = locOpt
+                    .map(loc -> new ActiveQuestEntry.GiverLocation(loc.entityType(), loc.dimension(), loc.pos(), showCoords, loc.displayName()))
+                    .orElseGet(() -> new ActiveQuestEntry.GiverLocation(
+                            ResourceLocation.withDefaultNamespace("villager"),
+                            player.level().dimension().location(), player.blockPosition(), false, ""));
+
+            entries.add(new ActiveQuestEntry(entityUuid, location, questOpt.get(), progress));
+        }
+
+        PacketDistributor.sendToPlayer(player, new ActiveQuestsPacket(entries));
+    }
+
     // ==================== Send Helpers ====================
 
     // Syncs progress from player data and updates BringItemTask progress before sending the menu.
@@ -458,7 +756,14 @@ public final class NeoForgeNetworking {
             }
         }
 
-        OpenQuestMenuPacket packet = new OpenQuestMenuPacket(entityId, component, quests);
+        PlayerQuestData.LineSelectionState lineState = entity != null
+                ? com.qeapi.api.QuestEntityAccess.getPlayerData(player).getLineSelection(entity.getUUID())
+                : PlayerQuestData.LineSelectionState.empty();
+
+        OpenQuestMenuPacket packet = new OpenQuestMenuPacket(entityId, component, quests,
+                lineState.activeLine().map(List::of).orElse(List.of()),
+                List.copyOf(lineState.resolvedLines()), List.copyOf(lineState.claimedRoots()),
+                List.copyOf(lineState.acceptedRoots()));
         PacketDistributor.sendToPlayer(player, packet);
     }
 
@@ -471,9 +776,14 @@ public final class NeoForgeNetworking {
 
     public static void sendSyncEntityQuests(ServerPlayer player, int entityId, UUID entityUuid,
                                              ResourceLocation questPoolId, boolean hasActiveQuest, boolean isQuestComplete,
-                                             boolean allQuestsCompleted) {
-        SyncEntityQuestsPacket packet = new SyncEntityQuestsPacket(entityId, entityUuid, questPoolId, hasActiveQuest, isQuestComplete, allQuestsCompleted);
+                                             boolean allQuestsCompleted, boolean enraged) {
+        SyncEntityQuestsPacket packet = new SyncEntityQuestsPacket(entityId, entityUuid, questPoolId, hasActiveQuest, isQuestComplete, allQuestsCompleted, enraged);
         PacketDistributor.sendToPlayer(player, packet);
+    }
+
+    public static void sendSyncDeliveryTarget(ServerPlayer player, int entityId, UUID entityUuid, boolean active,
+                                                Optional<ResourceLocation> itemId, Optional<com.qeapi.item.QuestItemDefinition> questItem) {
+        PacketDistributor.sendToPlayer(player, new com.qeapi.network.packet.SyncDeliveryTargetPacket(entityId, entityUuid, active, itemId, questItem));
     }
 
     // ==================== Helper Methods ====================
@@ -493,9 +803,15 @@ public final class NeoForgeNetworking {
     // selection is stable. Respects followQuestOrder: a quest is locked until at least one
     // quest from every lower tier has been completed. Also respects questGroup: a quest with one
     // set is only a candidate for a player who's chosen that exact group for this pool (see
-    // SetQuestGroupReward) - a quest with none is a candidate regardless.
-    public static List<Quest> getAvailableQuestsForPlayer(List<QuestPool> pools, EntityQuestComponent component, UUID playerId, UUID entityUuid) {
+    // SetQuestGroupReward) - a quest with none is a candidate regardless. Also respects questLine:
+    // a quest with one set is only a candidate while that line is the player's active line for this
+    // giver (see PlayerQuestData.LineSelectionState) - a quest with none is a candidate regardless.
+    public static List<Quest> getAvailableQuestsForPlayer(List<QuestPool> pools, EntityQuestComponent component, ServerPlayer player, Entity entity) {
+        UUID playerId = player.getUUID();
+        UUID entityUuid = entity.getUUID();
         java.util.Set<ResourceLocation> completedQuests = component.getCompletedQuests(playerId);
+        Optional<String> activeLine = com.qeapi.api.QuestEntityAccess.getPlayerData(player)
+                .getLineSelection(entityUuid).activeLine();
 
         java.util.Map<Integer, java.util.List<Quest>> questsByTier = new java.util.HashMap<>();
 
@@ -517,7 +833,7 @@ public final class NeoForgeNetworking {
                                 }
                             }
                         }
-                        if (!canAccept) {
+                        if (!canAccept && !com.qeapi.config.QuestEntityAPIConfig.get().show_all_quests) {
                             continue;
                         }
                     }
@@ -525,6 +841,23 @@ public final class NeoForgeNetworking {
                     if (quest.questGroup().isPresent()) {
                         Optional<String> chosenGroup = component.getChosenQuestGroup(playerId);
                         if (chosenGroup.isEmpty() || !chosenGroup.get().equals(quest.questGroup().get())) {
+                            continue;
+                        }
+                    }
+
+                    if (quest.questLine().isPresent()) {
+                        if (activeLine.isEmpty() || !activeLine.get().equals(quest.questLine().get())) {
+                            continue;
+                        }
+                        boolean priorStepsComplete = true;
+                        for (Quest sibling : pool.getAllQuests()) {
+                            if (sibling.questLine().isPresent() && sibling.questLine().get().equals(quest.questLine().get())
+                                    && sibling.tier() < quest.tier() && !completedQuests.contains(sibling.id())) {
+                                priorStepsComplete = false;
+                                break;
+                            }
+                        }
+                        if (!priorStepsComplete) {
                             continue;
                         }
                     }
@@ -572,17 +905,27 @@ public final class NeoForgeNetworking {
                 continue;
             }
 
-            int totalWeight = tierQuests.stream().mapToInt(Quest::weight).sum();
+            // Skip any quest whose find_structure task has no matching structure within range of
+            // this entity (see isQuestGeographicallyEligible) - a quest already accepted/completed
+            // above is never re-filtered this way, only a fresh pick
+            List<Quest> eligibleQuests = tierQuests.stream()
+                    .filter(q -> isQuestGeographicallyEligible(q, entity))
+                    .toList();
+            if (eligibleQuests.isEmpty()) {
+                continue;
+            }
+
+            int totalWeight = eligibleQuests.stream().mapToInt(Quest::weight).sum();
             if (totalWeight <= 0) {
-                available.add(tierQuests.get(random.nextInt(tierQuests.size())));
+                available.add(eligibleQuests.get(random.nextInt(eligibleQuests.size())));
                 continue;
             }
 
             int roll = random.nextInt(totalWeight);
             int cumulative = 0;
-            Quest selectedQuest = tierQuests.get(0);
+            Quest selectedQuest = eligibleQuests.get(0);
 
-            for (Quest quest : tierQuests) {
+            for (Quest quest : eligibleQuests) {
                 cumulative += quest.weight();
                 if (roll < cumulative) {
                     selectedQuest = quest;
@@ -594,6 +937,26 @@ public final class NeoForgeNetworking {
         }
 
         return available;
+    }
+
+    // A quest with a find_structure task is only offerable if the nearest matching structure is
+    // within that task's max_distance of the quest-giving entity - see FindStructureTask.maxDistance.
+    // Structure lookups are cached (see StructureDistanceUtil), so this is cheap after the first check.
+    private static boolean isQuestGeographicallyEligible(Quest quest, Entity entity) {
+        if (!(entity.level() instanceof net.minecraft.server.level.ServerLevel serverLevel)) {
+            return true;
+        }
+        for (QuestTask task : quest.tasks()) {
+            if (task instanceof FindStructureTask findTask
+                    && findTask.resolveNearestStructure(serverLevel, entity.blockPosition()).isEmpty()) {
+                return false;
+            }
+            if (task instanceof com.qeapi.quest.task.DeliverItemTask deliverTask
+                    && !com.qeapi.event.QuestEventHandler.hasDeliveryTargetNearby(entity, deliverTask)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // Diffs the player's inventory against originalProgress and returns an updated

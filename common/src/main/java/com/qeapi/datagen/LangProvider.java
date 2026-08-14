@@ -19,17 +19,27 @@ public class LangProvider implements DataProvider {
     private final PackOutput output;
     private final String modId;
     private final List<QuestProvider> questProviders;
+    private final boolean includeBaseTranslations;
 
     public LangProvider(PackOutput output, String modId, QuestProvider... questProviders) {
+        this(output, modId, true, questProviders);
+    }
+
+    // includeBaseTranslations=false for content packs: write only this pack's own quest keys, not a
+    // duplicate of qe_api's GUI/task/reward strings (those ship in the installed mod's own lang file)
+    public LangProvider(PackOutput output, String modId, boolean includeBaseTranslations, QuestProvider... questProviders) {
         this.output = output;
         this.modId = modId;
+        this.includeBaseTranslations = includeBaseTranslations;
         this.questProviders = List.of(questProviders);
     }
 
     @Override
     public CompletableFuture<?> run(CachedOutput cache) {
         LangEntries.clear();
-        addStaticTranslations();
+        if (includeBaseTranslations) {
+            addStaticTranslations();
+        }
 
         // Re-run quest collection here (rather than relying on ExampleQuestProvider's own run()
         // having already executed) so this doesn't depend on unspecified ordering between
@@ -75,6 +85,21 @@ public class LangProvider implements DataProvider {
         LangEntries.add("gui.qe_api.pick_item", "Pick an item:");
         LangEntries.add("gui.qe_api.back", "Back");
         LangEntries.add("gui.qe_api.no_valid_items", "You don't have any valid item for this.");
+        LangEntries.add("gui.qe_api.active_quests_screen.title", "Active Quests");
+        LangEntries.add("gui.qe_api.no_active_quests", "You have no active quests.");
+        LangEntries.add("gui.qe_api.filter_all_tiers", "All Tiers");
+        LangEntries.add("gui.qe_api.giver_coordinates", "%d, %d, %d (%s)");
+        LangEntries.add("gui.qe_api.giver_coordinates_unknown", "Location unknown");
+        LangEntries.add("gui.qe_api.quest_line_finished", "Finished all Tasks!");
+        LangEntries.add("gui.qe_api.quest_line_not_accepted", "Accept this quest to choose a line.");
+        LangEntries.add("gui.qe_api.quest_locked", "Unlock previous quests to unlock this quest.");
+        LangEntries.add("gui.qe_api.confirm_dismiss_message", "Confirm to dismiss Quest, all progress will be lost");
+        LangEntries.add("gui.qe_api.confirm_dismiss", "Yes");
+        LangEntries.add("gui.qe_api.cancel_dismiss", "No");
+
+        // Keybinds
+        LangEntries.add("key.categories.qe_api", "Quest Entity API");
+        LangEntries.add("key.qe_api.open_active_quests", "Open Active Quests");
 
         // Tasks
         LangEntries.add("task.qe_api.entity_kill", "Defeat {kill_amount} {entity_name} ({current_kills}/{kill_amount})");
@@ -103,6 +128,47 @@ public class LangProvider implements DataProvider {
         LangEntries.add("task.qe_api.entity_kill.in_spell_pool", "Must be killed with a spell from: %s");
         LangEntries.add("task.qe_api.entity_kill.in_spell_school", "Must be killed with a spell of school: %s");
         LangEntries.add("task.qe_api.entity_kill.min_power_level", "Must be power level %d or higher");
+        LangEntries.add("task.qe_api.entity_kill.min_range", "Must be at least %s blocks away");
+        LangEntries.add("task.qe_api.entity_kill.max_range", "Must be within %s blocks");
+        LangEntries.add("task.qe_api.entity_kill.required_item", "Must be killed while holding: %s");
+        LangEntries.add("task.qe_api.entity_kill.required_effect_on_killed", "Target must have effect: %s");
+        LangEntries.add("task.qe_api.entity_kill.required_effect_on_killer", "You must have effect: %s");
+        LangEntries.add("task.qe_api.entity_kill.min_attribute_value", "Target's %s must be at least %s");
+        LangEntries.add("task.qe_api.entity_kill.max_attribute_value", "Target's %s must be at most %s");
+        LangEntries.add("task.qe_api.fishing", "Catch {fish_amount}x {fish_name} ({current_fish}/{fish_amount})");
+        LangEntries.add("task.qe_api.fishing.default", "Catch some fish");
+        LangEntries.add("task.qe_api.harvest_crops", "Harvest {harvest_amount}x {crop_name} ({current_harvested}/{harvest_amount})");
+        LangEntries.add("task.qe_api.harvest_crops.default", "Harvest crops");
+        LangEntries.add("task.qe_api.anvil_repair", "Repair {item_name} {repair_amount} time(s) at an anvil ({current_repairs}/{repair_amount})");
+        LangEntries.add("task.qe_api.anvil_repair.default", "Repair an item at an anvil");
+        LangEntries.add("task.qe_api.smithing", "Smith {smith_amount}x {item_name} ({current_smithed}/{smith_amount})");
+        LangEntries.add("task.qe_api.smithing.default", "Smith an item");
+        LangEntries.add("task.qe_api.crafting", "Craft {craft_amount}x {item_name} ({current_crafted}/{craft_amount})");
+        LangEntries.add("task.qe_api.crafting.default", "Craft an item");
+        LangEntries.add("task.qe_api.enchanting", "Enchant {enchant_amount} item(s) with {enchantment_name} ({current_enchants}/{enchant_amount})");
+        LangEntries.add("task.qe_api.enchanting.default", "Enchant an item");
+        LangEntries.add("task.qe_api.spell_bind", "Bind {bind_amount}x {spell_pool_name} ({current_binds}/{bind_amount})");
+        LangEntries.add("task.qe_api.spell_bind.default", "Bind a spell");
+        LangEntries.add("task.qe_api.spell_pool_complete", "Finish binding {spell_pool_name} ({current_completions}/{complete_amount})");
+        LangEntries.add("task.qe_api.spell_pool_complete.default", "Finish binding a spell pool");
+        LangEntries.add("task.qe_api.conditional_drop", "Find {item_amount}x {item_name} ({current_found}/{item_amount})");
+        LangEntries.add("task.qe_api.conditional_drop.default", "Find a rare drop");
+        LangEntries.add("task.qe_api.raid_complete", "Win {raid_amount} raid(s) ({current_raids}/{raid_amount})");
+        LangEntries.add("task.qe_api.raid_complete.default", "Win a raid");
+        LangEntries.add("task.qe_api.trial_spawner_complete", "Clear {spawner_amount} trial spawner(s) ({current_spawners}/{spawner_amount})");
+        LangEntries.add("task.qe_api.trial_spawner_complete.default", "Clear a trial spawner");
+        LangEntries.add("task.qe_api.deliver_item", "Bring {item_amount}x {item_name} to the marked NPC");
+        LangEntries.add("task.qe_api.deliver_item.default", "Deliver items to an NPC");
+        LangEntries.add("task.qe_api.apply_status_effect", "Apply {effect_name} {effect_amount} time(s) ({current_effects}/{effect_amount})");
+        LangEntries.add("task.qe_api.apply_status_effect.default", "Apply a status effect");
+        LangEntries.add("task.qe_api.deal_damage_amount", "Deal {damage_amount} damage to {entity_name} ({current_damage}/{damage_amount})");
+        LangEntries.add("task.qe_api.deal_damage_amount.default", "Deal damage");
+        LangEntries.add("task.qe_api.do_healing_amount", "Heal {heal_amount} health ({current_healing}/{heal_amount})");
+        LangEntries.add("task.qe_api.do_healing_amount.default", "Heal");
+        LangEntries.add("task.qe_api.visit_biome", "Visit {biome_amount}x {biome_name} ({current_biomes}/{biome_amount})");
+        LangEntries.add("task.qe_api.visit_biome.default", "Visit a biome");
+        LangEntries.add("task.qe_api.quest_line_choice", "Choose a Quest Line");
+        LangEntries.add("task.qe_api.quest_line_choice.default", "Choose a Quest Line");
 
         // Requirements
         LangEntries.add("requirement.qe_api.has_advancement", "Requires advancement: %s");
@@ -133,6 +199,10 @@ public class LangProvider implements DataProvider {
         LangEntries.add("reward.qe_api.increase_power_level", "Increase an item's power level by %d");
         LangEntries.add("reward.qe_api.increase_enchant_slots", "Grant an item %d extra enchantment slot(s)");
         LangEntries.add("reward.qe_api.set_quest_group", "Choose the %s path");
+        LangEntries.add("reward.qe_api.teleport_to_structure", "Teleport to %s");
+        LangEntries.add("reward.qe_api.teleport_to_coordinates", "Teleport to %d, %d, %d");
+        LangEntries.add("reward.qe_api.teleport_to_biome", "Teleport to the nearest %s");
+        LangEntries.add("reward.qe_api.map_to_structure", "Map to %s");
 
         // Config screen
         LangEntries.add("text.autoconfig.qe_api.title", "Quest Entity API");
@@ -148,6 +218,21 @@ public class LangProvider implements DataProvider {
         LangEntries.add("text.autoconfig.qe_api.option.hit_cooldown_minutes", "Hit cooldown (minutes)");
         LangEntries.add("text.autoconfig.qe_api.option.hit_cooldown_minutes.@Tooltip",
                 "How many minutes a quest giver refuses interaction after being hit.");
+        LangEntries.add("text.autoconfig.qe_api.option.show_quest_coordinates", "Show quest giver coordinates");
+        LangEntries.add("text.autoconfig.qe_api.option.show_quest_coordinates.@Tooltip",
+                "Show the quest giver's coordinates in the Active Quests screen. Always shown in creative mode regardless of this setting.");
+        LangEntries.add("text.autoconfig.qe_api.option.finish_quest_fireworks_enabled", "Fireworks on quest claim");
+        LangEntries.add("text.autoconfig.qe_api.option.finish_quest_fireworks_enabled.@Tooltip",
+                "Spawn a colorful firework burst on the player when they claim quest rewards.");
+        LangEntries.add("text.autoconfig.qe_api.option.quest_description_typewriter_enabled", "Typewriter quest descriptions");
+        LangEntries.add("text.autoconfig.qe_api.option.quest_description_typewriter_enabled.@Tooltip",
+                "Reveal a quest's description one character at a time the first time its detail pane is opened in a client session.");
+        LangEntries.add("text.autoconfig.qe_api.option.quest_description_typewriter_speed_ms", "Typewriter speed (ms/character)");
+        LangEntries.add("text.autoconfig.qe_api.option.quest_description_typewriter_speed_ms.@Tooltip",
+                "Milliseconds per revealed character for the quest description typewriter effect.");
+        LangEntries.add("text.autoconfig.qe_api.option.show_all_quests", "Show all quest tiers");
+        LangEntries.add("text.autoconfig.qe_api.option.show_all_quests.@Tooltip",
+                "Show all quest tiers in the list at once, with locked ones marked. Off = reveal each tier as you complete the previous one.");
 
         // Messages
         LangEntries.add("message.qe_api.quest_accepted", "Quest accepted!");
@@ -164,6 +249,7 @@ public class LangProvider implements DataProvider {
         LangEntries.add("message.qe_api.quest_not_complete", "You haven't completed all the tasks yet.");
         LangEntries.add("message.qe_api.no_quests_available", "This entity has no quests available.");
         LangEntries.add("message.qe_api.cooldown_active", "This quest giver is on cooldown for %d more minute(s).");
+        LangEntries.add("message.qe_api.item_delivered", "Delivered %s!");
     }
 
     @Override

@@ -1,0 +1,23 @@
+{
+  "follow_quest_order": false,
+  "id": "qe_api:epic_monster_story/wither_trial_2",
+  "quest_line": "wither_story",
+  "rewards": [
+    {
+      "item_id": "minecraft:nether_star",
+      "reward": "qe_api:item"
+    },
+    {
+      "amount": 300,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 1,
+      "entity_id": "minecraft:wither",
+      "task": "qe_api:entity_kill"
+    }
+  ],
+  "tier": 4
+}

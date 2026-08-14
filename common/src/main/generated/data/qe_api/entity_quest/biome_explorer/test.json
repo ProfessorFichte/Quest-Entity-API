@@ -1,0 +1,20 @@
+{
+  "id": "qe_api:biome_explorer/test",
+  "rewards": [
+    {
+      "amount": 150,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 2,
+      "biome_ids": [
+        "minecraft:desert",
+        "minecraft:jungle"
+      ],
+      "task": "qe_api:visit_biome"
+    }
+  ],
+  "tier": 1
+}

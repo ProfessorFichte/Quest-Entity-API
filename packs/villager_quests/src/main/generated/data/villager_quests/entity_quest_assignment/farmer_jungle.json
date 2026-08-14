@@ -1,0 +1,8 @@
+{
+  "entity_id": "minecraft:villager",
+  "quest_pool": "villager_quests:farmer_jungle",
+  "villager_data": {
+    "biome_type": "jungle",
+    "profession": "farmer"
+  }
+}

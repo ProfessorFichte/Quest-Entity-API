@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "villager_quests:farmer_swamp/sugar_cane",
+    "villager_quests:farmer_swamp/mushroom_forage",
+    "villager_quests:farmer_swamp/clay_dig",
+    "#villager_quests:farmer"
+  ]
+}

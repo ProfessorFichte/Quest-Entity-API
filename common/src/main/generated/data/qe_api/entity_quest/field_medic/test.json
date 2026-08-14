@@ -1,0 +1,16 @@
+{
+  "id": "qe_api:field_medic/test",
+  "rewards": [
+    {
+      "amount": 150,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 50.0,
+      "task": "qe_api:do_healing_amount"
+    }
+  ],
+  "tier": 1
+}

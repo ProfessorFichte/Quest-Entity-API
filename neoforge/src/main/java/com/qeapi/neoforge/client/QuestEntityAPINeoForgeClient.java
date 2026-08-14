@@ -2,15 +2,23 @@ package com.qeapi.neoforge.client;
 
 import com.qeapi.QuestEntityAPI;
 import com.qeapi.client.ClientQuestCache;
+import com.qeapi.client.QuestKeybinds;
 import com.qeapi.network.ClientPacketSender;
 import com.qeapi.network.packet.AcceptQuestPacket;
+import com.qeapi.network.packet.ActiveQuestsPacket;
+import com.qeapi.network.packet.CancelQuestLinePacket;
+import com.qeapi.network.packet.ChooseQuestLinePacket;
+import com.qeapi.network.packet.ClaimQuestLineRootPacket;
 import com.qeapi.network.packet.ClaimRewardsPacket;
+import com.qeapi.network.packet.DismissQuestLineRootPacket;
 import com.qeapi.network.packet.DismissQuestPacket;
 import com.qeapi.network.packet.OpenQuestMenuPacket;
 import com.qeapi.network.packet.QuestProgressPacket;
+import com.qeapi.network.packet.RequestActiveQuestsPacket;
 import com.qeapi.network.packet.RequestMerchantMenuPacket;
 import com.qeapi.network.packet.RequestQuestMenuPacket;
 import com.qeapi.network.packet.SyncEntityQuestsPacket;
+import com.qeapi.network.packet.SyncDeliveryTargetPacket;
 import com.qeapi.config.QuestEntityAPIConfig;
 import me.shedaniel.autoconfig.AutoConfig;
 import net.minecraft.client.Minecraft;
@@ -19,6 +27,8 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModLoadingContext;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -59,9 +69,35 @@ public final class QuestEntityAPINeoForgeClient {
             public void sendRequestMerchantMenu(int entityId) {
                 PacketDistributor.sendToServer(new RequestMerchantMenuPacket(entityId));
             }
+
+            @Override
+            public void sendRequestActiveQuests() {
+                PacketDistributor.sendToServer(new RequestActiveQuestsPacket());
+            }
+
+            @Override
+            public void sendChooseQuestLine(int entityId, net.minecraft.resources.ResourceLocation rootQuestId, String lineId) {
+                PacketDistributor.sendToServer(new ChooseQuestLinePacket(entityId, rootQuestId, lineId));
+            }
+
+            @Override
+            public void sendClaimQuestLineRoot(int entityId, net.minecraft.resources.ResourceLocation rootQuestId) {
+                PacketDistributor.sendToServer(new ClaimQuestLineRootPacket(entityId, rootQuestId));
+            }
+
+            @Override
+            public void sendCancelQuestLine(int entityId, net.minecraft.resources.ResourceLocation rootQuestId, String lineId) {
+                PacketDistributor.sendToServer(new CancelQuestLinePacket(entityId, rootQuestId, lineId));
+            }
+
+            @Override
+            public void sendDismissQuestLineRoot(int entityId, net.minecraft.resources.ResourceLocation rootQuestId) {
+                PacketDistributor.sendToServer(new DismissQuestLineRootPacket(entityId, rootQuestId));
+            }
         });
 
         modEventBus.addListener(this::registerPayloadHandlers);
+        modEventBus.addListener(this::registerKeyMappings);
 
         ModLoadingContext.get().registerExtensionPoint(IConfigScreenFactory.class,
                 () -> (modContainer, parent) -> AutoConfig.getConfigScreen(QuestEntityAPIConfig.class, parent).get());
@@ -70,6 +106,12 @@ public final class QuestEntityAPINeoForgeClient {
             QuestEntityAPI.LOGGER.debug("Clearing client quest cache on disconnect");
             ClientQuestCache.clear();
         });
+
+        NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> QuestKeybinds.tick());
+    }
+
+    private void registerKeyMappings(RegisterKeyMappingsEvent event) {
+        event.register(QuestKeybinds.OPEN_ACTIVE_QUESTS);
     }
 
     private void registerPayloadHandlers(RegisterPayloadHandlersEvent event) {
@@ -85,6 +127,12 @@ public final class QuestEntityAPINeoForgeClient {
 
         registrar.playToClient(SyncEntityQuestsPacket.TYPE, SyncEntityQuestsPacket.STREAM_CODEC,
                 (packet, context) -> context.enqueueWork(() -> handleSyncEntityQuests(packet)));
+
+        registrar.playToClient(SyncDeliveryTargetPacket.TYPE, SyncDeliveryTargetPacket.STREAM_CODEC,
+                (packet, context) -> context.enqueueWork(() -> handleSyncDeliveryTarget(packet)));
+
+        registrar.playToClient(ActiveQuestsPacket.TYPE, ActiveQuestsPacket.STREAM_CODEC,
+                (packet, context) -> context.enqueueWork(() -> handleActiveQuests(packet)));
     }
 
     // ==================== Client Handlers ====================
@@ -108,7 +156,11 @@ public final class QuestEntityAPINeoForgeClient {
                 packet.entityId(),
                 packet.availableQuests(),
                 packet.questComponent(),
-                minecraft.player.getUUID()
+                minecraft.player.getUUID(),
+                packet.activeLine(),
+                packet.resolvedLines(),
+                packet.claimedRoots(),
+                packet.acceptedRoots()
         ));
     }
 
@@ -126,7 +178,31 @@ public final class QuestEntityAPINeoForgeClient {
                 packet.entityId(),
                 packet.hasActiveQuest(),
                 packet.isQuestComplete(),
-                packet.allQuestsCompleted()
+                packet.allQuestsCompleted(),
+                packet.enraged()
         );
+    }
+
+    private static void handleActiveQuests(ActiveQuestsPacket packet) {
+        Minecraft.getInstance().setScreen(new com.qeapi.client.gui.ActiveQuestScreen(packet.entries()));
+    }
+
+    private static void handleSyncDeliveryTarget(SyncDeliveryTargetPacket packet) {
+        if (!packet.active()) {
+            ClientQuestCache.clearDeliveryTarget(packet.entityUuid());
+            return;
+        }
+
+        net.minecraft.world.item.ItemStack stack;
+        if (packet.questItem().isPresent()) {
+            stack = packet.questItem().get().createStack(1);
+        } else if (packet.itemId().isPresent()) {
+            stack = new net.minecraft.world.item.ItemStack(
+                    net.minecraft.core.registries.BuiltInRegistries.ITEM.get(packet.itemId().get()));
+        } else {
+            stack = net.minecraft.world.item.ItemStack.EMPTY;
+        }
+
+        ClientQuestCache.setDeliveryTarget(packet.entityUuid(), stack);
     }
 }

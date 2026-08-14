@@ -4,14 +4,18 @@
     {
       "options": [
         {
-          "group": "fire",
-          "icon": "qe_api:textures/gui/quest_paths/fire.png",
-          "reward": "qe_api:set_quest_group"
+          "reward": {
+            "group": "fire",
+            "reward": "qe_api:set_quest_group",
+            "texture_override_id": "qe_api:textures/gui/quest_paths/fire.png"
+          }
         },
         {
-          "group": "frost",
-          "icon": "qe_api:textures/gui/quest_paths/frost.png",
-          "reward": "qe_api:set_quest_group"
+          "reward": {
+            "group": "frost",
+            "reward": "qe_api:set_quest_group",
+            "texture_override_id": "qe_api:textures/gui/quest_paths/frost.png"
+          }
         }
       ]
     }

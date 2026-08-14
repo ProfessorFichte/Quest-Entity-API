@@ -12,11 +12,19 @@ import net.minecraft.world.level.Level;
 
 import java.util.Optional;
 
-// Fully repairs a player-chosen item's durability. Only offers items that actually have
-// durability and are currently damaged.
-public record RepairItemReward() implements QuestReward, TargetItemReward, EnhanceOperation {
+public record RepairItemReward(Optional<ResourceLocation> textureOverrideId) implements QuestReward, TargetItemReward, EnhanceOperation {
 
-    public static final MapCodec<RepairItemReward> CODEC = MapCodec.unit(RepairItemReward::new);
+    public static final ResourceLocation DEFAULT_TEXTURE = QuestEntityAPI.id("textures/gui/quest_rewards/repair_item_default.png");
+
+    public RepairItemReward() {
+        this(Optional.empty());
+    }
+
+    public static final MapCodec<RepairItemReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
+            instance.group(
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(RepairItemReward::textureOverrideId)
+            ).apply(instance, RepairItemReward::new)
+    );
 
     @Override
     public ResourceLocation getTypeId() {

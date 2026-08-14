@@ -17,14 +17,16 @@ import java.util.Optional;
 public record StatusEffectReward(
         ResourceLocation effectId,
         int duration,  // seconds
-        int amplifier  // 0 = level 1, 1 = level 2, etc.
+        int amplifier,  // 0 = level 1, 1 = level 2, etc.
+        Optional<ResourceLocation> textureOverrideId
 ) implements QuestReward {
 
     public static final MapCodec<StatusEffectReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.fieldOf("effect_id").forGetter(StatusEffectReward::effectId),
                     Codec.INT.fieldOf("duration").forGetter(StatusEffectReward::duration),
-                    Codec.INT.optionalFieldOf("amplifier", 0).forGetter(StatusEffectReward::amplifier)
+                    Codec.INT.optionalFieldOf("amplifier", 0).forGetter(StatusEffectReward::amplifier),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(StatusEffectReward::textureOverrideId)
             ).apply(instance, StatusEffectReward::new)
     );
 
@@ -103,22 +105,22 @@ public record StatusEffectReward(
         ResourceLocation effectId = effect.unwrapKey()
                 .map(net.minecraft.resources.ResourceKey::location)
                 .orElseGet(() -> BuiltInRegistries.MOB_EFFECT.getKey(effect.value()));
-        return new StatusEffectReward(effectId, durationTicks / 20, amplifier);
+        return new StatusEffectReward(effectId, durationTicks / 20, amplifier, Optional.empty());
     }
 
     public static StatusEffectReward of(String effectId, int durationTicks, int amplifier) {
-        return new StatusEffectReward(ResourceLocation.parse(effectId), durationTicks / 20, amplifier);
+        return new StatusEffectReward(ResourceLocation.parse(effectId), durationTicks / 20, amplifier, Optional.empty());
     }
 
-    // default duration (60s) and level 1
     public static StatusEffectReward of(String effectId) {
-        return new StatusEffectReward(ResourceLocation.parse(effectId), 60, 0);
+        return new StatusEffectReward(ResourceLocation.parse(effectId), 60, 0, Optional.empty());
     }
 
     public static class Builder {
         private ResourceLocation effectId;
         private int duration = 60;
         private int amplifier = 0;
+        private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder effectId(ResourceLocation id) {
             this.effectId = id;
@@ -143,11 +145,16 @@ public record StatusEffectReward(
             return this;
         }
 
+        public Builder textureOverrideId(ResourceLocation id) {
+            this.textureOverrideId = Optional.of(id);
+            return this;
+        }
+
         public StatusEffectReward build() {
             if (effectId == null) {
                 throw new IllegalStateException("StatusEffectReward requires effectId");
             }
-            return new StatusEffectReward(effectId, duration, amplifier);
+            return new StatusEffectReward(effectId, duration, amplifier, textureOverrideId);
         }
     }
 }

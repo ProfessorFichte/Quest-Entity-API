@@ -1,0 +1,25 @@
+{
+  "id": "qe_api:levelz_test/test",
+  "required_mod": "levelz",
+  "requirements": [
+    {
+      "level": 1,
+      "requirement": "qe_api:has_levelz_skill",
+      "skill_id": "mining"
+    }
+  ],
+  "rewards": [
+    {
+      "levels": 2,
+      "reward": "qe_api:levelz_skill_level",
+      "skill_id": "smithing"
+    }
+  ],
+  "tasks": [
+    {
+      "item_id": "minecraft:iron_pickaxe",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

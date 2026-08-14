@@ -1,0 +1,19 @@
+{
+  "id": "qe_api:spell_engine_school_kill/test",
+  "required_mod": "spell_engine",
+  "rewards": [
+    {
+      "amount": 150,
+      "reward": "qe_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 2,
+      "entity_id": "minecraft:zombie",
+      "in_spell_school": "spell_power:arcane",
+      "task": "qe_api:entity_kill"
+    }
+  ],
+  "tier": 1
+}

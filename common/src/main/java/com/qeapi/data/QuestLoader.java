@@ -6,6 +6,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.serialization.JsonOps;
 import com.qeapi.QuestEntityAPI;
+import com.qeapi.loot.ConditionalDropLootSupport;
 import com.qeapi.quest.Quest;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
@@ -31,6 +32,9 @@ public class QuestLoader extends SimpleJsonResourceReloadListener {
         QuestEntityAPI.LOGGER.info("Loading quest definitions...");
 
         QuestManager.clear();
+        // resolve() caches whether any loaded quest even uses chest-targeting conditional_drop -
+        // invalidate it here so it's rebuilt against the quests this reload is about to register
+        ConditionalDropLootSupport.invalidateCache();
 
         int successCount = 0;
         int failCount = 0;

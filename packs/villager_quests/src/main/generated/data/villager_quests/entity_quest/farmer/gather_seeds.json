@@ -1,0 +1,23 @@
+{
+  "id": "villager_quests:farmer/gather_seeds",
+  "repeat_after_days": 3,
+  "rewards": [
+    {
+      "amount": 20,
+      "reward": "qe_api:experience"
+    },
+    {
+      "amount": 5,
+      "item_id": "minecraft:emerald",
+      "reward": "qe_api:item"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 32,
+      "item_id": "minecraft:wheat_seeds",
+      "task": "qe_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

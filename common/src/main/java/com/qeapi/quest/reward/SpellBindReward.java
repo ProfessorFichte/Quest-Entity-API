@@ -13,20 +13,23 @@ import net.minecraft.world.level.Level;
 
 import java.util.Optional;
 
-// (Spell Engine compat) Binds a specific spell onto a player-chosen item, making it a spell
-// container if it isn't one yet. clearExisting drops any spells already bound first so only the
-// reward's spell remains; otherwise they're kept alongside it. No-op with a warning if Spell
-// Engine isn't loaded, same convention as SpellScrollReward.
-public record SpellBindReward(ResourceLocation spellId, boolean clearExisting) implements QuestReward, TargetItemReward, EnhanceOperation {
+// clearExisting drops any spells already bound to the item first so only this one remains;
+// otherwise it's added alongside whatever's already there.
+public record SpellBindReward(ResourceLocation spellId, boolean clearExisting, Optional<ResourceLocation> textureOverrideId) implements QuestReward, TargetItemReward, EnhanceOperation {
 
     public SpellBindReward(ResourceLocation spellId) {
-        this(spellId, false);
+        this(spellId, false, Optional.empty());
+    }
+
+    public SpellBindReward(ResourceLocation spellId, boolean clearExisting) {
+        this(spellId, clearExisting, Optional.empty());
     }
 
     public static final MapCodec<SpellBindReward> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.fieldOf("spell_id").forGetter(SpellBindReward::spellId),
-                    Codec.BOOL.optionalFieldOf("clear_existing", false).forGetter(SpellBindReward::clearExisting)
+                    Codec.BOOL.optionalFieldOf("clear_existing", false).forGetter(SpellBindReward::clearExisting),
+                    ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(SpellBindReward::textureOverrideId)
             ).apply(instance, SpellBindReward::new)
     );
 
