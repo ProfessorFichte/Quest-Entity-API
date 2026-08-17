@@ -5,9 +5,7 @@ import net.minecraft.util.RandomSource;
 
 import java.util.*;
 
-// A pool of quests for an entity type, grouped by tier with random selection within each tier.
-// Built at runtime from the quests a tag resolves to (see QuestManager.getQuestPoolFromTag) -
-// not loaded directly from JSON.
+// Built at runtime from the quests a tag resolves to (see QuestManager.getQuestPoolFromTag), not loaded directly from JSON.
 public class QuestPool {
     private final ResourceLocation id;
     private final boolean followQuestOrder;

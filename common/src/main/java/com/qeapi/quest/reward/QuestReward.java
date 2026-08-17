@@ -2,7 +2,7 @@ package com.qeapi.quest.reward;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -31,9 +31,7 @@ public sealed interface QuestReward permits
         IncreaseEnchantSlotsReward,
         EnhanceItemReward,
         SetQuestGroupReward,
-        TeleportToStructureReward,
-        TeleportToCoordinatesReward,
-        TeleportToBiomeReward,
+        TeleportReward,
         MapToStructureReward {
 
     Map<ResourceLocation, RewardType<?>> REWARD_TYPES = new HashMap<>();
@@ -68,28 +66,26 @@ public sealed interface QuestReward permits
     }
 
     static void registerBuiltInTypes() {
-        registerType(QuestEntityAPI.id("advancement"), AdvancementReward.CODEC); // grants an advancement
-        registerType(QuestEntityAPI.id("command"), CommandReward.CODEC); // runs a command, with {player}/{uuid}/{x}/{y}/{z} placeholders
-        registerType(QuestEntityAPI.id("experience"), ExperienceReward.CODEC); // grants XP points
-        registerType(QuestEntityAPI.id("item"), ItemReward.CODEC); // grants an item stack, optionally with components/functions applied
-        registerType(QuestEntityAPI.id("loot_table"), LootTableReward.CODEC); // rolls a loot table for random items
-        registerType(QuestEntityAPI.id("status_effect"), StatusEffectReward.CODEC); // applies a status effect
-        registerType(QuestEntityAPI.id("skill_experience"), SkillExperienceReward.CODEC); // grants XP in a Pufferfish's Skills tree
-        registerType(QuestEntityAPI.id("skill_level"), SkillLevelReward.CODEC); // grants whole levels in a Pufferfish's Skills tree
-        registerType(QuestEntityAPI.id("levelz_skill_level"), LevelZSkillLevelReward.CODEC); // grants whole levels in a LevelZ skill
-        registerType(QuestEntityAPI.id("spell_scroll"), SpellScrollReward.CODEC); // grants a Spell Engine spell scroll, random or specific
-        registerType(QuestEntityAPI.id("enchant_randomly"), EnchantRandomlyReward.CODEC); // enchants a player-picked item with a random valid enchantment
-        registerType(QuestEntityAPI.id("enchant_specific"), EnchantSpecificReward.CODEC); // enchants a player-picked item with one specific enchantment
-        registerType(QuestEntityAPI.id("repair_item"), RepairItemReward.CODEC); // fully repairs a player-picked item's durability
-        registerType(QuestEntityAPI.id("spell_bind"), SpellBindReward.CODEC); // binds a specific spell onto a player-picked item
-        registerType(QuestEntityAPI.id("increase_power_level"), IncreasePowerLevelReward.CODEC); // raises a player-picked item's Dungeon Difficulty power level
-        registerType(QuestEntityAPI.id("increase_enchant_slots"), IncreaseEnchantSlotsReward.CODEC); // raises a player-picked item's Enchant Limiter slot cap
-        registerType(QuestEntityAPI.id("enhance_item"), EnhanceItemReward.CODEC); // bundles several enhance operations onto one player-picked item
-        registerType(QuestEntityAPI.id("set_quest_group"), SetQuestGroupReward.CODEC); // records the player's chosen quest_group/path for this entity
-        registerType(QuestEntityAPI.id("teleport_to_structure"), TeleportToStructureReward.CODEC); // teleports the player near the nearest instance of a structure
-        registerType(QuestEntityAPI.id("teleport_to_coordinates"), TeleportToCoordinatesReward.CODEC); // teleports the player to fixed coordinates (optional dimension)
-        registerType(QuestEntityAPI.id("teleport_to_biome"), TeleportToBiomeReward.CODEC); // teleports the player to the nearest instance of a biome
-        registerType(QuestEntityAPI.id("map_to_structure"), MapToStructureReward.CODEC); // grants a filled map to the nearest instance of a structure
+        registerType(QuestAPI.id("advancement"), AdvancementReward.CODEC);
+        registerType(QuestAPI.id("command"), CommandReward.CODEC); // supports {player}/{uuid}/{x}/{y}/{z} placeholders
+        registerType(QuestAPI.id("experience"), ExperienceReward.CODEC);
+        registerType(QuestAPI.id("item"), ItemReward.CODEC);
+        registerType(QuestAPI.id("loot_table"), LootTableReward.CODEC);
+        registerType(QuestAPI.id("status_effect"), StatusEffectReward.CODEC);
+        registerType(ResourceLocation.fromNamespaceAndPath("puffish_skills", "skill_experience"), SkillExperienceReward.CODEC);
+        registerType(ResourceLocation.fromNamespaceAndPath("puffish_skills", "skill_level"), SkillLevelReward.CODEC);
+        registerType(ResourceLocation.fromNamespaceAndPath("levelz", "levelz_skill_level"), LevelZSkillLevelReward.CODEC);
+        registerType(ResourceLocation.fromNamespaceAndPath("spell_engine", "spell_scroll"), SpellScrollReward.CODEC);
+        registerType(QuestAPI.id("enchant_randomly"), EnchantRandomlyReward.CODEC);
+        registerType(QuestAPI.id("enchant_specific"), EnchantSpecificReward.CODEC);
+        registerType(QuestAPI.id("repair_item"), RepairItemReward.CODEC);
+        registerType(ResourceLocation.fromNamespaceAndPath("spell_engine", "spell_bind"), SpellBindReward.CODEC);
+        registerType(ResourceLocation.fromNamespaceAndPath("dungeon_difficulty", "increase_power_level"), IncreasePowerLevelReward.CODEC);
+        registerType(ResourceLocation.fromNamespaceAndPath("enchant_limiter", "increase_enchant_slots"), IncreaseEnchantSlotsReward.CODEC);
+        registerType(QuestAPI.id("enhance_item"), EnhanceItemReward.CODEC);
+        registerType(QuestAPI.id("set_quest_group"), SetQuestGroupReward.CODEC);
+        registerType(QuestAPI.id("teleport"), TeleportReward.CODEC);
+        registerType(QuestAPI.id("map_to_structure"), MapToStructureReward.CODEC);
     }
 
     record RewardType<T extends QuestReward>(ResourceLocation id, MapCodec<T> codec) {

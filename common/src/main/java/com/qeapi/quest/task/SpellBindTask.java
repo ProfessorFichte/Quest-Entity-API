@@ -3,7 +3,6 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.TextMutator;
 import net.minecraft.network.chat.Component;
@@ -12,11 +11,12 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.Map;
 import java.util.Optional;
 
-// optional/soft dependency on Spell Engine - see SpellBindingCriteriaMixin. Fires once per
-// individual spell bound at the Spell Binding Table; no spell_pool filter matches any bind.
+// soft dependency on Spell Engine (see SpellBindingCriteriaMixin); fires once per individual spell bound, no spell_pool filter matches any bind
 public record SpellBindTask(
         Optional<ResourceLocation> spellPool,
         int amount,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
@@ -24,13 +24,15 @@ public record SpellBindTask(
             instance.group(
                     ResourceLocation.CODEC.optionalFieldOf("spell_pool").forGetter(SpellBindTask::spellPool),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(SpellBindTask::amount),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(SpellBindTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(SpellBindTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(SpellBindTask::textureOverrideId)
             ).apply(instance, SpellBindTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("spell_bind");
+        return ResourceLocation.fromNamespaceAndPath("spell_engine", "spell_bind");
     }
 
     @Override
@@ -50,7 +52,7 @@ public record SpellBindTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.spell_bind";
+        return "task.quest_api.spell_bind";
     }
 
     @Override
@@ -70,6 +72,8 @@ public record SpellBindTask(
     public static class Builder {
         private Optional<ResourceLocation> spellPool = Optional.empty();
         private int amount = 1;
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder spellPool(ResourceLocation pool) {
@@ -86,13 +90,23 @@ public record SpellBindTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
         }
 
         public SpellBindTask build() {
-            return new SpellBindTask(spellPool, amount, textureOverrideId);
+            return new SpellBindTask(spellPool, amount, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

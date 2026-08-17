@@ -3,7 +3,7 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.TextMutator;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -22,30 +22,32 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 
-// no crop_id/crop_tag falls back to the vanilla #minecraft:crops tag. Only counts a break as a
-// harvest once the crop reached its final growth stage - a fully grown block breaks down via the
-// same destroyBlock hook mine_block uses, so this only needs the extra age check on top of that.
+// no crop_id/crop_tag falls back to the vanilla #minecraft:crops tag; only a fully-grown break counts, layered on the same destroyBlock hook mine_block uses
 public record HarvestCropsTask(
         Optional<ResourceLocation> cropId,
         Optional<TagKey<Block>> cropTag,
         int amount,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
-    public static final ResourceLocation DEFAULT_TEXTURE = QuestEntityAPI.id("textures/gui/quest_tasks/harvest_crops_default.png");
+    public static final ResourceLocation DEFAULT_TEXTURE = QuestAPI.id("textures/gui/quest_tasks/harvest_crops_default.png");
 
     public static final MapCodec<HarvestCropsTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.optionalFieldOf("crop_id").forGetter(HarvestCropsTask::cropId),
                     TagKey.codec(Registries.BLOCK).optionalFieldOf("crop_tag").forGetter(HarvestCropsTask::cropTag),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(HarvestCropsTask::amount),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(HarvestCropsTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(HarvestCropsTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(HarvestCropsTask::textureOverrideId)
             ).apply(instance, HarvestCropsTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("harvest_crops");
+        return QuestAPI.id("harvest_crops");
     }
 
     @Override
@@ -81,7 +83,7 @@ public record HarvestCropsTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.harvest_crops";
+        return "task.quest_api.harvest_crops";
     }
 
     @Override
@@ -103,10 +105,7 @@ public record HarvestCropsTask(
         return typeMatches && isFullyGrown(minedState);
     }
 
-    // CropBlock (wheat, carrots, potatoes, beetroot, ...) exposes isMaxAge() directly. Other
-    // age-based plants (nether wart, stems) still use a plain "age" IntegerProperty, so falling
-    // back to checking that property's own maximum covers those without hardcoding every block.
-    // Anything without an age concept at all is treated as always harvestable.
+    // non-CropBlock age plants (nether wart, stems) fall back to their raw "age" property max instead of hardcoding each block
     private static boolean isFullyGrown(BlockState state) {
         if (state.getBlock() instanceof CropBlock cropBlock) {
             return cropBlock.isMaxAge(state);
@@ -131,6 +130,8 @@ public record HarvestCropsTask(
         private Optional<ResourceLocation> cropId = Optional.empty();
         private Optional<TagKey<Block>> cropTag = Optional.empty();
         private int amount = 1;
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder cropId(ResourceLocation id) {
@@ -156,13 +157,23 @@ public record HarvestCropsTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
         }
 
         public HarvestCropsTask build() {
-            return new HarvestCropsTask(cropId, cropTag, amount, textureOverrideId);
+            return new HarvestCropsTask(cropId, cropTag, amount, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

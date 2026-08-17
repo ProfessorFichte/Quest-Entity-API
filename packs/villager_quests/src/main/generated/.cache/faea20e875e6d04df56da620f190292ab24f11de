@@ -1,6 +1,0 @@
-// 1.21.1	2026-08-14T13:38:59.7273388	Villager Quests (datagen only)/Quest Entity API Assignments: villager_quests
-c2a226b55d47342dc12f22bbb6728db5bac78ae2 data\villager_quests\entity_quest_assignment\farmer_swamp.json
-34c7198b67c15644b943409072b12dfa8e3c0252 data\villager_quests\entity_quest_assignment\farmer_jungle.json
-95787876850771c44ec181974fd44571d34f5262 data\villager_quests\entity_quest_assignment\farmer.json
-8456ac612764fd41bc345358126169750b9b35e7 data\villager_quests\entity_quest_assignment\farmer_snow.json
-739d3f8a43a1f07c7c3e4504cfe3163538f90421 data\villager_quests\entity_quest_assignment\farmer_desert.json

@@ -3,7 +3,6 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.TextMutator;
 import net.minecraft.network.chat.Component;
@@ -12,14 +11,12 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.Map;
 import java.util.Optional;
 
-// optional/soft dependency on Spell Engine - see SpellBindingCriteriaMixin and
-// SpellBookCreationCriteriaMixin. Fires when a player ends up with a fully bound spellbook for a
-// spell pool, either by binding the last spell that completes it or by directly creating a
-// pre-made book for it - Spell Engine fires a different trigger for each path, so this listens to
-// both.
+// a pool can be completed by binding its last spell or by creating a pre-made book - Spell Engine fires a different trigger for each, so this listens to both (SpellBindingCriteriaMixin, SpellBookCreationCriteriaMixin)
 public record SpellPoolCompleteTask(
         Optional<ResourceLocation> spellPool,
         int amount,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
@@ -27,13 +24,15 @@ public record SpellPoolCompleteTask(
             instance.group(
                     ResourceLocation.CODEC.optionalFieldOf("spell_pool").forGetter(SpellPoolCompleteTask::spellPool),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(SpellPoolCompleteTask::amount),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(SpellPoolCompleteTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(SpellPoolCompleteTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(SpellPoolCompleteTask::textureOverrideId)
             ).apply(instance, SpellPoolCompleteTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("spell_pool_complete");
+        return ResourceLocation.fromNamespaceAndPath("spell_engine", "spell_pool_complete");
     }
 
     @Override
@@ -53,7 +52,7 @@ public record SpellPoolCompleteTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.spell_pool_complete";
+        return "task.quest_api.spell_pool_complete";
     }
 
     @Override
@@ -73,6 +72,8 @@ public record SpellPoolCompleteTask(
     public static class Builder {
         private Optional<ResourceLocation> spellPool = Optional.empty();
         private int amount = 1;
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder spellPool(ResourceLocation pool) {
@@ -89,13 +90,23 @@ public record SpellPoolCompleteTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
         }
 
         public SpellPoolCompleteTask build() {
-            return new SpellPoolCompleteTask(spellPool, amount, textureOverrideId);
+            return new SpellPoolCompleteTask(spellPool, amount, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

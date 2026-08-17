@@ -5,7 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.serialization.JsonOps;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.loot.ConditionalDropLootSupport;
 import com.qeapi.quest.Quest;
 import net.minecraft.resources.ResourceLocation;
@@ -15,9 +15,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 
 import java.util.*;
 
-// Resource reload listener that loads quest definitions from data/[namespace]/entity_quest/[path].json.
-// Each file defines exactly one quest; to offer multiple quests from one entity, group them
-// under a tags/entity_quests/ tag instead.
+// each file defines exactly one quest; to offer multiple from one entity, group them under a tags/entity_quests/ tag instead
 public class QuestLoader extends SimpleJsonResourceReloadListener {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -29,11 +27,10 @@ public class QuestLoader extends SimpleJsonResourceReloadListener {
 
     @Override
     protected void apply(Map<ResourceLocation, JsonElement> jsons, ResourceManager resourceManager, ProfilerFiller profiler) {
-        QuestEntityAPI.LOGGER.info("Loading quest definitions...");
+        QuestAPI.LOGGER.info("Loading quest definitions...");
 
         QuestManager.clear();
-        // resolve() caches whether any loaded quest even uses chest-targeting conditional_drop -
-        // invalidate it here so it's rebuilt against the quests this reload is about to register
+        // resolve()'s chest-targeting cache needs rebuilding against the quests this reload is about to register
         ConditionalDropLootSupport.invalidateCache();
 
         int successCount = 0;
@@ -48,16 +45,16 @@ public class QuestLoader extends SimpleJsonResourceReloadListener {
                     loadSingleQuest(id, json.getAsJsonObject());
                     successCount++;
                 } else {
-                    QuestEntityAPI.LOGGER.warn("Invalid quest JSON at {}: expected object", id);
+                    QuestAPI.LOGGER.warn("Invalid quest JSON at {}: expected object", id);
                     failCount++;
                 }
             } catch (Exception e) {
-                QuestEntityAPI.LOGGER.error("Failed to load quest from {}: {}", id, e.getMessage());
+                QuestAPI.LOGGER.error("Failed to load quest from {}: {}", id, e.getMessage());
                 failCount++;
             }
         }
 
-        QuestEntityAPI.LOGGER.info("Loaded {} quest files ({} failed)", successCount, failCount);
+        QuestAPI.LOGGER.info("Loaded {} quest files ({} failed)", successCount, failCount);
         QuestManager.logSummary();
     }
 
@@ -67,16 +64,16 @@ public class QuestLoader extends SimpleJsonResourceReloadListener {
         }
 
         Quest.CODEC.parse(JsonOps.INSTANCE, json)
-                .resultOrPartial(error -> QuestEntityAPI.LOGGER.error("Failed to parse quest {}: {}", fileId, error))
+                .resultOrPartial(error -> QuestAPI.LOGGER.error("Failed to parse quest {}: {}", fileId, error))
                 .ifPresent(quest -> {
                     Quest questWithId = quest.id().equals(fileId) ? quest : quest.withId(fileId);
                     QuestManager.registerQuest(questWithId);
 
-                    QuestEntityAPI.LOGGER.debug("Loaded quest: {} (tier {})", questWithId.id(), questWithId.tier());
+                    QuestAPI.LOGGER.debug("Loaded quest: {} (tier {})", questWithId.id(), questWithId.tier());
                 });
     }
 
     public static ResourceLocation getId() {
-        return QuestEntityAPI.id("quest_loader");
+        return QuestAPI.id("quest_loader");
     }
 }

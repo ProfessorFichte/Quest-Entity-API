@@ -1,0 +1,22 @@
+{
+  "id": "quest_api:task_choice_group_test/test",
+  "rewards": [
+    {
+      "amount": 100,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "choice_group": "ingot",
+      "item_id": "minecraft:iron_ingot",
+      "task": "quest_api:bring_item"
+    },
+    {
+      "choice_group": "ingot",
+      "item_id": "minecraft:gold_ingot",
+      "task": "quest_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

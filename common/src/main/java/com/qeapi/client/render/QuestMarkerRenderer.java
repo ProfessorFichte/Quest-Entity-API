@@ -2,13 +2,15 @@ package com.qeapi.client.render;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.qeapi.QuestEntityAPI;
+import com.mojang.math.Axis;
+import com.qeapi.QuestAPI;
 import com.qeapi.api.QuestEntity;
 import com.qeapi.client.ClientQuestCache;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.core.component.DataComponents;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
@@ -16,18 +18,18 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import org.joml.Matrix4f;
 
-// Renders the exclamation mark indicator above quest entities.
 public class QuestMarkerRenderer {
 
-    public static final ResourceLocation MARKER_RED = QuestEntityAPI.id("textures/gui/marker/quest_red.png");
-    public static final ResourceLocation MARKER_GREY = QuestEntityAPI.id("textures/gui/marker/quest_grey.png");
-    public static final ResourceLocation MARKER_GREEN = QuestEntityAPI.id("textures/gui/marker/quest_green.png");
-    public static final ResourceLocation MARKER_DONE_CHECKMARK = QuestEntityAPI.id("textures/gui/marker/green_checkmark.png");
-    public static final ResourceLocation MARKER_ENRAGED = QuestEntityAPI.id("textures/gui/marker/quest_entity_enraged.png");
+    public static final ResourceLocation MARKER_RED = QuestAPI.id("textures/gui/marker/quest_red.png");
+    public static final ResourceLocation MARKER_GREY = QuestAPI.id("textures/gui/marker/quest_grey.png");
+    public static final ResourceLocation MARKER_GREEN = QuestAPI.id("textures/gui/marker/quest_green.png");
+    public static final ResourceLocation MARKER_DONE_CHECKMARK = QuestAPI.id("textures/gui/marker/green_checkmark.png");
+    public static final ResourceLocation MARKER_ENRAGED = QuestAPI.id("textures/gui/marker/quest_entity_enraged.png");
 
     private static final float BOB_AMPLITUDE = 0.1f;
     private static final float BOB_SPEED = 0.12f;
-    private static final float MARKER_SIZE = 0.4f; // Increased size for thicker marker
+    private static final float MARKER_SIZE = 0.4f;
+    private static final float DELIVERY_ITEM_SPIN_SPEED = 1.5f; // degrees per tick
 
     public static void render(Entity entity, PoseStack poseStack, MultiBufferSource buffer,
                                float partialTick, int packedLight) {
@@ -41,16 +43,15 @@ public class QuestMarkerRenderer {
         float height = entity.getBbHeight() + 0.6f;
         poseStack.translate(0, height, 0);
 
-        // bob available (red) and ready-to-claim (green) markers
         if (state == MarkerState.AVAILABLE || state == MarkerState.READY) {
             float time = (entity.level().getGameTime() + partialTick) * BOB_SPEED;
             float bob = Mth.sin(time) * BOB_AMPLITUDE;
             poseStack.translate(0, bob, 0);
         }
 
-        // Billboard - face camera. No extra 180-degree flip here: the quad renders with
-        // RenderType.entityCutoutNoCull (backface culling disabled), so that rotation never
-        // served a visibility purpose - it only mirrored the texture horizontally.
+        // No extra 180-degree flip here: the quad renders with RenderType.entityCutoutNoCull
+        // (backface culling off), so that rotation never served a visibility purpose - it only
+        // mirrored the texture horizontally.
         poseStack.mulPose(mc.getEntityRenderDispatcher().cameraOrientation());
 
         poseStack.scale(MARKER_SIZE, MARKER_SIZE, MARKER_SIZE);
@@ -140,19 +141,24 @@ public class QuestMarkerRenderer {
         return getMarkerState(entity) != MarkerState.NONE;
     }
 
-    // deliver_item's resolved target gets its own floating icon, entirely independent of the
-    // exclamation-mark state above - the item this specific entity wants, not "does it have quests"
+    // Entirely independent of the exclamation-mark state above - the item this entity wants, not
+    // "does it have quests".
     public static boolean shouldRenderDeliveryItem(Entity entity) {
         ItemStack item = ClientQuestCache.getDeliveryTargetItem(entity.getUUID());
         return item != null && !item.isEmpty();
     }
 
-    // same bob-animation math as render() above, just rendering the required item's real icon
-    // instead of a flat marker texture
+    // Same bob-animation math as render() above, plus a slow spin so the icon reads from every
+    // angle as the camera orbits. The enchantment-glint override forces the shimmering foil
+    // overlay regardless of whether the item is actually enchanted - cheapest reliable "glowing"
+    // look available through the normal item render path, applied only to this display copy.
     public static void renderDeliveryItem(Entity entity, PoseStack poseStack, MultiBufferSource buffer,
                                            float partialTick, int packedLight) {
         ItemStack item = ClientQuestCache.getDeliveryTargetItem(entity.getUUID());
         if (item == null || item.isEmpty()) return;
+
+        ItemStack displayStack = item.copy();
+        displayStack.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
 
         Minecraft mc = Minecraft.getInstance();
 
@@ -166,9 +172,13 @@ public class QuestMarkerRenderer {
         poseStack.translate(0, bob, 0);
 
         poseStack.mulPose(mc.getEntityRenderDispatcher().cameraOrientation());
+
+        float spin = (entity.level().getGameTime() + partialTick) * DELIVERY_ITEM_SPIN_SPEED;
+        poseStack.mulPose(Axis.YP.rotationDegrees(spin));
+
         poseStack.scale(0.5f, 0.5f, 0.5f);
 
-        mc.getItemRenderer().renderStatic(item, ItemDisplayContext.FIXED, packedLight, OverlayTexture.NO_OVERLAY,
+        mc.getItemRenderer().renderStatic(displayStack, ItemDisplayContext.FIXED, packedLight, OverlayTexture.NO_OVERLAY,
                 poseStack, buffer, entity.level(), 0);
 
         poseStack.popPose();

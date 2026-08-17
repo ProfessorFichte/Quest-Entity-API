@@ -5,7 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
@@ -15,9 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-// Resource reload listener that loads entity quest tags from data/[namespace]/tags/entity_quests/[path].json.
-// Format mirrors vanilla tags: a "values" list of quest IDs, optionally prefixed with "#" to
-// reference another tag, plus an optional "replace" flag.
+// format mirrors vanilla tags: a "values" list of quest IDs, optionally prefixed with "#" to reference another tag
 public class EntityQuestTagLoader extends SimpleJsonResourceReloadListener {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -29,8 +27,8 @@ public class EntityQuestTagLoader extends SimpleJsonResourceReloadListener {
 
     @Override
     protected void apply(Map<ResourceLocation, JsonElement> jsons, ResourceManager resourceManager, ProfilerFiller profiler) {
-        QuestEntityAPI.LOGGER.info("[TagLoader] Loading entity quest tags...");
-        QuestEntityAPI.LOGGER.info("[TagLoader] Found {} JSON files in tags/entity_quests/", jsons.size());
+        QuestAPI.LOGGER.info("[TagLoader] Loading entity quest tags...");
+        QuestAPI.LOGGER.info("[TagLoader] Found {} JSON files in tags/entity_quests/", jsons.size());
 
         QuestManager.clearTags();
 
@@ -41,7 +39,7 @@ public class EntityQuestTagLoader extends SimpleJsonResourceReloadListener {
             ResourceLocation id = entry.getKey();
             JsonElement json = entry.getValue();
 
-            QuestEntityAPI.LOGGER.debug("[TagLoader] Processing tag: {}", id);
+            QuestAPI.LOGGER.debug("[TagLoader] Processing tag: {}", id);
 
             try {
                 if (json.isJsonObject()) {
@@ -50,20 +48,20 @@ public class EntityQuestTagLoader extends SimpleJsonResourceReloadListener {
                     QuestManager.registerEntityQuestTag(tag);
                     successCount++;
 
-                    QuestEntityAPI.LOGGER.info("[TagLoader] Loaded tag: {} -> quests={}, tagRefs={}",
+                    QuestAPI.LOGGER.info("[TagLoader] Loaded tag: {} -> quests={}, tagRefs={}",
                             id, tag.getQuestIds(), tag.getReferencedTags());
                 } else {
-                    QuestEntityAPI.LOGGER.warn("[TagLoader] Invalid tag JSON at {}: expected object", id);
+                    QuestAPI.LOGGER.warn("[TagLoader] Invalid tag JSON at {}: expected object", id);
                     failCount++;
                 }
             } catch (Exception e) {
-                QuestEntityAPI.LOGGER.error("[TagLoader] Failed to load tag {}: {}", id, e.getMessage());
+                QuestAPI.LOGGER.error("[TagLoader] Failed to load tag {}: {}", id, e.getMessage());
                 e.printStackTrace();
                 failCount++;
             }
         }
 
-        QuestEntityAPI.LOGGER.info("[TagLoader] Loaded {} entity quest tags ({} failed)", successCount, failCount);
+        QuestAPI.LOGGER.info("[TagLoader] Loaded {} entity quest tags ({} failed)", successCount, failCount);
     }
 
     private EntityQuestTag parseTag(ResourceLocation id, JsonObject json) {
@@ -87,7 +85,7 @@ public class EntityQuestTagLoader extends SimpleJsonResourceReloadListener {
                     value = valueObj.get("id").getAsString();
                     required = !valueObj.has("required") || valueObj.get("required").getAsBoolean();
                 } else {
-                    QuestEntityAPI.LOGGER.warn("Invalid value in tag {}: {}", id, element);
+                    QuestAPI.LOGGER.warn("Invalid value in tag {}: {}", id, element);
                     continue;
                 }
 
@@ -105,6 +103,6 @@ public class EntityQuestTagLoader extends SimpleJsonResourceReloadListener {
     }
 
     public static ResourceLocation getId() {
-        return QuestEntityAPI.id("entity_quest_tag_loader");
+        return QuestAPI.id("entity_quest_tag_loader");
     }
 }

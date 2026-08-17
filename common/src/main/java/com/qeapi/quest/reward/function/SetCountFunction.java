@@ -3,7 +3,7 @@ package com.qeapi.quest.reward.function;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -24,7 +24,7 @@ public record SetCountFunction(int count) implements ItemFunction {
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("set_count");
+        return QuestAPI.id("set_count");
     }
 
     @Override

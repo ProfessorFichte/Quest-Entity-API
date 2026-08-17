@@ -1,0 +1,39 @@
+{
+  "id": "quest_api:field_skills/test",
+  "rewards": [
+    {
+      "amount": 8,
+      "item_id": "minecraft:bread",
+      "reward": "quest_api:item"
+    },
+    {
+      "amount": 100,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 5,
+      "task": "quest_api:fishing"
+    },
+    {
+      "amount": 10,
+      "task": "quest_api:harvest_crops"
+    },
+    {
+      "amount": 3,
+      "effect_ids": [
+        "minecraft:poison"
+      ],
+      "filters": {
+        "target": "others"
+      },
+      "task": "quest_api:apply_status_effect"
+    },
+    {
+      "amount": 50.0,
+      "task": "quest_api:do_healing_amount"
+    }
+  ],
+  "tier": 1
+}

@@ -1,6 +1,6 @@
 package com.qeapi.network.packet;
 
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -9,8 +9,7 @@ import net.minecraft.resources.ResourceLocation;
 
 import java.util.UUID;
 
-// Server-to-client packet to sync entity quest presence, sent when the player approaches an
-// entity with quests so the marker can render.
+// Sent when the player approaches a quest-bearing entity, so the marker can render.
 public record SyncEntityQuestsPacket(
         int entityId,
         UUID entityUuid,
@@ -21,11 +20,11 @@ public record SyncEntityQuestsPacket(
         boolean enraged
 ) implements CustomPacketPayload {
 
-    public static final ResourceLocation ID = QuestEntityAPI.id("sync_entity_quests");
+    public static final ResourceLocation ID = QuestAPI.id("sync_entity_quests");
     public static final Type<SyncEntityQuestsPacket> TYPE = new Type<>(ID);
 
-    // The four booleans are packed into one flags byte so this stays within StreamCodec.composite's
-    // 6-slot limit (and leaves room to grow), hence a hand-written codec rather than composite.
+    // The four booleans are packed into one flags byte, staying well within composite's 6-slot limit
+    // and leaving room to grow - hence a hand-written codec here rather than composite.
     public static final StreamCodec<RegistryFriendlyByteBuf, SyncEntityQuestsPacket> STREAM_CODEC =
             StreamCodec.of(
                     (buf, packet) -> {

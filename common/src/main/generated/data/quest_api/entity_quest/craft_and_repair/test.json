@@ -1,0 +1,39 @@
+{
+  "id": "quest_api:craft_and_repair/test",
+  "rewards": [
+    {
+      "amount": 8,
+      "item_id": "minecraft:lapis_lazuli",
+      "reward": "quest_api:item"
+    },
+    {
+      "level_cap": 2,
+      "reward": "quest_api:enchant_randomly"
+    },
+    {
+      "enchantment_id": "minecraft:sharpness",
+      "level": 3,
+      "reward": "quest_api:enchant_specific"
+    },
+    {
+      "amount": 100,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "result_item_id": "minecraft:crafting_table",
+      "task": "quest_api:crafting"
+    },
+    {
+      "task": "quest_api:smithing"
+    },
+    {
+      "task": "quest_api:anvil_repair"
+    },
+    {
+      "task": "quest_api:enchanting"
+    }
+  ],
+  "tier": 1
+}

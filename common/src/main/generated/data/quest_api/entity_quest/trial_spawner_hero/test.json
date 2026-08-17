@@ -1,0 +1,16 @@
+{
+  "id": "quest_api:trial_spawner_hero/test",
+  "rewards": [
+    {
+      "amount": 200,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "ominous": true,
+      "task": "quest_api:trial_spawner_complete"
+    }
+  ],
+  "tier": 1
+}

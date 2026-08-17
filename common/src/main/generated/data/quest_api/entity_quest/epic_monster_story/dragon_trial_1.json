@@ -1,0 +1,18 @@
+{
+  "follow_quest_order": false,
+  "id": "quest_api:epic_monster_story/dragon_trial_1",
+  "quest_line": "ender_dragon_story",
+  "rewards": [
+    {
+      "amount": 200,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "structure_id": "minecraft:stronghold",
+      "task": "quest_api:find_structure"
+    }
+  ],
+  "tier": 3
+}

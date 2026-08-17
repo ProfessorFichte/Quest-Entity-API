@@ -1,0 +1,59 @@
+{
+  "id": "quest_api:filter_showcase/test",
+  "rewards": [
+    {
+      "advancement_id": "minecraft:adventure/kill_a_mob",
+      "reward": "quest_api:advancement"
+    },
+    {
+      "amount": 300,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 2,
+      "entity_tags": [
+        "minecraft:undead"
+      ],
+      "filters": {
+        "in_biome_tag": "minecraft:is_forest"
+      },
+      "task": "quest_api:entity_kill"
+    },
+    {
+      "amount": 5,
+      "entity_ids": [
+        "minecraft:piglin"
+      ],
+      "filters": {
+        "in_dimension": "minecraft:the_nether"
+      },
+      "task": "quest_api:entity_kill"
+    },
+    {
+      "amount": 1,
+      "entity_ids": [
+        "minecraft:skeleton"
+      ],
+      "filters": {
+        "min_range": 40.0
+      },
+      "task": "quest_api:entity_kill"
+    },
+    {
+      "amount": 3,
+      "entity_ids": [
+        "minecraft:zombie"
+      ],
+      "filters": {
+        "damage_types": [
+          "minecraft:explosion",
+          "minecraft:player_explosion"
+        ]
+      },
+      "task": "quest_api:entity_kill"
+    }
+  ],
+  "tier": 1
+}

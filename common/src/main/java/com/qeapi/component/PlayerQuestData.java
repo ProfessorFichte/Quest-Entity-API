@@ -16,51 +16,23 @@ import java.util.*;
 public class PlayerQuestData {
     private final Map<UUID, QuestProgress> entityProgress;
 
-    // Keys of the form "<questId>#<taskIndex>" for structure-map-providing tasks that have
-    // already granted their one-time map to this player - deliberately NOT cleared alongside
-    // entityProgress (accept/decline/re-accept, or even quest completion) so a player can't farm
-    // duplicate maps by repeatedly accepting and dismissing the same quest.
+    // deliberately NOT cleared alongside entityProgress, so a player can't farm duplicate maps by repeatedly accepting and dismissing the same quest
     private final Set<String> mapsGranted;
 
-    // Entity UUID -> last known position of a quest giver this player has an active quest with -
-    // used by the Active Quest screen (item 2) to show where to go back to. Recorded at accept
-    // time and refreshed opportunistically whenever the entity is next seen nearby (see
-    // checkNearbyQuestEntities); deliberately not a live lookup so opening the screen never has to
-    // scan for the entity itself. Cleared alongside entityProgress (unlike mapsGranted above), since
-    // there's nothing left to navigate back to once the quest isn't active anymore.
+    // last known giver position for the Active Quest screen; deliberately not a live lookup so opening the screen never has to scan for the entity
     private final Map<UUID, QuestGiverLocation> entityLocations;
 
-    // Giver entity UUID -> resolved deliver_item target's entity UUID, for whichever active quest
-    // that giver granted - resolved once at accept time (see
-    // QuestEventHandler.resolveDeliveryTargetIfNeeded) and fixed for that quest's lifetime, same
-    // shape as entityLocations above. Cleared alongside entityProgress since it's meaningless once
-    // the quest isn't active anymore.
+    // resolved once at accept time and fixed for that quest's lifetime; cleared alongside entityProgress since it's meaningless once inactive
     private final Map<UUID, UUID> deliveryTargets;
 
-    // Giver entity UUID -> task index -> set of distinct biome ids already visited toward that
-    // visit_biome task - QuestProgress only stores an int per task index, which can hold the
-    // distinct-so-far *count* but not which biomes were already counted, so the actual id set lives
-    // here instead, same per-giver keying convention as the maps above. Cleared alongside
-    // entityProgress, same reasoning as entityLocations/deliveryTargets.
+    // QuestProgress only stores the distinct-so-far count per task, not which biomes were already counted, so the actual id set lives here instead
     private final Map<UUID, Map<Integer, Set<ResourceLocation>>> visitedBiomes;
 
-    // Giver entity UUID -> this player's quest-line selection state for that giver's
-    // quest_line_choice root: which line (if any) is currently active, and which line ids have
-    // already been fully resolved (every questLine-tagged quest sharing that id completed - see
-    // the resolve-hook in QuestEntityAccess.completeQuest/the platform handleClaimRewards). NOT
-    // cleared alongside entityProgress: a line-tagged quest's own progress lives in entityProgress
-    // like any other quest, but resolvedLines must survive that quest's completion/dismissal so the
-    // root knows which lines are already done. See DismissQuestPacket's handler for how canceling
-    // the active line-tagged quest clears just activeLine here.
+    // NOT cleared alongside entityProgress - resolvedLines must survive a line quest's completion/dismissal so the root still knows which lines are done
     private final Map<UUID, LineSelectionState> lineSelections;
 
-    // claimedRoots: quest-line root ids (Quest.id()) whose root-level reward has already been
-    // granted (see QuestScreen's root-claim button/ClaimQuestLineRootPacket) - separate from
-    // resolvedLines because a root becomes claimable (every line resolved) before the claim action
-    // itself has actually run; this guards against claiming it twice.
-    // acceptedRoots: quest-line root ids the player has accepted via the normal checkbox flow -
-    // the line picker in QuestScreen only becomes interactive once its root is in this set,
-    // mirroring the accept step every other quest requires before it can be interacted with.
+    // claimedRoots guards against double-claiming: a root becomes claimable (every line resolved) before the claim action has actually run
+    // acceptedRoots gates the line picker interactive, mirroring the accept step every other quest requires
     public record LineSelectionState(Optional<String> activeLine, Set<String> resolvedLines,
                                       Set<ResourceLocation> claimedRoots, Set<ResourceLocation> acceptedRoots) {
         public static final Codec<LineSelectionState> CODEC = RecordCodecBuilder.create(instance ->
@@ -129,9 +101,7 @@ public class PlayerQuestData {
                 ).apply(instance, QuestGiverLocation::new)
         );
 
-        // display_name is cached here (rather than resolved live from the Active Quests screen)
-        // because the giving entity may not be loaded when that screen is opened - same "last
-        // known" reasoning as pos itself.
+        // cached rather than resolved live, since the giving entity may not be loaded when the Active Quests screen is opened
         public static QuestGiverLocation of(Entity entity) {
             return new QuestGiverLocation(
                     BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()),

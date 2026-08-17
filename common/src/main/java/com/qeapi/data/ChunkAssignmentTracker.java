@@ -1,7 +1,7 @@
 package com.qeapi.data;
 
 import com.mojang.serialization.Codec;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
@@ -14,12 +14,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-// Tracks, per world, which entity currently "occupies" a chunk-restricted EntityQuestAssignment
-// within a given radius, so only one entity within range can hold that same assignment at a
-// time. Freed when that entity dies (see death handlers in QuestEntityAPIFabric/NeoForge).
+// tracks which entity "occupies" a chunk-restricted assignment within a radius, so only one entity in range can hold it at a time
 public class ChunkAssignmentTracker extends SavedData {
 
-    private static final String DATA_NAME = QuestEntityAPI.MOD_ID + "_chunk_assignments";
+    private static final String DATA_NAME = QuestAPI.MOD_ID + "_chunk_assignments";
     private static final Codec<Map<String, String>> MAP_CODEC = Codec.unboundedMap(Codec.STRING, Codec.STRING);
 
     // "restrictionKey|chunkX,chunkZ" -> entity UUID
@@ -38,8 +36,7 @@ public class ChunkAssignmentTracker extends SavedData {
         return restrictionKey + "|" + pos.x + "," + pos.z;
     }
 
-    // Scans from the candidate's own position (rather than expanding a stored marker's area) so
-    // the radius stays symmetric regardless of which chunk got marked first.
+    // scans from the candidate's own position so the radius stays symmetric regardless of which chunk got marked first
     public boolean isRestricted(String restrictionKey, ChunkPos candidate, int radius) {
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dz = -radius; dz <= radius; dz++) {
@@ -57,16 +54,15 @@ public class ChunkAssignmentTracker extends SavedData {
         assignments.put(key, entityUuid);
         byEntity.put(entityUuid, key);
         setDirty();
-        QuestEntityAPI.LOGGER.debug("[ChunkAssignmentTracker] Marked {} at {} for entity {}", restrictionKey, pos, entityUuid);
+        QuestAPI.LOGGER.debug("[ChunkAssignmentTracker] Marked {} at {} for entity {}", restrictionKey, pos, entityUuid);
     }
 
-    // No-op if the entity wasn't tracked.
     public void release(UUID entityUuid) {
         String key = byEntity.remove(entityUuid);
         if (key != null) {
             assignments.remove(key);
             setDirty();
-            QuestEntityAPI.LOGGER.debug("[ChunkAssignmentTracker] Released assignment for entity {}", entityUuid);
+            QuestAPI.LOGGER.debug("[ChunkAssignmentTracker] Released assignment for entity {}", entityUuid);
         }
     }
 
@@ -75,7 +71,7 @@ public class ChunkAssignmentTracker extends SavedData {
         Map<String, String> serializable = new HashMap<>();
         assignments.forEach((key, uuid) -> serializable.put(key, uuid.toString()));
         Tag encoded = MAP_CODEC.encodeStart(NbtOps.INSTANCE, serializable)
-                .resultOrPartial(error -> QuestEntityAPI.LOGGER.error("[ChunkAssignmentTracker] Failed to encode: {}", error))
+                .resultOrPartial(error -> QuestAPI.LOGGER.error("[ChunkAssignmentTracker] Failed to encode: {}", error))
                 .orElse(null);
         if (encoded != null) {
             tag.put("assignments", encoded);
@@ -87,14 +83,14 @@ public class ChunkAssignmentTracker extends SavedData {
         ChunkAssignmentTracker tracker = new ChunkAssignmentTracker();
         if (tag.contains("assignments")) {
             MAP_CODEC.parse(NbtOps.INSTANCE, tag.get("assignments"))
-                    .resultOrPartial(error -> QuestEntityAPI.LOGGER.error("[ChunkAssignmentTracker] Failed to load: {}", error))
+                    .resultOrPartial(error -> QuestAPI.LOGGER.error("[ChunkAssignmentTracker] Failed to load: {}", error))
                     .ifPresent(map -> map.forEach((key, uuidStr) -> {
                         try {
                             UUID uuid = UUID.fromString(uuidStr);
                             tracker.assignments.put(key, uuid);
                             tracker.byEntity.put(uuid, key);
                         } catch (IllegalArgumentException e) {
-                            QuestEntityAPI.LOGGER.warn("[ChunkAssignmentTracker] Invalid UUID in saved data: {}", uuidStr);
+                            QuestAPI.LOGGER.warn("[ChunkAssignmentTracker] Invalid UUID in saved data: {}", uuidStr);
                         }
                     }));
         }

@@ -1,6 +1,6 @@
 package com.qeapi.compat;
 
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.levelz.access.LevelManagerAccess;
 import net.levelz.level.LevelManager;
 import net.levelz.level.Skill;
@@ -12,10 +12,9 @@ import net.minecraft.world.entity.player.Player;
 
 import java.util.Optional;
 
-// Optional integration with LevelZ (net.levelz). All direct references to LevelZ's classes live
-// in this file only - callers must check isLoaded() first, so the JVM never needs to resolve
-// these classes when LevelZ isn't present. LevelZ only ships a Fabric build, so this only ever
-// activates there.
+// All direct references to LevelZ's classes live in this file only - callers must check isLoaded()
+// first, so the JVM never resolves them when the mod isn't present. LevelZ only ships a Fabric
+// build, so this only ever activates there.
 public final class LevelZCompat {
 
     private static final String MOD_ID = "levelz";
@@ -27,8 +26,7 @@ public final class LevelZCompat {
     }
 
     // LevelZ ships one standalone 16x16 PNG per skill, addressed by convention from the skill's
-    // key (LevelScreen's own skill grid renders the exact same path) - no Java-side icon lookup
-    // needed, unlike Pufferfish's Skills which has no queryable icon API.
+    // key - no Java-side icon lookup needed, unlike Pufferfish's Skills.
     public static ResourceLocation skillIcon(String skillId) {
         return ResourceLocation.fromNamespaceAndPath(MOD_ID, "textures/gui/sprites/" + skillId + ".png");
     }
@@ -46,14 +44,13 @@ public final class LevelZCompat {
         return levelManager.getSkillLevel(skill.get().getId());
     }
 
-    // LevelManager.setSkillLevel() is a plain map write with no side effects - the client sync and
-    // attribute-modifier reapplication only ever run from LevelZ's own resetSkill()/skill GUI packet
-    // handlers (see LevelHelper.updateSkill/PacketHelper.updatePlayerSkills). This replicates that
-    // logic, same approach as VillagerXpAccessor for villager trade XP.
+    // setSkillLevel() is a plain map write with no side effects, so the client sync and
+    // attribute-modifier reapplication have to be replicated here from LevelZ's own
+    // resetSkill()/skill GUI handlers (see LevelHelper.updateSkill/PacketHelper.updatePlayerSkills).
     public static void addSkillLevels(ServerPlayer player, String skillKey, int levels) {
         Optional<Skill> skillOpt = findSkill(skillKey);
         if (skillOpt.isEmpty()) {
-            QuestEntityAPI.LOGGER.warn("[LevelZCompat] Unknown skill: {}", skillKey);
+            QuestAPI.LOGGER.warn("[LevelZCompat] Unknown skill: {}", skillKey);
             return;
         }
 

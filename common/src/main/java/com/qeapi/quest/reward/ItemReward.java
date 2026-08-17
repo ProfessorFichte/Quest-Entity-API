@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.quest.reward.function.ItemFunction;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -40,7 +40,7 @@ public record ItemReward(
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("item");
+        return QuestAPI.id("item");
     }
 
     @Override
@@ -56,7 +56,7 @@ public record ItemReward(
     public Component getDisplayText() {
         Item item = BuiltInRegistries.ITEM.get(itemId);
         String itemName = item != null ? item.getDescription().getString() : itemId.toString();
-        return Component.translatable("reward.qe_api.item", amount, itemName);
+        return Component.translatable("reward.quest_api.item", amount, itemName);
     }
 
     @Override
@@ -72,7 +72,7 @@ public record ItemReward(
     public ItemStack createItemStack(ServerPlayer player) {
         Item item = BuiltInRegistries.ITEM.get(itemId);
         if (item == null) {
-            QuestEntityAPI.LOGGER.warn("Item not found for reward: {}", itemId);
+            QuestAPI.LOGGER.warn("Item not found for reward: {}", itemId);
             return ItemStack.EMPTY;
         }
 
@@ -84,7 +84,7 @@ public record ItemReward(
             try {
                 stack = function.apply(stack, player);
             } catch (Exception e) {
-                QuestEntityAPI.LOGGER.warn("Failed to apply function {} to item {}: {}",
+                QuestAPI.LOGGER.warn("Failed to apply function {} to item {}: {}",
                         function.getTypeId(), itemId, e.getMessage());
             }
         }

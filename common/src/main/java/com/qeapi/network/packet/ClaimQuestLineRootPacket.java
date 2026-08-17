@@ -7,10 +7,9 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-// Client-to-server packet to claim a quest_line_choice root's own capstone reward, once every
-// line it offers has been resolved. Separate from ClaimRewardsPacket since the root has no
-// entityProgress/QuestProgress to validate against - rootQuestId identifies it directly instead
-// of going through getActiveQuest, same reasoning as ChooseQuestLinePacket.
+// Claims a quest_line_choice root's own capstone reward, once every line it offers is resolved.
+// Separate from ClaimRewardsPacket since the root has no QuestProgress to validate against -
+// rootQuestId identifies it directly instead, same reasoning as ChooseQuestLinePacket.
 public record ClaimQuestLineRootPacket(
         int entityId,
         ResourceLocation rootQuestId

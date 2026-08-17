@@ -1,0 +1,59 @@
+{
+  "id": "quest_api:dungeon_difficulty_trials/test",
+  "required_mod": "dungeon_difficulty",
+  "rewards": [
+    {
+      "functions": [
+        {
+          "function": "quest_api:set_power_level",
+          "level": 5
+        }
+      ],
+      "item_id": "minecraft:diamond_sword",
+      "reward": "quest_api:item"
+    },
+    {
+      "operations": [
+        {
+          "type": "quest_api:repair_item"
+        },
+        {
+          "type": "dungeon_difficulty:increase_power_level",
+          "amount": 3,
+          "cap": 10
+        }
+      ],
+      "restriction_item_tag": "minecraft:swords",
+      "reward": "quest_api:enhance_item"
+    }
+  ],
+  "tasks": [
+    {
+      "item_id": "minecraft:diamond_sword",
+      "task": "quest_api:bring_item"
+    },
+    {
+      "amount": 3,
+      "entity_ids": [
+        "minecraft:zombie"
+      ],
+      "filters": {
+        "min_power_level": 5
+      },
+      "task": "quest_api:entity_kill"
+    },
+    {
+      "filters": {
+        "min_power_level": 5
+      },
+      "structure_id": "minecraft:ancient_city",
+      "task": "quest_api:find_structure"
+    },
+    {
+      "biome_id": "minecraft:deep_dark",
+      "min_power_level": 5,
+      "task": "quest_api:visit_biome"
+    }
+  ],
+  "tier": 1
+}

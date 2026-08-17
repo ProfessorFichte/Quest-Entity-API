@@ -3,7 +3,7 @@
   "requirements": [
     {
       "experience_level": 5,
-      "requirement": "qe_api:has_level"
+      "requirement": "quest_api:has_level"
     }
   ],
   "rewards": [
@@ -20,10 +20,10 @@
               "level": 2
             }
           ],
-          "function": "qe_api:set_enchantments"
+          "function": "quest_api:set_enchantments"
         },
         {
-          "function": "qe_api:set_name",
+          "function": "quest_api:set_name",
           "name": {
             "color": "gold",
             "text": "Golden Hoe"
@@ -31,28 +31,28 @@
         }
       ],
       "item_id": "minecraft:golden_hoe",
-      "reward": "qe_api:item"
+      "reward": "quest_api:item"
     },
     {
       "amount": 24,
       "item_id": "minecraft:emerald",
-      "reward": "qe_api:item"
+      "reward": "quest_api:item"
     },
     {
       "amount": 100,
-      "reward": "qe_api:experience"
+      "reward": "quest_api:experience"
     }
   ],
   "tasks": [
     {
       "amount": 8,
       "item_id": "minecraft:hay_block",
-      "task": "qe_api:bring_item"
+      "task": "quest_api:bring_item"
     },
     {
       "amount": 64,
       "item_id": "minecraft:wheat",
-      "task": "qe_api:bring_item"
+      "task": "quest_api:bring_item"
     }
   ],
   "tier": 4

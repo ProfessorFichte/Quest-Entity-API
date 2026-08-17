@@ -2,7 +2,7 @@ package com.qeapi.network.packet;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.item.QuestItemDefinition;
 import net.minecraft.core.UUIDUtil;
 import net.minecraft.network.RegistryFriendlyByteBuf;
@@ -14,10 +14,10 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.Optional;
 import java.util.UUID;
 
-// Server-to-client: this entity is the resolved deliver_item target for one of the local player's
-// active quests, and here's the item it wants - same role SyncEntityQuestsPacket plays for the
-// exclamation-mark marker, just for the floating item icon instead (see QuestMarkerRenderer and
-// ClientQuestCache). active=false clears the marker again (delivered, or the quest ended).
+// Tells the client this entity is the resolved deliver_item target for one of the player's active
+// quests, and what item it wants - the same role SyncEntityQuestsPacket plays for the
+// exclamation-mark marker, but for the floating item icon (see QuestMarkerRenderer/ClientQuestCache).
+// active=false clears the marker again, whether delivered or the quest ended.
 public record SyncDeliveryTargetPacket(
         int entityId,
         UUID entityUuid,
@@ -26,7 +26,7 @@ public record SyncDeliveryTargetPacket(
         Optional<QuestItemDefinition> questItem
 ) implements CustomPacketPayload {
 
-    public static final ResourceLocation ID = QuestEntityAPI.id("sync_delivery_target");
+    public static final ResourceLocation ID = QuestAPI.id("sync_delivery_target");
     public static final Type<SyncDeliveryTargetPacket> TYPE = new Type<>(ID);
 
     public static final Codec<SyncDeliveryTargetPacket> CODEC = RecordCodecBuilder.create(instance ->

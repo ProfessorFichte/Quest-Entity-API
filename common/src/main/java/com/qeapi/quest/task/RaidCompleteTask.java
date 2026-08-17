@@ -3,7 +3,7 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.TextMutator;
 import net.minecraft.network.chat.Component;
@@ -12,11 +12,12 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.Map;
 import java.util.Optional;
 
-// a raid has no single "killer", so this credits every nearby online player with a matching
-// active quest instead - see QuestEventHandler.onRaidComplete and RaidTickMixin
+// a raid has no single "killer", so this credits every nearby online player with a matching active quest instead - see QuestEventHandler.onRaidComplete and RaidTickMixin
 public record RaidCompleteTask(
         int amount,
         Optional<Integer> minRaidLevel,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
@@ -24,13 +25,15 @@ public record RaidCompleteTask(
             instance.group(
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(RaidCompleteTask::amount),
                     Codec.INT.optionalFieldOf("min_raid_level").forGetter(RaidCompleteTask::minRaidLevel),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(RaidCompleteTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(RaidCompleteTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(RaidCompleteTask::textureOverrideId)
             ).apply(instance, RaidCompleteTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("raid_complete");
+        return QuestAPI.id("raid_complete");
     }
 
     @Override
@@ -48,7 +51,7 @@ public record RaidCompleteTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.raid_complete";
+        return "task.quest_api.raid_complete";
     }
 
     @Override
@@ -67,6 +70,8 @@ public record RaidCompleteTask(
     public static class Builder {
         private int amount = 1;
         private Optional<Integer> minRaidLevel = Optional.empty();
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder amount(int amount) {
@@ -79,13 +84,23 @@ public record RaidCompleteTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
         }
 
         public RaidCompleteTask build() {
-            return new RaidCompleteTask(amount, minRaidLevel, textureOverrideId);
+            return new RaidCompleteTask(amount, minRaidLevel, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

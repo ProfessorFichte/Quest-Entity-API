@@ -10,10 +10,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Rarity;
 import net.minecraft.world.item.component.CustomModelData;
 
-// A quest item defined inline inside a task (BringItemTask/ConditionalDropTask), rather than a
-// separately registered Item - see QuestItems for the one shared base item every definition
-// resolves onto. custom_model_data is author-chosen and doubles as this item's identity: two
-// quest items must use different values, but that's the only uniqueness rule needed anywhere.
+// custom_model_data is author-chosen and doubles as this item's identity - two quest items must use different values, but that's the only uniqueness rule needed
 public record QuestItemDefinition(
         ResourceLocation texture,
         Component name,

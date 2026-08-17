@@ -1,9 +1,7 @@
 package com.qeapi.compat;
 
-// Shared "is this other mod loaded" check for the optional compat integrations. Uses reflection
-// into Architectury's platform API (falling back to Fabric Loader directly) so this class never
-// needs a compile-time dependency on Architectury - same approach Quest.isModLoaded() uses for
-// the required_mod quest field.
+// Uses reflection into Architectury's platform API, falling back to Fabric Loader directly, so
+// this class never needs a compile-time dependency on Architectury.
 public final class ModCompatUtil {
 
     private ModCompatUtil() {}

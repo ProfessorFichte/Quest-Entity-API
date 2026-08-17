@@ -1,0 +1,29 @@
+{
+  "type": "order",
+  "id": "quest_api:ordered_tasks_test/test",
+  "rewards": [
+    {
+      "amount": 150,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 3,
+      "block_id": "minecraft:oak_log",
+      "task": "quest_api:mine_block"
+    },
+    {
+      "amount": 2,
+      "entity_ids": [
+        "minecraft:zombie"
+      ],
+      "task": "quest_api:entity_kill"
+    },
+    {
+      "item_id": "minecraft:iron_ingot",
+      "task": "quest_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

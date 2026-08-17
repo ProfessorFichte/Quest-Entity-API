@@ -6,8 +6,8 @@ import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
 
 // QuestItemModelProvider touches QuestItems.QUEST_ITEM, which constructs an Item and needs the
-// item registry unfrozen to do it - the real qe_api mod registers it from its own main entrypoint
-// (QuestEntityAPIFabric.init), but that mod isn't loaded here, so this has to happen the same way,
+// item registry unfrozen to do it - the real quest_api mod registers it from its own main entrypoint
+// (QuestAPIFabric.init), but that mod isn't loaded here, so this has to happen the same way,
 // at the same "main" lifecycle stage, or QuestItems' class-init crashes once the registry freezes
 public class VillagerQuestsInitializer implements ModInitializer {
 

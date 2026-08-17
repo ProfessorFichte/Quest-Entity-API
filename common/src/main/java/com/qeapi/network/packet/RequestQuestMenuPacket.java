@@ -6,8 +6,7 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
-// Client-to-server packet to request opening the quest menu for an entity, used when clicking
-// the Q button on the merchant screen.
+// Sent when clicking the Q button on the merchant screen.
 public record RequestQuestMenuPacket(
         int entityId
 ) implements CustomPacketPayload {

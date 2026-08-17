@@ -4,7 +4,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.mojang.serialization.JsonOps;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.item.QuestItemDefinition;
 import com.qeapi.quest.Quest;
 import com.qeapi.quest.QuestPool;
@@ -49,16 +49,14 @@ public abstract class QuestProvider implements DataProvider {
 
     protected abstract void addQuests();
 
-    // re-runs addQuests() to repopulate pools - exposed so LangProvider can trigger the same
-    // literal-text registration on LangEntries without relying on provider registration order
+    // exposed so LangProvider can trigger the same literal-text registration on LangEntries without relying on provider registration order
     public void collectQuests() {
         pools.clear();
         poolExtraTagValues.clear();
         addQuests();
     }
 
-    // flattened view of every quest collectQuests() just built - used by QuestItemModelProvider to
-    // find inline quest_item definitions without depending on provider registration order either
+    // used by QuestItemModelProvider to find inline quest_item definitions without depending on provider registration order either
     List<Quest> getAllGeneratedQuests() {
         return pools.values().stream()
                 .flatMap(pool -> pool.getQuestsByTier().values().stream())
@@ -86,7 +84,7 @@ public abstract class QuestProvider implements DataProvider {
                         .resolve(quest.id().getPath() + ".json");
 
                 JsonElement json = Quest.CODEC.encodeStart(JsonOps.INSTANCE, quest)
-                        .resultOrPartial(error -> QuestEntityAPI.LOGGER.error("Failed to encode quest {}: {}", quest.id(), error))
+                        .resultOrPartial(error -> QuestAPI.LOGGER.error("Failed to encode quest {}: {}", quest.id(), error))
                         .orElse(null);
 
                 if (json != null) {
@@ -115,7 +113,7 @@ public abstract class QuestProvider implements DataProvider {
 
     @Override
     public String getName() {
-        return "Quest Entity API Quests: " + modId;
+        return "Quest API Quests: " + modId;
     }
 
     // ==================== Builder API ====================
@@ -200,7 +198,6 @@ public abstract class QuestProvider implements DataProvider {
     }
 
     // like entityKillInStructure, but also grants a one-time treasure map to the structure on accept
-    // (see FindStructureTask.ofWithMap for the one-time guarantee)
     protected EntityKillTask entityKillInStructureWithMap(EntityType<?> entity, int amount, String structureId) {
         return EntityKillTask.builder()
                 .entityId(BuiltInRegistries.ENTITY_TYPE.getKey(entity))
@@ -218,8 +215,7 @@ public abstract class QuestProvider implements DataProvider {
         return FindStructureTask.of(structureId);
     }
 
-    // like findStructure(String), but also grants a one-time treasure map on accept - never
-    // re-granted, even across decline/re-accept cycles (see PlayerQuestData.hasMapBeenGranted)
+    // never re-granted, even across decline/re-accept cycles (see PlayerQuestData.hasMapBeenGranted)
     protected FindStructureTask findStructureWithMap(String structureId) {
         return FindStructureTask.ofWithMap(structureId);
     }
@@ -236,8 +232,7 @@ public abstract class QuestProvider implements DataProvider {
         return FindStructureTask.of(structureId, textureOverrideId);
     }
 
-    // caps how far the nearest matching structure may be from the quest-giver for this task to be
-    // offered at all - see FindStructureTask.maxDistance / StructureDistanceUtil.DEFAULT_MAX_DISTANCE
+    // caps how far the nearest matching structure may be from the quest-giver for this task to be offered at all
     protected FindStructureTask findStructure(String structureId, int maxDistance) {
         return FindStructureTask.of(structureId).withMaxDistance(maxDistance);
     }
@@ -296,9 +291,7 @@ public abstract class QuestProvider implements DataProvider {
                 .build();
     }
 
-    // Defines an item inline (no separate registration) - see QuestItemDefinition. Registers
-    // literalName the same way name(String)/description(String) do, keyed by a translation key
-    // synthesized from this mod's ID and customModelData (which must be unique per quest item).
+    // translation key is synthesized from this mod's ID and customModelData, which must be unique per quest item
     protected QuestItemDefinition questItem(ResourceLocation texture, int customModelData, String literalName) {
         return questItem(texture, customModelData, literalName, Rarity.COMMON);
     }
@@ -608,8 +601,7 @@ public abstract class QuestProvider implements DataProvider {
         return new ExperienceReward(amount, Optional.of(textureOverrideId));
     }
 
-    // usually one option among several in rewardChoicePool(...), so picking it commits the player to
-    // that group (see Quest.questGroup/QuestBuilder.questGroup).
+    // usually one option among several in rewardChoicePool(...), so picking it commits the player to that group
     protected SetQuestGroupReward setQuestGroup(String group) {
         return new SetQuestGroupReward(group, Optional.empty());
     }
@@ -633,33 +625,33 @@ public abstract class QuestProvider implements DataProvider {
                 .build();
     }
 
-    protected TeleportToStructureReward teleportToStructure(String structureId) {
-        return TeleportToStructureReward.of(ResourceLocation.parse(structureId));
+    protected TeleportReward teleportToStructure(String structureId) {
+        return TeleportReward.toStructure(ResourceLocation.parse(structureId));
     }
 
-    protected TeleportToStructureReward teleportToStructure(String structureId, int maxDistanceRange) {
-        return new TeleportToStructureReward(ResourceLocation.parse(structureId), maxDistanceRange);
+    protected TeleportReward teleportToStructure(String structureId, int maxDistanceRange) {
+        return TeleportReward.toStructure(ResourceLocation.parse(structureId), maxDistanceRange);
     }
 
-    protected TeleportToStructureReward teleportToStructure(String structureId, ResourceLocation textureOverrideId) {
-        return new TeleportToStructureReward(ResourceLocation.parse(structureId),
-                com.qeapi.util.StructureDistanceUtil.DEFAULT_MAX_DISTANCE, Optional.of(textureOverrideId));
+    protected TeleportReward teleportToStructure(String structureId, ResourceLocation textureOverrideId) {
+        return new TeleportReward(new TeleportReward.ToStructure(ResourceLocation.parse(structureId),
+                com.qeapi.util.StructureDistanceUtil.DEFAULT_MAX_DISTANCE), Optional.of(textureOverrideId));
     }
 
-    protected TeleportToCoordinatesReward teleportToCoordinates(double x, double y, double z) {
-        return TeleportToCoordinatesReward.of(x, y, z);
+    protected TeleportReward teleportToCoordinates(double x, double y, double z) {
+        return TeleportReward.toCoordinates(x, y, z);
     }
 
-    protected TeleportToCoordinatesReward teleportToCoordinates(double x, double y, double z, String dimension) {
-        return TeleportToCoordinatesReward.of(x, y, z, ResourceLocation.parse(dimension));
+    protected TeleportReward teleportToCoordinates(double x, double y, double z, String dimension) {
+        return TeleportReward.toCoordinates(x, y, z, ResourceLocation.parse(dimension));
     }
 
-    protected TeleportToBiomeReward teleportToBiome(String biomeId) {
-        return TeleportToBiomeReward.of(ResourceLocation.parse(biomeId));
+    protected TeleportReward teleportToBiome(String biomeId) {
+        return TeleportReward.toBiome(ResourceLocation.parse(biomeId));
     }
 
-    protected TeleportToBiomeReward teleportToBiome(String biomeId, int maxDistanceRange) {
-        return new TeleportToBiomeReward(ResourceLocation.parse(biomeId), maxDistanceRange);
+    protected TeleportReward teleportToBiome(String biomeId, int maxDistanceRange) {
+        return TeleportReward.toBiome(ResourceLocation.parse(biomeId), maxDistanceRange);
     }
 
     protected MapToStructureReward mapToStructure(String structureId) {
@@ -759,8 +751,7 @@ public abstract class QuestProvider implements DataProvider {
         return new SkillLevelReward(skillTreeId, levels, Optional.of(textureOverrideId));
     }
 
-    // LevelZ integration - grants whole levels in a LevelZ skill; icon is always the skill's own
-    // sprite (LevelZCompat.skillIcon), so unlike the Pufferfish rewards above there's no icon param
+    // icon is always the skill's own sprite (LevelZCompat.skillIcon), so unlike the Pufferfish rewards above there's no icon param
     protected LevelZSkillLevelReward levelZSkillLevel(String skillId, int levels) {
         return new LevelZSkillLevelReward(skillId, levels);
     }
@@ -783,9 +774,7 @@ public abstract class QuestProvider implements DataProvider {
         return SpellScrollReward.builder().spellId(spellId).textureOverrideId(textureOverrideId).build();
     }
 
-    // Target-item rewards - the player picks which of their own inventory items each of these
-    // applies to, in the quest GUI's item-picker overlay (see TargetItemReward).
-
+    // target-item rewards - the player picks which of their own inventory items each applies to, in the quest GUI's item-picker overlay
     protected EnchantRandomlyReward enchantRandomly(int levelCap) {
         return new EnchantRandomlyReward(levelCap);
     }
@@ -814,8 +803,7 @@ public abstract class QuestProvider implements DataProvider {
         return new RepairItemReward(Optional.of(textureOverrideId));
     }
 
-    // Spell Engine integration - binds one specific spell onto the chosen item (making it a spell
-    // container if it isn't one yet, keeping any spells already bound)
+    // Spell Engine integration - binds one specific spell onto the chosen item, making it a spell container if it isn't one yet
     protected SpellBindReward spellBind(ResourceLocation spellId) {
         return new SpellBindReward(spellId);
     }
@@ -854,14 +842,22 @@ public abstract class QuestProvider implements DataProvider {
         return new IncreaseEnchantSlotsReward(amount, cap, Optional.of(textureOverrideId));
     }
 
-    // Bundles any of the above target-item operations onto one player-chosen item, claimed with a
-    // single item pick instead of one per reward
+    // bundles any of the above target-item operations onto one player-chosen item, claimed with a single item pick instead of one per reward
     protected EnhanceItemReward enhanceItem(EnhanceOperation... operations) {
         return new EnhanceItemReward(List.of(operations));
     }
 
     protected EnhanceItemReward enhanceItem(ResourceLocation textureOverrideId, EnhanceOperation... operations) {
         return new EnhanceItemReward(List.of(operations), Optional.of(textureOverrideId));
+    }
+
+    // restrictionItemTag narrows the item picker to only that tag, on top of each operation's own isValidTarget check
+    protected EnhanceItemReward enhanceItemRestricted(TagKey<Item> restrictionItemTag, EnhanceOperation... operations) {
+        return new EnhanceItemReward(List.of(operations), Optional.of(restrictionItemTag), Optional.empty());
+    }
+
+    protected EnhanceItemReward enhanceItemRestricted(TagKey<Item> restrictionItemTag, ResourceLocation textureOverrideId, EnhanceOperation... operations) {
+        return new EnhanceItemReward(List.of(operations), Optional.of(restrictionItemTag), Optional.of(textureOverrideId));
     }
 
     // ==================== Builder Classes ====================
@@ -881,8 +877,7 @@ public abstract class QuestProvider implements DataProvider {
             return this;
         }
 
-        // emits "#<poolId>" into this pool's tag; the reference is resolved at runtime, so the other
-        // pool just has to exist in the loaded data, not be built before this one
+        // the tag reference is resolved at runtime, so the other pool just has to exist in loaded data, not be built before this one
         public PoolBuilder includePool(String poolName) {
             return includeTag(ResourceLocation.fromNamespaceAndPath(modId, poolName));
         }
@@ -956,9 +951,13 @@ public abstract class QuestProvider implements DataProvider {
         private final List<com.qeapi.quest.reward.RewardChoicePool> rewardChoicePools = new ArrayList<>();
         private int weight = 100;
         private Optional<Integer> repeatAfterDays = Optional.empty();
+        private boolean shuffleRefreshingQuests = false;
         private Optional<String> questGroup = Optional.empty();
         private Optional<String> questLine = Optional.empty();
         private Optional<Boolean> followQuestOrderOverride = Optional.empty();
+        private Quest.TaskMode taskMode = Quest.TaskMode.ALL;
+        private int decisionCount = 1;
+        private final List<com.qeapi.quest.TaskChoiceGroup> taskChoiceGroups = new ArrayList<>();
         private Optional<ResourceLocation> acceptQuestSoundOverride = Optional.empty();
         private Optional<ResourceLocation> finishQuestSoundOverride = Optional.empty();
 
@@ -977,10 +976,7 @@ public abstract class QuestProvider implements DataProvider {
             return this;
         }
 
-        // Registers literal text against this quest's default translation key (Quest.defaultNameKey)
-        // for LangProvider to pick up, rather than setting a component directly - so the generated
-        // quest JSON has no quest_name field and falls back to that key at runtime, same as a quest
-        // that never specified one.
+        // registers against the default translation key instead of setting a component directly, so the generated JSON has no quest_name field
         public QuestBuilder name(String literalText) {
             LangEntries.add(Quest.defaultNameKey(id), literalText);
             return this;
@@ -1002,6 +998,12 @@ public abstract class QuestProvider implements DataProvider {
             return this;
         }
 
+        // overrides a choice_group's requiredCount above its default of 1 - membership itself comes from each task's own .choiceGroup(String) call
+        public QuestBuilder taskChoiceGroup(String groupId, int requiredCount) {
+            this.taskChoiceGroups.add(new com.qeapi.quest.TaskChoiceGroup(groupId, requiredCount));
+            return this;
+        }
+
         public QuestBuilder requirement(QuestRequirement requirement) {
             this.requirements.add(requirement);
             return this;
@@ -1018,9 +1020,7 @@ public abstract class QuestProvider implements DataProvider {
             return this;
         }
 
-        // per-option variant, for when one or more choices should only show up while a given mod is
-        // loaded (see RewardChoicePool.Option.requiredMod) - build options with
-        // RewardChoicePool.Option.of(reward) or new RewardChoicePool.Option(reward, Optional.of(modId)).
+        // per-option variant, for when one or more choices should only show up while a given mod is loaded
         public QuestBuilder rewardChoicePoolOptions(int pick, com.qeapi.quest.reward.RewardChoicePool.Option... options) {
             this.rewardChoicePools.add(new com.qeapi.quest.reward.RewardChoicePool(List.of(options), pick));
             return this;
@@ -1031,8 +1031,7 @@ public abstract class QuestProvider implements DataProvider {
             return this;
         }
 
-        // Quest becomes acceptable again this many in-game days after it was last completed -
-        // not calling this means once completed, it's done forever.
+        // not calling this means once completed, it's done forever
         public QuestBuilder repeatAfterDays(int days) {
             this.repeatAfterDays = Optional.of(days);
             return this;
@@ -1042,8 +1041,13 @@ public abstract class QuestProvider implements DataProvider {
             return repeatAfterDays(Quest.DEFAULT_REPEAT_AFTER_DAYS);
         }
 
-        // Only offered to a player who's chosen this group for the pool - see SetQuestGroupReward.
-        // Not calling this means the quest is offered regardless of any chosen group.
+        // on refresh, offer a different weighted-random repeatable quest from the same tier instead of always re-offering this one
+        public QuestBuilder shuffleRefreshingQuests() {
+            this.shuffleRefreshingQuests = true;
+            return this;
+        }
+
+        // not calling this means the quest is offered regardless of any chosen group
         public QuestBuilder questGroup(String group) {
             this.questGroup = Optional.of(group);
             return this;
@@ -1055,13 +1059,30 @@ public abstract class QuestProvider implements DataProvider {
             return this;
         }
 
-        // Overrides this pool's follow_quest_order default for this one quest - needed by a
-        // quest_line step, whose real availability gate is the questLine filter, not tier order (a
-        // step tier-gated behind its quest_line_choice root's own tier would deadlock, since the
-        // root only completes once every step is already done - see the README's Quest Lines section).
+        // needed by a quest_line step gated by the questLine filter instead of tier order, or it would deadlock behind its own root
         public QuestBuilder followQuestOrder(boolean follow) {
             this.followQuestOrderOverride = Optional.of(follow);
             return this;
+        }
+
+        public QuestBuilder taskMode(Quest.TaskMode mode) {
+            this.taskMode = mode;
+            return this;
+        }
+
+        // shorthand for taskMode(ORDER) - tasks unlock in task_order sequence
+        public QuestBuilder ordered() {
+            return taskMode(Quest.TaskMode.ORDER);
+        }
+
+        // shorthand for taskMode(DECISION) - the whole tasks list becomes one implicit choice group; use taskChoiceGroup(...) for partial/multi-group cases
+        public QuestBuilder decision(int requiredCount) {
+            this.decisionCount = requiredCount;
+            return taskMode(Quest.TaskMode.DECISION);
+        }
+
+        public QuestBuilder decision() {
+            return decision(1);
         }
 
         public QuestBuilder acceptQuestSoundOverride(ResourceLocation soundId) {
@@ -1076,9 +1097,17 @@ public abstract class QuestProvider implements DataProvider {
 
         public TierBuilder add() {
             boolean followOrder = followQuestOrderOverride.orElse(tierBuilder.poolBuilder.followOrder);
-            Quest quest = new Quest(id, tierBuilder.tier, requiredMod, followOrder,
-                    name, description, requirements, tasks, rewards, List.copyOf(rewardChoicePools), weight,
-                    repeatAfterDays, questGroup, questLine, acceptQuestSoundOverride, finishQuestSoundOverride);
+            List<com.qeapi.quest.reward.RewardEntry> rewardEntries = new ArrayList<>();
+            for (QuestReward reward : rewards) {
+                rewardEntries.add(new com.qeapi.quest.reward.RewardEntry.All(reward));
+            }
+            for (com.qeapi.quest.reward.RewardChoicePool pool : rewardChoicePools) {
+                rewardEntries.add(new com.qeapi.quest.reward.RewardEntry.Choice(pool));
+            }
+            Quest quest = new Quest(id, tierBuilder.tier, requiredMod, followOrder, taskMode, decisionCount,
+                    List.copyOf(taskChoiceGroups), name, description, requirements, tasks, rewardEntries,
+                    weight, repeatAfterDays, shuffleRefreshingQuests, questGroup, questLine,
+                    acceptQuestSoundOverride, finishQuestSoundOverride);
             tierBuilder.addQuest(quest);
             return tierBuilder;
         }

@@ -3,7 +3,7 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.TextMutator;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -17,31 +17,32 @@ import net.minecraft.world.item.ItemStack;
 import java.util.Map;
 import java.util.Optional;
 
-// counts an anvil operation as complete only when it actually reduced an item's damage - a rename
-// or an enchant-merge with no repair involved doesn't count. AnvilMenu.onTake only fires once a
-// valid (cost > 0) operation is taken, so the before/after damage comparison is all that's needed
-// to tell an actual repair apart from those other anvil uses.
+// only counts when the operation actually reduced item damage - a rename or enchant-merge with no repair doesn't count
 public record AnvilTask(
         Optional<ResourceLocation> resultItemId,
         Optional<TagKey<Item>> resultItemTag,
         int amount,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
-    public static final ResourceLocation DEFAULT_TEXTURE = QuestEntityAPI.id("textures/gui/quest_tasks/anvil_repair_default.png");
+    public static final ResourceLocation DEFAULT_TEXTURE = QuestAPI.id("textures/gui/quest_tasks/anvil_repair_default.png");
 
     public static final MapCodec<AnvilTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.optionalFieldOf("result_item_id").forGetter(AnvilTask::resultItemId),
                     TagKey.codec(Registries.ITEM).optionalFieldOf("result_item_tag").forGetter(AnvilTask::resultItemTag),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(AnvilTask::amount),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(AnvilTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(AnvilTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(AnvilTask::textureOverrideId)
             ).apply(instance, AnvilTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("anvil_repair");
+        return QuestAPI.id("anvil_repair");
     }
 
     @Override
@@ -77,7 +78,7 @@ public record AnvilTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.anvil_repair";
+        return "task.quest_api.anvil_repair";
     }
 
     @Override
@@ -112,6 +113,8 @@ public record AnvilTask(
         private Optional<ResourceLocation> resultItemId = Optional.empty();
         private Optional<TagKey<Item>> resultItemTag = Optional.empty();
         private int amount = 1;
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder resultItemId(ResourceLocation id) {
@@ -137,13 +140,23 @@ public record AnvilTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
         }
 
         public AnvilTask build() {
-            return new AnvilTask(resultItemId, resultItemTag, amount, textureOverrideId);
+            return new AnvilTask(resultItemId, resultItemTag, amount, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

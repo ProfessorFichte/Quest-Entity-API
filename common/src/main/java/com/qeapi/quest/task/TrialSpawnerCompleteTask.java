@@ -3,7 +3,7 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.TextMutator;
 import net.minecraft.network.chat.Component;
@@ -12,12 +12,12 @@ import net.minecraft.resources.ResourceLocation;
 import java.util.Map;
 import java.util.Optional;
 
-// a trial spawner wave has no single "killer" either, credited the same way raid_complete is -
-// see QuestEventHandler.onTrialSpawnerComplete and TrialSpawnerEjectRewardMixin. Absent ominous
-// means either counts; true/false requires that specific state
+// a trial spawner wave has no single "killer" either, credited the same way raid_complete is - see QuestEventHandler.onTrialSpawnerComplete and TrialSpawnerEjectRewardMixin
 public record TrialSpawnerCompleteTask(
         int amount,
         Optional<Boolean> ominous,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
@@ -25,13 +25,15 @@ public record TrialSpawnerCompleteTask(
             instance.group(
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(TrialSpawnerCompleteTask::amount),
                     Codec.BOOL.optionalFieldOf("ominous").forGetter(TrialSpawnerCompleteTask::ominous),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(TrialSpawnerCompleteTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(TrialSpawnerCompleteTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(TrialSpawnerCompleteTask::textureOverrideId)
             ).apply(instance, TrialSpawnerCompleteTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("trial_spawner_complete");
+        return QuestAPI.id("trial_spawner_complete");
     }
 
     @Override
@@ -48,7 +50,7 @@ public record TrialSpawnerCompleteTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.trial_spawner_complete";
+        return "task.quest_api.trial_spawner_complete";
     }
 
     @Override
@@ -67,6 +69,8 @@ public record TrialSpawnerCompleteTask(
     public static class Builder {
         private int amount = 1;
         private Optional<Boolean> ominous = Optional.empty();
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder amount(int amount) {
@@ -79,13 +83,23 @@ public record TrialSpawnerCompleteTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
         }
 
         public TrialSpawnerCompleteTask build() {
-            return new TrialSpawnerCompleteTask(amount, ominous, textureOverrideId);
+            return new TrialSpawnerCompleteTask(amount, ominous, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

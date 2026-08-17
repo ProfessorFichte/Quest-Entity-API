@@ -1,0 +1,47 @@
+{
+  "id": "quest_api:dungeon_delver/test",
+  "required_mod": "dungeon_difficulty",
+  "requirements": [
+    {
+      "experience_level": 3,
+      "requirement": "quest_api:has_level"
+    }
+  ],
+  "rewards": [
+    {
+      "item_id": "minecraft:iron_pickaxe",
+      "reward": "quest_api:item"
+    },
+    {
+      "amount": 32,
+      "item_id": "minecraft:torch",
+      "reward": "quest_api:item"
+    },
+    {
+      "reward": "quest_api:map_to_structure",
+      "structure_id": "minecraft:mineshaft"
+    },
+    {
+      "reward": "quest_api:teleport",
+      "target": {
+        "structure_id": "minecraft:mineshaft",
+        "teleport_type": "structure"
+      }
+    },
+    {
+      "amount": 150,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "filters": {
+        "min_power_level": 2
+      },
+      "provides_map": true,
+      "structure_id": "minecraft:mineshaft",
+      "task": "quest_api:find_structure"
+    }
+  ],
+  "tier": 1
+}

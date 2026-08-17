@@ -3,9 +3,10 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.item.QuestItemDefinition;
 import com.qeapi.quest.QuestProgress;
+import com.qeapi.util.FlexibleListCodec;
 import com.qeapi.util.LocationMatchUtil;
 import com.qeapi.util.TextMutator;
 import net.minecraft.core.BlockPos;
@@ -28,53 +29,77 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-// Grants item_id/quest_item on a matching mob kill and/or a matching chest-loot resolution,
-// capped at amount (tracked via the same QuestProgress machinery every other task uses). Mob
-// targeting and chest targeting are each fully optional and independent - a quest can use either,
-// both, or neither block, though a task with neither never actually grants anything.
+// mob-kill and chest-loot targeting are independent (a quest can use either, both, or neither), so they're kept in separate nested filter objects rather than one shared bag
 public record ConditionalDropTask(
         Optional<ResourceLocation> itemId,
         Optional<QuestItemDefinition> questItem,
         int amount,
-        Optional<ResourceLocation> entityId,
-        Optional<TagKey<EntityType<?>>> entityTag,
-        List<ResourceLocation> entityIds,
-        List<ResourceLocation> damageTypes,
-        Optional<ResourceLocation> inStructure,
-        Optional<ResourceLocation> inBiome,
-        Optional<TagKey<Biome>> inBiomeTag,
-        Optional<ResourceLocation> inDimension,
-        double mobDropChance,
-        List<ResourceLocation> lootTableIds,
-        List<ResourceLocation> chestInStructures,
-        double chestDropChance,
+        MobDropFilters mobDropFilters,
+        ChestLootFilters chestLootFilters,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
+
+    public record MobDropFilters(
+            List<ResourceLocation> entityIds,
+            List<TagKey<EntityType<?>>> entityTags,
+            List<ResourceLocation> damageTypes,
+            Optional<ResourceLocation> inStructure,
+            Optional<ResourceLocation> inBiome,
+            Optional<TagKey<Biome>> inBiomeTag,
+            Optional<ResourceLocation> inDimension,
+            double dropChance
+    ) {
+        public static final MobDropFilters EMPTY = new MobDropFilters(List.of(), List.of(),
+                List.of(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), 1.0);
+
+        public static final Codec<MobDropFilters> CODEC = RecordCodecBuilder.create(instance ->
+                instance.group(
+                        FlexibleListCodec.listOrSingle(ResourceLocation.CODEC).optionalFieldOf("entity_ids", List.of()).forGetter(MobDropFilters::entityIds),
+                        FlexibleListCodec.listOrSingle(TagKey.codec(Registries.ENTITY_TYPE)).optionalFieldOf("entity_tags", List.of()).forGetter(MobDropFilters::entityTags),
+                        ResourceLocation.CODEC.listOf().optionalFieldOf("damage_types", List.of()).forGetter(MobDropFilters::damageTypes),
+                        ResourceLocation.CODEC.optionalFieldOf("in_structure").forGetter(MobDropFilters::inStructure),
+                        ResourceLocation.CODEC.optionalFieldOf("in_biome").forGetter(MobDropFilters::inBiome),
+                        TagKey.codec(Registries.BIOME).optionalFieldOf("in_biome_tag").forGetter(MobDropFilters::inBiomeTag),
+                        ResourceLocation.CODEC.optionalFieldOf("in_dimension").forGetter(MobDropFilters::inDimension),
+                        Codec.doubleRange(0.0, 1.0).optionalFieldOf("drop_chance", 1.0).forGetter(MobDropFilters::dropChance)
+                ).apply(instance, MobDropFilters::new)
+        );
+    }
+
+    public record ChestLootFilters(
+            List<ResourceLocation> lootTableIds,
+            List<ResourceLocation> chestInStructures,
+            double dropChance
+    ) {
+        public static final ChestLootFilters EMPTY = new ChestLootFilters(List.of(), List.of(), 1.0);
+
+        public static final Codec<ChestLootFilters> CODEC = RecordCodecBuilder.create(instance ->
+                instance.group(
+                        ResourceLocation.CODEC.listOf().optionalFieldOf("loot_table_ids", List.of()).forGetter(ChestLootFilters::lootTableIds),
+                        ResourceLocation.CODEC.listOf().optionalFieldOf("chest_in_structures", List.of()).forGetter(ChestLootFilters::chestInStructures),
+                        Codec.doubleRange(0.0, 1.0).optionalFieldOf("drop_chance", 1.0).forGetter(ChestLootFilters::dropChance)
+                ).apply(instance, ChestLootFilters::new)
+        );
+    }
 
     public static final MapCodec<ConditionalDropTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.optionalFieldOf("item_id").forGetter(ConditionalDropTask::itemId),
                     QuestItemDefinition.CODEC.optionalFieldOf("quest_item").forGetter(ConditionalDropTask::questItem),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(ConditionalDropTask::amount),
-                    ResourceLocation.CODEC.optionalFieldOf("entity_id").forGetter(ConditionalDropTask::entityId),
-                    TagKey.codec(Registries.ENTITY_TYPE).optionalFieldOf("entity_tag").forGetter(ConditionalDropTask::entityTag),
-                    ResourceLocation.CODEC.listOf().optionalFieldOf("entity_ids", List.of()).forGetter(ConditionalDropTask::entityIds),
-                    ResourceLocation.CODEC.listOf().optionalFieldOf("damage_types", List.of()).forGetter(ConditionalDropTask::damageTypes),
-                    ResourceLocation.CODEC.optionalFieldOf("in_structure").forGetter(ConditionalDropTask::inStructure),
-                    ResourceLocation.CODEC.optionalFieldOf("in_biome").forGetter(ConditionalDropTask::inBiome),
-                    TagKey.codec(Registries.BIOME).optionalFieldOf("in_biome_tag").forGetter(ConditionalDropTask::inBiomeTag),
-                    ResourceLocation.CODEC.optionalFieldOf("in_dimension").forGetter(ConditionalDropTask::inDimension),
-                    Codec.doubleRange(0.0, 1.0).optionalFieldOf("mob_drop_chance", 1.0).forGetter(ConditionalDropTask::mobDropChance),
-                    ResourceLocation.CODEC.listOf().optionalFieldOf("loot_table_ids", List.of()).forGetter(ConditionalDropTask::lootTableIds),
-                    ResourceLocation.CODEC.listOf().optionalFieldOf("chest_in_structures", List.of()).forGetter(ConditionalDropTask::chestInStructures),
-                    Codec.doubleRange(0.0, 1.0).optionalFieldOf("chest_drop_chance", 1.0).forGetter(ConditionalDropTask::chestDropChance),
+                    MobDropFilters.CODEC.optionalFieldOf("mob_drop_filters", MobDropFilters.EMPTY).forGetter(ConditionalDropTask::mobDropFilters),
+                    ChestLootFilters.CODEC.optionalFieldOf("chest_loot_filters", ChestLootFilters.EMPTY).forGetter(ConditionalDropTask::chestLootFilters),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(ConditionalDropTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(ConditionalDropTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(ConditionalDropTask::textureOverrideId)
             ).apply(instance, ConditionalDropTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("conditional_drop");
+        return QuestAPI.id("conditional_drop");
     }
 
     @Override
@@ -86,8 +111,8 @@ public record ConditionalDropTask(
                         "item_amount", String.valueOf(amount),
                         "item_name", getItemDisplayName(),
                         "current_found", String.valueOf(current),
-                        "mob_drop_chance", formatChance(mobDropChance),
-                        "chest_drop_chance", formatChance(chestDropChance)
+                        "mob_drop_chance", formatChance(mobDropFilters.dropChance()),
+                        "chest_drop_chance", formatChance(chestLootFilters.dropChance())
                 )
         );
     }
@@ -117,7 +142,7 @@ public record ConditionalDropTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.conditional_drop";
+        return "task.quest_api.conditional_drop";
     }
 
     @Override
@@ -125,50 +150,45 @@ public record ConditionalDropTask(
         return amount;
     }
 
-    // False whenever no mob-targeting selector is configured at all - an empty selector matches
-    // nothing here, unlike EntityKillTask where at least one is mandatory.
+    // unlike EntityKillTask, an empty selector here matches nothing rather than being mandatory
     public boolean matchesKill(LivingEntity killed, DamageSource source, Level level) {
-        if (entityId.isEmpty() && entityTag.isEmpty() && entityIds.isEmpty()) {
+        if (mobDropFilters.entityIds().isEmpty() && mobDropFilters.entityTags().isEmpty()) {
             return false;
         }
 
         ResourceLocation killedId = BuiltInRegistries.ENTITY_TYPE.getKey(killed.getType());
 
-        if (entityId.isPresent() && !killedId.equals(entityId.get())) {
+        if (!mobDropFilters.entityIds().isEmpty() && mobDropFilters.entityIds().stream().noneMatch(id -> killedId.equals(id))) {
             return false;
         }
 
-        if (!entityIds.isEmpty() && entityIds.stream().noneMatch(id -> killedId.equals(id))) {
+        if (!mobDropFilters.entityTags().isEmpty() && mobDropFilters.entityTags().stream().noneMatch(tag -> killed.getType().is(tag))) {
             return false;
         }
 
-        if (entityTag.isPresent() && !killed.getType().is(entityTag.get())) {
-            return false;
-        }
-
-        if (!damageTypes.isEmpty()) {
+        if (!mobDropFilters.damageTypes().isEmpty()) {
             ResourceLocation sourceTypeId = source.typeHolder().unwrapKey()
                     .map(ResourceKey::location)
                     .orElse(null);
-            if (sourceTypeId == null || damageTypes.stream().noneMatch(requiredType -> requiredType.equals(sourceTypeId))) {
+            if (sourceTypeId == null || mobDropFilters.damageTypes().stream().noneMatch(requiredType -> requiredType.equals(sourceTypeId))) {
                 return false;
             }
         }
 
-        if (inDimension.isPresent() && !level.dimension().location().equals(inDimension.get())) {
+        if (mobDropFilters.inDimension().isPresent() && !level.dimension().location().equals(mobDropFilters.inDimension().get())) {
             return false;
         }
 
         if (level instanceof ServerLevel serverLevel) {
             BlockPos pos = killed.blockPosition();
 
-            if (inBiome.isPresent() && !LocationMatchUtil.isInBiome(serverLevel, pos, inBiome.get())) {
+            if (mobDropFilters.inBiome().isPresent() && !LocationMatchUtil.isInBiome(serverLevel, pos, mobDropFilters.inBiome().get())) {
                 return false;
             }
-            if (inBiomeTag.isPresent() && !LocationMatchUtil.isInBiomeTag(serverLevel, pos, inBiomeTag.get())) {
+            if (mobDropFilters.inBiomeTag().isPresent() && !LocationMatchUtil.isInBiomeTag(serverLevel, pos, mobDropFilters.inBiomeTag().get())) {
                 return false;
             }
-            if (inStructure.isPresent() && !LocationMatchUtil.isInStructure(serverLevel, pos, inStructure.get())) {
+            if (mobDropFilters.inStructure().isPresent() && !LocationMatchUtil.isInStructure(serverLevel, pos, mobDropFilters.inStructure().get())) {
                 return false;
             }
         }
@@ -176,27 +196,45 @@ public record ConditionalDropTask(
         return true;
     }
 
-    // False whenever neither loot_table_ids nor chest_in_structures is configured, same "at least
-    // one selector required" contract as matchesKill. originPos may be null (e.g. loot contexts
-    // that don't carry LootContextParams.ORIGIN, like fishing) - treated as "can't check
-    // chest_in_structures" rather than throwing, so it simply fails to match.
+    // originPos can be null for loot contexts without LootContextParams.ORIGIN (e.g. fishing) - treated as a non-match rather than thrown
     public boolean matchesChestLoot(ResourceLocation resolvedLootTableId, ServerLevel level, BlockPos originPos) {
-        if (lootTableIds.isEmpty() && chestInStructures.isEmpty()) {
+        if (chestLootFilters.lootTableIds().isEmpty() && chestLootFilters.chestInStructures().isEmpty()) {
             return false;
         }
 
-        if (!lootTableIds.isEmpty() && !lootTableIds.contains(resolvedLootTableId)) {
+        if (!chestLootFilters.lootTableIds().isEmpty() && !chestLootFilters.lootTableIds().contains(resolvedLootTableId)) {
             return false;
         }
 
-        if (!chestInStructures.isEmpty()) {
+        if (!chestLootFilters.chestInStructures().isEmpty()) {
             if (level == null || originPos == null
-                    || chestInStructures.stream().noneMatch(structure -> LocationMatchUtil.isInStructure(level, originPos, structure))) {
+                    || chestLootFilters.chestInStructures().stream().noneMatch(structure -> LocationMatchUtil.isInStructure(level, originPos, structure))) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    public boolean matches(ItemStack stack) {
+        if (stack.isEmpty()) return false;
+
+        if (questItem.isPresent()) {
+            return questItem.get().matches(stack);
+        }
+
+        ResourceLocation stackItemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        return stackItemId.equals(itemId.orElse(null));
+    }
+
+    public int countMatchingItems(Iterable<ItemStack> inventory) {
+        int count = 0;
+        for (ItemStack stack : inventory) {
+            if (matches(stack)) {
+                count += stack.getCount();
+            }
+        }
+        return count;
     }
 
     public static Builder builder() {
@@ -207,9 +245,8 @@ public record ConditionalDropTask(
         private Optional<ResourceLocation> itemId = Optional.empty();
         private Optional<QuestItemDefinition> questItem = Optional.empty();
         private int amount = 1;
-        private Optional<ResourceLocation> entityId = Optional.empty();
-        private Optional<TagKey<EntityType<?>>> entityTag = Optional.empty();
         private List<ResourceLocation> entityIds = List.of();
+        private List<TagKey<EntityType<?>>> entityTags = List.of();
         private List<ResourceLocation> damageTypes = List.of();
         private Optional<ResourceLocation> inStructure = Optional.empty();
         private Optional<ResourceLocation> inBiome = Optional.empty();
@@ -219,6 +256,8 @@ public record ConditionalDropTask(
         private List<ResourceLocation> lootTableIds = List.of();
         private List<ResourceLocation> chestInStructures = List.of();
         private double chestDropChance = 1.0;
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder itemId(ResourceLocation id) {
@@ -245,8 +284,7 @@ public record ConditionalDropTask(
         }
 
         public Builder entityId(ResourceLocation id) {
-            this.entityId = Optional.of(id);
-            return this;
+            return entityIds(id);
         }
 
         public Builder entityId(String id) {
@@ -254,7 +292,12 @@ public record ConditionalDropTask(
         }
 
         public Builder entityTag(TagKey<EntityType<?>> tag) {
-            this.entityTag = Optional.of(tag);
+            return entityTags(tag);
+        }
+
+        @SafeVarargs
+        public final Builder entityTags(TagKey<EntityType<?>>... tags) {
+            this.entityTags = List.of(tags);
             return this;
         }
 
@@ -327,6 +370,16 @@ public record ConditionalDropTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
@@ -336,9 +389,11 @@ public record ConditionalDropTask(
             if (itemId.isEmpty() == questItem.isEmpty()) {
                 throw new IllegalStateException("ConditionalDropTask requires exactly one of itemId or questItem");
             }
-            return new ConditionalDropTask(itemId, questItem, amount, entityId, entityTag, entityIds, damageTypes,
-                    inStructure, inBiome, inBiomeTag, inDimension, mobDropChance, lootTableIds, chestInStructures,
-                    chestDropChance, textureOverrideId);
+            MobDropFilters mobDropFilters = new MobDropFilters(entityIds, entityTags, damageTypes,
+                    inStructure, inBiome, inBiomeTag, inDimension, mobDropChance);
+            ChestLootFilters chestLootFilters = new ChestLootFilters(lootTableIds, chestInStructures, chestDropChance);
+            return new ConditionalDropTask(itemId, questItem, amount, mobDropFilters, chestLootFilters,
+                    taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

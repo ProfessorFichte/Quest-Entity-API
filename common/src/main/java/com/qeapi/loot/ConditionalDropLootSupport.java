@@ -1,6 +1,6 @@
 package com.qeapi.loot;
 
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.api.QuestEntityAccess;
 import com.qeapi.component.PlayerQuestData;
 import com.qeapi.data.QuestManager;
@@ -32,27 +32,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
-// Builds the extra loot pool appended to every loaded loot table (see the Fabric/NeoForge
-// LootTableEvents.MODIFY / LootTableLoadEvent hooks) that resolves ConditionalDropTask's
-// loot_table_ids/chest_in_structures targeting. The pool structure is the same for every table -
-// all the actual "does this table/player/task match" work happens inside the function at roll
-// time, since a loot table is only ever built once per reload but opened by many different
-// players afterward.
-//
-// Unlike every other task type's event hook, this one is appended to literally every loot table
-// in the game (fishing, block drops, mob drops, chests - everything), so resolve() runs on a vast
-// number of rolls that have nothing to do with any loaded quest at all. anyChestTargetingQuestLoaded
-// caches whether any loaded quest even uses loot_table_ids/chest_in_structures, so resolve() can
-// bail out before touching any player data on a server that doesn't use the feature - see
-// invalidateCache() for how this stays correct across data reloads.
+// appended to every loot table in the game, so resolve() must stay cheap for rolls that have nothing to do with a loaded quest - anyChestTargetingQuestLoaded caches that check
 public final class ConditionalDropLootSupport {
 
     private ConditionalDropLootSupport() {}
 
     private static Boolean anyChestTargetingQuestLoaded = null;
 
-    // Called from QuestLoader.apply() right after QuestManager.clear(), so the cache is rebuilt
-    // against the newly reloaded quest data the next time resolve() actually needs it.
+    // called from QuestLoader.apply() after QuestManager.clear() so the cache reflects the reload
     public static void invalidateCache() {
         anyChestTargetingQuestLoaded = null;
     }
@@ -68,7 +55,7 @@ public final class ConditionalDropLootSupport {
         for (Quest quest : QuestManager.getAllQuests()) {
             for (QuestTask task : quest.tasks()) {
                 if (task instanceof ConditionalDropTask dropTask
-                        && (!dropTask.lootTableIds().isEmpty() || !dropTask.chestInStructures().isEmpty())) {
+                        && (!dropTask.chestLootFilters().lootTableIds().isEmpty() || !dropTask.chestLootFilters().chestInStructures().isEmpty())) {
                     return true;
                 }
             }
@@ -96,9 +83,7 @@ public final class ConditionalDropLootSupport {
         };
     }
 
-    // Checked in order: the player actually opening the container (if the context carries one),
-    // then every other online player, first eligible match wins - see the "no per-open player
-    // context" note on ConditionalDropTask's chest-loot targeting.
+    // checked in order: the opening player, then same-dimension players, then everyone else - first match wins
     private static ItemStack resolve(ResourceLocation tableId, LootContext context) {
         if (!isAnyChestTargetingQuestLoaded()) {
             return ItemStack.EMPTY;
@@ -118,8 +103,7 @@ public final class ConditionalDropLootSupport {
         return ItemStack.EMPTY;
     }
 
-    // Null if this loot context doesn't carry an origin (e.g. fishing/entity-drop tables usually
-    // don't) - see ConditionalDropTask.matchesChestLoot for how that's handled.
+    // null if this loot context has no origin, e.g. fishing/entity-drop tables
     private static BlockPos resolveOriginPos(LootContext context) {
         Vec3 origin = context.getParamOrNull(LootContextParams.ORIGIN);
         return origin != null ? BlockPos.containing(origin) : null;
@@ -136,6 +120,8 @@ public final class ConditionalDropLootSupport {
             // fishing/arrow tables carry the hook/projectile as THIS_ENTITY, not the player - credit its owner
             candidates.add(ownerPlayer);
         }
+        // no player context on this roll - prefer same-dimension players before widening server-wide
+        candidates.addAll(level.players());
         candidates.addAll(level.getServer().getPlayerList().getPlayers());
         return List.copyOf(candidates);
     }
@@ -153,28 +139,33 @@ public final class ConditionalDropLootSupport {
             for (int i = 0; i < quest.tasks().size(); i++) {
                 if (!(quest.tasks().get(i) instanceof ConditionalDropTask dropTask)) continue;
 
-                List<ResourceLocation> lootTableIds = dropTask.lootTableIds();
-                if (lootTableIds.isEmpty() && dropTask.chestInStructures().isEmpty()) continue;
+                List<ResourceLocation> lootTableIds = dropTask.chestLootFilters().lootTableIds();
+                if (lootTableIds.isEmpty() && dropTask.chestLootFilters().chestInStructures().isEmpty()) continue;
                 if (!lootTableIds.isEmpty() && !lootTableIds.contains(tableId)) continue;
 
-                // only resolve the origin/run a structure lookup for a task that actually needs
-                // one - the vast majority of conditional_drop tasks only ever use loot_table_ids
-                BlockPos originPos = !dropTask.chestInStructures().isEmpty() ? resolveOriginPos(context) : null;
+                // only resolve the origin/run a structure lookup for tasks that actually need one
+                BlockPos originPos = !dropTask.chestLootFilters().chestInStructures().isEmpty() ? resolveOriginPos(context) : null;
                 if (!dropTask.matchesChestLoot(tableId, level, originPos)) continue;
 
                 int current = progress.getTaskProgress(i);
+                // self-heal against a lost item - forgets credit the player no longer holds, so the cap can't permanently lock them out
+                int held = dropTask.countMatchingItems(player.getInventory().items);
+                if (held < current) {
+                    current = held;
+                    progress.setTaskProgress(i, current);
+                }
                 if (current >= dropTask.amount()) continue;
-                if (context.getRandom().nextDouble() >= dropTask.chestDropChance()) continue;
+                if (!quest.isTaskUnlocked(progress, i)) continue;
+                if (context.getRandom().nextDouble() >= dropTask.chestLootFilters().dropChance()) continue;
 
                 progress.incrementTaskProgress(i);
                 QuestEntityAccess.setPlayerData(player, playerData);
-                // same persist/sync/complete chain every normal task runs - without this the
-                // conditional_drop task's own progress never reaches the GUI or the amount cap
+                // same persist/sync/complete chain every normal task runs
                 QuestEventHandler.updateEntityComponent(player, entry.getKey(), progress);
                 QuestEventHandler.syncProgressToClient(player, entry.getKey(), progress);
                 QuestEventHandler.checkQuestCompletion(player, entry.getKey(), quest, progress);
 
-                QuestEntityAPI.LOGGER.debug("Player {} got a conditional loot drop from loot table {} for quest {} task {}",
+                QuestAPI.LOGGER.debug("Player {} got a conditional loot drop from loot table {} for quest {} task {}",
                         player.getName().getString(), tableId, quest.id(), i);
 
                 return dropTask.createGrantStack(1);

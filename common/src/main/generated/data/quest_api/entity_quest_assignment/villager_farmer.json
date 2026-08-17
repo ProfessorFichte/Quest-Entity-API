@@ -1,0 +1,7 @@
+{
+  "entity_id": "minecraft:villager",
+  "quest_pool": "quest_api:brew_master",
+  "villager_data": {
+    "profession": "farmer"
+  }
+}

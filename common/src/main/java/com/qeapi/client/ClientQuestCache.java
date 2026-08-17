@@ -12,29 +12,24 @@ import java.util.concurrent.ConcurrentHashMap;
 // Client-side cache for quest entity data; used for rendering quest markers and tracking local state.
 public final class ClientQuestCache {
 
-    // Entity UUID -> has quests (simplified for rendering)
     private static final Set<UUID> ENTITIES_WITH_QUESTS = ConcurrentHashMap.newKeySet();
 
-    // Entity UUID -> has active quest with local player
     private static final Set<UUID> ENTITIES_WITH_ACTIVE_QUEST = ConcurrentHashMap.newKeySet();
 
-    // Entity UUID -> quest is complete and ready to claim
     private static final Set<UUID> ENTITIES_WITH_COMPLETE_QUEST = ConcurrentHashMap.newKeySet();
 
-    // Entity UUID -> every quest this entity offers has been completed (nothing left to accept)
+    // Nothing left to accept - distinct from ENTITIES_WITH_COMPLETE_QUEST, which is per active quest.
     private static final Set<UUID> ENTITIES_ALL_QUESTS_COMPLETE = ConcurrentHashMap.newKeySet();
 
-    // Entity UUID -> refuses to interact right now (on hit cooldown for the local player)
+    // On hit cooldown, not actually hostile
     private static final Set<UUID> ENTITIES_ENRAGED = ConcurrentHashMap.newKeySet();
 
-    // Entity ID (network) -> Quest component (for current session)
     private static final Map<Integer, EntityQuestComponent> ENTITY_COMPONENTS = new ConcurrentHashMap<>();
 
     private static final Map<UUID, Integer> UUID_TO_ID = new ConcurrentHashMap<>();
 
     private ClientQuestCache() {}
 
-    // called when packet received
     public static void markEntityHasQuests(UUID entityUuid, int entityId, EntityQuestComponent component) {
         ENTITIES_WITH_QUESTS.add(entityUuid);
         ENTITY_COMPONENTS.put(entityId, component);
@@ -48,7 +43,7 @@ public final class ClientQuestCache {
         }
     }
 
-    // simplified variant for sync packets, when we only have basic quest state, not the full component
+    // used by sync packets that only carry basic quest state, not the full component
     public static void markEntityHasQuestsSimple(UUID entityUuid, int entityId, boolean hasActiveQuest, boolean isQuestComplete,
                                                   boolean allQuestsCompleted, boolean enraged) {
         ENTITIES_WITH_QUESTS.add(entityUuid);
@@ -115,7 +110,6 @@ public final class ClientQuestCache {
         return UUID_TO_ID.get(entityUuid);
     }
 
-    // called on disconnect
     public static void clear() {
         ENTITIES_WITH_QUESTS.clear();
         ENTITIES_WITH_ACTIVE_QUEST.clear();
@@ -127,7 +121,6 @@ public final class ClientQuestCache {
         DELIVERY_TARGET_ITEMS.clear();
     }
 
-    // called when entity is removed from the world
     public static void removeEntity(UUID entityUuid, int entityId) {
         ENTITIES_WITH_QUESTS.remove(entityUuid);
         ENTITIES_WITH_ACTIVE_QUEST.remove(entityUuid);
@@ -141,8 +134,7 @@ public final class ClientQuestCache {
 
     // ==================== Delivery Target Marker (deliver_item) ====================
 
-    // Entity UUID -> the item this entity wants, for the floating item marker - see
-    // QuestMarkerRenderer.renderDeliveryItem and SyncDeliveryTargetPacket
+    // For the floating item marker - see QuestMarkerRenderer.renderDeliveryItem and SyncDeliveryTargetPacket.
     private static final Map<UUID, ItemStack> DELIVERY_TARGET_ITEMS = new ConcurrentHashMap<>();
 
     public static void setDeliveryTarget(UUID entityUuid, ItemStack item) {
@@ -160,7 +152,7 @@ public final class ClientQuestCache {
 
     // ==================== Scroll Position Caching ====================
 
-    // Entity ID -> scroll positions (preserved when screen is refreshed)
+    // Preserved when the screen is refreshed
     private static final Map<Integer, ScrollPositions> SCROLL_POSITIONS = new ConcurrentHashMap<>();
 
     public record ScrollPositions(int questScrollOffset, int infoScrollOffset, int selectedQuestIndex) {}
@@ -179,13 +171,11 @@ public final class ClientQuestCache {
 
     // ==================== Merchant Tracking ====================
 
-    // Last merchant entity ID that was interacted with (for merchant screen integration)
     private static int lastMerchantEntityId = -1;
     private static UUID lastMerchantEntityUuid = null;
-    // Track if quest screen was opened from merchant (for back button)
+    // Needed so the quest screen's back button can reopen the trading menu
     private static boolean openedFromMerchant = false;
 
-    // called when player interacts with a villager/wandering trader
     public static void setLastMerchantEntity(int entityId, UUID entityUuid) {
         lastMerchantEntityId = entityId;
         lastMerchantEntityUuid = entityUuid;

@@ -1,0 +1,8 @@
+{
+  "entity_id": "minecraft:villager",
+  "quest_pool": "quest_api:angler",
+  "quest_chance": 1.0,
+  "villager_data": {
+    "profession": "none"
+  }
+}

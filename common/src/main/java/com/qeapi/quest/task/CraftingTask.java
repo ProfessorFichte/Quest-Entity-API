@@ -3,7 +3,7 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.TextMutator;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -17,30 +17,32 @@ import net.minecraft.world.item.ItemStack;
 import java.util.Map;
 import java.util.Optional;
 
-// covers any crafting method - crafting table, the 2x2 inventory grid, or a Crafter block - since
-// all of them funnel through ServerPlayer.triggerRecipeCrafted the same way vanilla's own
-// "recipe crafted" advancement criterion does
+// covers crafting table, the 2x2 grid, and Crafter blocks alike, since all of them funnel through ServerPlayer.triggerRecipeCrafted
 public record CraftingTask(
         Optional<ResourceLocation> resultItemId,
         Optional<TagKey<Item>> resultItemTag,
         int amount,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
-    public static final ResourceLocation DEFAULT_TEXTURE = QuestEntityAPI.id("textures/gui/quest_tasks/crafting_default.png");
+    public static final ResourceLocation DEFAULT_TEXTURE = QuestAPI.id("textures/gui/quest_tasks/crafting_default.png");
 
     public static final MapCodec<CraftingTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.optionalFieldOf("result_item_id").forGetter(CraftingTask::resultItemId),
                     TagKey.codec(Registries.ITEM).optionalFieldOf("result_item_tag").forGetter(CraftingTask::resultItemTag),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(CraftingTask::amount),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(CraftingTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(CraftingTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(CraftingTask::textureOverrideId)
             ).apply(instance, CraftingTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("crafting");
+        return QuestAPI.id("crafting");
     }
 
     @Override
@@ -76,7 +78,7 @@ public record CraftingTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.crafting";
+        return "task.quest_api.crafting";
     }
 
     @Override
@@ -105,6 +107,8 @@ public record CraftingTask(
         private Optional<ResourceLocation> resultItemId = Optional.empty();
         private Optional<TagKey<Item>> resultItemTag = Optional.empty();
         private int amount = 1;
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder resultItemId(ResourceLocation id) {
@@ -130,13 +134,23 @@ public record CraftingTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
         }
 
         public CraftingTask build() {
-            return new CraftingTask(resultItemId, resultItemTag, amount, textureOverrideId);
+            return new CraftingTask(resultItemId, resultItemTag, amount, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

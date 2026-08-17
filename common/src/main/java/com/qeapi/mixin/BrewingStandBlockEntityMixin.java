@@ -24,7 +24,7 @@ public abstract class BrewingStandBlockEntityMixin {
     private static final int BREW_ATTRIBUTION_RADIUS = 8;
 
     @Inject(method = "doBrew", at = @At("TAIL"))
-    private static void qe_api$onDoBrew(Level level, BlockPos pos, NonNullList<ItemStack> items, CallbackInfo ci) {
+    private static void quest_api$onDoBrew(Level level, BlockPos pos, NonNullList<ItemStack> items, CallbackInfo ci) {
         if (!(level instanceof ServerLevel serverLevel)) return;
 
         List<ServerPlayer> nearbyPlayers = serverLevel.getEntitiesOfClass(

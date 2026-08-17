@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
@@ -34,7 +34,7 @@ public record EnchantRandomlyReward(int levelCap, Optional<ResourceLocation> tex
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("enchant_randomly");
+        return QuestAPI.id("enchant_randomly");
     }
 
     @Override
@@ -53,7 +53,7 @@ public record EnchantRandomlyReward(int levelCap, Optional<ResourceLocation> tex
                 .toList();
 
         if (candidates.isEmpty()) {
-            QuestEntityAPI.LOGGER.warn("[EnchantRandomlyReward] No valid enchantment left to roll for {}",
+            QuestAPI.LOGGER.warn("[EnchantRandomlyReward] No valid enchantment left to roll for {}",
                     stack.getItem());
             return;
         }
@@ -69,12 +69,12 @@ public record EnchantRandomlyReward(int levelCap, Optional<ResourceLocation> tex
 
     @Override
     public void grant(ServerPlayer player) {
-        QuestEntityAPI.LOGGER.warn("[EnchantRandomlyReward] grant(player) called without a target item - ignoring");
+        QuestAPI.LOGGER.warn("[EnchantRandomlyReward] grant(player) called without a target item - ignoring");
     }
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.enchant_randomly", levelCap);
+        return Component.translatable("reward.quest_api.enchant_randomly", levelCap);
     }
 
     @Override

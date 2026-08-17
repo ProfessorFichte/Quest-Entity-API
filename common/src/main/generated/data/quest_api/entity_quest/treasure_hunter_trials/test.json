@@ -1,0 +1,172 @@
+{
+  "id": "quest_api:treasure_hunter_trials/test",
+  "rewards": [
+    {
+      "amount": 300,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "mob_drop_filters": {
+        "drop_chance": 0.5,
+        "entity_ids": [
+          "minecraft:pillager"
+        ],
+        "in_structure": "minecraft:pillager_outpost"
+      },
+      "quest_item": {
+        "custom_model_data": 1001,
+        "name": {
+          "translate": "quest_item.quest_api.1001"
+        },
+        "texture": "quest_api:item/test_hammer"
+      },
+      "task": "quest_api:conditional_drop"
+    },
+    {
+      "quest_item": {
+        "custom_model_data": 1001,
+        "name": {
+          "translate": "quest_item.quest_api.1001"
+        },
+        "texture": "quest_api:item/test_hammer"
+      },
+      "task": "quest_api:bring_item"
+    },
+    {
+      "chest_loot_filters": {
+        "drop_chance": 0.2,
+        "loot_table_ids": [
+          "minecraft:chests/bastion_treasure",
+          "minecraft:chests/bastion_other",
+          "minecraft:chests/bastion_bridge",
+          "minecraft:chests/bastion_hoglin_stable"
+        ]
+      },
+      "quest_item": {
+        "custom_model_data": 1002,
+        "name": {
+          "translate": "quest_item.quest_api.1002"
+        },
+        "texture": "quest_api:item/piglin_trophy"
+      },
+      "task": "quest_api:conditional_drop"
+    },
+    {
+      "quest_item": {
+        "custom_model_data": 1002,
+        "name": {
+          "translate": "quest_item.quest_api.1002"
+        },
+        "texture": "quest_api:item/piglin_trophy"
+      },
+      "task": "quest_api:bring_item"
+    },
+    {
+      "chest_loot_filters": {
+        "chest_in_structures": [
+          "minecraft:nether_fortress"
+        ],
+        "drop_chance": 0.2
+      },
+      "quest_item": {
+        "custom_model_data": 1003,
+        "name": {
+          "translate": "quest_item.quest_api.1003"
+        },
+        "texture": "quest_api:item/fortress_relic"
+      },
+      "task": "quest_api:conditional_drop"
+    },
+    {
+      "quest_item": {
+        "custom_model_data": 1003,
+        "name": {
+          "translate": "quest_item.quest_api.1003"
+        },
+        "texture": "quest_api:item/fortress_relic"
+      },
+      "task": "quest_api:bring_item"
+    },
+    {
+      "chest_loot_filters": {
+        "drop_chance": 0.2,
+        "loot_table_ids": [
+          "minecraft:blocks/diamond_ore"
+        ]
+      },
+      "quest_item": {
+        "custom_model_data": 1004,
+        "name": {
+          "translate": "quest_item.quest_api.1004"
+        },
+        "texture": "quest_api:item/miners_locket"
+      },
+      "task": "quest_api:conditional_drop"
+    },
+    {
+      "quest_item": {
+        "custom_model_data": 1004,
+        "name": {
+          "translate": "quest_item.quest_api.1004"
+        },
+        "texture": "quest_api:item/miners_locket"
+      },
+      "task": "quest_api:bring_item"
+    },
+    {
+      "chest_loot_filters": {
+        "drop_chance": 0.2,
+        "loot_table_ids": [
+          "minecraft:gameplay/fishing/treasure"
+        ]
+      },
+      "quest_item": {
+        "custom_model_data": 1005,
+        "name": {
+          "translate": "quest_item.quest_api.1005"
+        },
+        "texture": "quest_api:item/anglers_charm"
+      },
+      "task": "quest_api:conditional_drop"
+    },
+    {
+      "quest_item": {
+        "custom_model_data": 1005,
+        "name": {
+          "translate": "quest_item.quest_api.1005"
+        },
+        "texture": "quest_api:item/anglers_charm"
+      },
+      "task": "quest_api:bring_item"
+    },
+    {
+      "chest_loot_filters": {
+        "drop_chance": 0.2,
+        "loot_table_ids": [
+          "minecraft:blocks/wheat"
+        ]
+      },
+      "quest_item": {
+        "custom_model_data": 1006,
+        "name": {
+          "translate": "quest_item.quest_api.1006"
+        },
+        "texture": "quest_api:item/farmers_bounty"
+      },
+      "task": "quest_api:conditional_drop"
+    },
+    {
+      "quest_item": {
+        "custom_model_data": 1006,
+        "name": {
+          "translate": "quest_item.quest_api.1006"
+        },
+        "texture": "quest_api:item/farmers_bounty"
+      },
+      "task": "quest_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

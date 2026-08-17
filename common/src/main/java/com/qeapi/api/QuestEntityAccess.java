@@ -1,6 +1,6 @@
 package com.qeapi.api;
 
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.component.EntityQuestComponent;
 import com.qeapi.component.PlayerQuestData;
 import com.qeapi.data.QuestManager;
@@ -45,7 +45,7 @@ public final class QuestEntityAccess {
         entityComponentSetter = entitySetter;
         playerDataGetter = playerGetter;
         playerDataSetter = playerSetter;
-        QuestEntityAPI.LOGGER.info("QuestEntityAccess initialized with platform-specific implementations");
+        QuestAPI.LOGGER.info("QuestEntityAccess initialized with platform-specific implementations");
     }
 
     // Wires the platform's forceResyncForNearbyPlayers; called by platform init code alongside init() above.
@@ -53,8 +53,7 @@ public final class QuestEntityAccess {
         nearbyResyncTrigger = resyncTrigger;
     }
 
-    // Forces nearby players' quest-marker sync to refresh immediately, for state changes made from
-    // common code (which can't call the platform's own forceResyncForNearbyPlayers directly).
+    // for state changes made from common code, which can't call the platform's own forceResyncForNearbyPlayers directly
     public static void forceResyncNearbyPlayers(Entity entity) {
         if (nearbyResyncTrigger != null) {
             nearbyResyncTrigger.accept(entity);
@@ -69,7 +68,7 @@ public final class QuestEntityAccess {
         EntityQuestComponent component = getEntityQuestComponent(entity);
         Optional<QuestPool> poolOpt = getQuestPool(entity);
         if (component == null || poolOpt.isEmpty()) {
-            QuestEntityAPI.LOGGER.debug("No quest pool found for entity {} when opening quest menu", entity.getId());
+            QuestAPI.LOGGER.debug("No quest pool found for entity {} when opening quest menu", entity.getId());
             return;
         }
 
@@ -158,8 +157,7 @@ public final class QuestEntityAccess {
             );
             setEntityQuestComponent(entity, updated);
 
-            // one-way: once accepted from, this giver is protected from despawning for good, even
-            // after every quest with it wraps up - no-ops for non-Mob QuestEntity implementations
+            // one-way: once accepted from, this giver is protected from despawning for good, even after every quest with it wraps up
             if (entity instanceof Mob mob) {
                 mob.setPersistenceRequired();
             }
@@ -169,9 +167,9 @@ public final class QuestEntityAccess {
         com.qeapi.event.QuestEventHandler.grantStructureMapIfNeeded(player, quest);
         // no-op unless quest has a deliver_item task
         com.qeapi.event.QuestEventHandler.resolveDeliveryTargetIfNeeded(player, entity, quest);
-        com.qeapi.event.QuestEventHandler.playAcceptSound(player, quest);
+        com.qeapi.event.QuestEventHandler.playAcceptSound(player, quest, component);
 
-        QuestEntityAPI.LOGGER.debug("Player {} accepted quest {} from entity {}",
+        QuestAPI.LOGGER.debug("Player {} accepted quest {} from entity {}",
                 player.getName().getString(), questId, entity.getId());
         return true;
     }
@@ -194,7 +192,7 @@ public final class QuestEntityAccess {
             setEntityQuestComponent(entity, updated);
         }
 
-        QuestEntityAPI.LOGGER.debug("Player {} dismissed quest from entity {}",
+        QuestAPI.LOGGER.debug("Player {} dismissed quest from entity {}",
                 player.getName().getString(), entity.getId());
         return true;
     }
@@ -227,12 +225,12 @@ public final class QuestEntityAccess {
                 .toList();
         quest.grantRewards(player, entity, emptyPoolChoices);
         com.qeapi.event.QuestEventHandler.grantVillagerTradeXp(entity, quest.tier());
-        com.qeapi.event.QuestEventHandler.playClaimEffects(player, quest);
+        EntityQuestComponent component = getEntityQuestComponent(entity);
+        com.qeapi.event.QuestEventHandler.playClaimEffects(player, quest, component);
 
         playerData.clearEntityProgress(entity.getUUID());
         setPlayerData(player, playerData);
 
-        EntityQuestComponent component = getEntityQuestComponent(entity);
         if (component != null) {
             EntityQuestComponent updated = component.withCompletedQuest(player.getUUID(), activeQuestId.get(),
                     player.serverLevel().getDayTime());
@@ -240,15 +238,12 @@ public final class QuestEntityAccess {
             resolveQuestLineIfNeeded(player, entity, updated, quest);
         }
 
-        QuestEntityAPI.LOGGER.debug("Player {} completed quest {} from entity {}",
+        QuestAPI.LOGGER.debug("Player {} completed quest {} from entity {}",
                 player.getName().getString(), activeQuestId.get(), entity.getId());
         return true;
     }
 
-    // True for a quest whose sole task is quest_line_choice - the root of a quest line, which never
-    // goes through the normal accept/entityProgress pipeline (see QuestLineChoiceTask's javadoc).
-    // Mirrors QuestScreen.isLineRootQuest; shared here so the Fabric/NeoForge accept handlers don't
-    // each need their own copy of the check.
+    // the root of a quest line never goes through the normal accept/entityProgress pipeline - mirrors QuestScreen.isLineRootQuest
     public static boolean isLineRootQuest(Quest quest) {
         return quest.tasks().size() == 1 && quest.tasks().get(0) instanceof com.qeapi.quest.task.QuestLineChoiceTask;
     }
@@ -265,11 +260,7 @@ public final class QuestEntityAccess {
         return null;
     }
 
-    // Called right after a quest's rewards are granted and it's marked completed - if it's one step
-    // of a questLine and every other step sharing that id is now also completed (checked against
-    // postGrantComponent, not a stale pre-grant copy), marks that line resolved in the giver's
-    // LineSelectionState. That's what makes the quest_line_choice root's Claim button light up -
-    // see QuestLineChoiceTask.isResolved and QuestScreen's canClaimReward.
+    // if every other step of this quest's line is now completed too, marks the line resolved - that's what lights up the root's Claim button
     public static void resolveQuestLineIfNeeded(ServerPlayer player, Entity entity,
                                                  EntityQuestComponent postGrantComponent, Quest quest) {
         if (quest.questLine().isEmpty()) return;

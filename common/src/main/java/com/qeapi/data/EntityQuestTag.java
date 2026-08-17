@@ -8,9 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-// A tag grouping multiple quest IDs into a pool an entity can offer - entity_quest files each
-// define a single quest, and a tag combines them. Loaded from
-// data/[namespace]/tags/entity_quests/[path].json; values can reference other tags with "#".
+// groups multiple quest IDs into a pool an entity can offer; values can reference other tags with "#"
 public class EntityQuestTag {
     private final ResourceLocation id;
     private final List<ResourceLocation> questIds;

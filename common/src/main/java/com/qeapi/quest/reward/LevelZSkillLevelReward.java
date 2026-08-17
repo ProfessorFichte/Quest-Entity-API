@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.compat.LevelZCompat;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -12,9 +12,8 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.Optional;
 
-// LevelZ skills are level-only, no per-skill XP pool to grant partial progress into, so this is
-// the only LevelZ reward type. LevelZ already gives each skill a standalone icon by convention
-// (LevelZCompat.skillIcon), so there's no need for a quest author to set one manually.
+// LevelZ skills are level-only (no per-skill XP pool), so this is the only LevelZ reward type;
+// each skill already has a standalone icon by convention (LevelZCompat.skillIcon), so no override is needed.
 public record LevelZSkillLevelReward(
         String skillId,
         int levels,
@@ -35,13 +34,13 @@ public record LevelZSkillLevelReward(
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("levelz_skill_level");
+        return ResourceLocation.fromNamespaceAndPath("levelz", "levelz_skill_level");
     }
 
     @Override
     public void grant(ServerPlayer player) {
         if (!LevelZCompat.isLoaded()) {
-            QuestEntityAPI.LOGGER.warn("[LevelZSkillLevelReward] LevelZ isn't loaded - skipping reward for {}", skillId);
+            QuestAPI.LOGGER.warn("[LevelZSkillLevelReward] LevelZ isn't loaded - skipping reward for {}", skillId);
             return;
         }
         LevelZCompat.addSkillLevels(player, skillId, levels);
@@ -49,7 +48,7 @@ public record LevelZSkillLevelReward(
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.levelz_skill_level", levels, skillId);
+        return Component.translatable("reward.quest_api.levelz_skill_level", levels, skillId);
     }
 
     @Override

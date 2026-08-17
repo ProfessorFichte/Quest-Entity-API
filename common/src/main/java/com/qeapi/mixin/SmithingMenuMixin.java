@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class SmithingMenuMixin {
 
     @Inject(method = "onTake", at = @At("HEAD"))
-    private void qe_api$onSmithingTake(Player player, ItemStack itemStack, CallbackInfo ci) {
+    private void quest_api$onSmithingTake(Player player, ItemStack itemStack, CallbackInfo ci) {
         if (player instanceof ServerPlayer serverPlayer) {
             QuestEventHandler.onItemSmithed(serverPlayer, itemStack);
         }

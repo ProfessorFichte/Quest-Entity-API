@@ -12,16 +12,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.List;
 
-// Tracks crafting completions for CraftingTask off ServerPlayer.triggerRecipeCrafted, the single
-// call site vanilla's own "recipe crafted" advancement criterion uses for the crafting table, the
-// 2x2 inventory grid, and the Crafter block alike. The list param here is the ingredients used
-// (see ResultSlot.checkTakeAchievements), not the output, so the actual crafted item has to be
-// resolved from the recipe itself.
+// Tracks crafting completions for CraftingTask off ServerPlayer.triggerRecipeCrafted, the one call
+// site vanilla's own "recipe crafted" criterion uses for the crafting table, 2x2 grid, and Crafter
+// block alike. The list param is the ingredients used, not the output, so the crafted item has to
+// be resolved from the recipe itself.
 @Mixin(ServerPlayer.class)
 public abstract class ServerPlayerRecipeCraftedMixin {
 
     @Inject(method = "triggerRecipeCrafted", at = @At("TAIL"))
-    private void qe_api$onRecipeCrafted(RecipeHolder<?> recipeHolder, List<ItemStack> ingredients, CallbackInfo ci) {
+    private void quest_api$onRecipeCrafted(RecipeHolder<?> recipeHolder, List<ItemStack> ingredients, CallbackInfo ci) {
         ServerPlayer self = (ServerPlayer) (Object) this;
         Recipe<?> recipe = recipeHolder.value();
         ItemStack result = recipe.getResultItem(self.level().registryAccess());

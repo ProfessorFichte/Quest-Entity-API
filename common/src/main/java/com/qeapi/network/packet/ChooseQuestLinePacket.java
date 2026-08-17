@@ -7,9 +7,9 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-// Client-to-server packet to pick a line from a quest_line_choice root's picker. rootQuestId is
-// sent explicitly (rather than resolved server-side via getActiveQuest) since the root never goes
-// through the normal accept/entityProgress pipeline, so there's no "active quest" to look it up by.
+// Picks a line from a quest_line_choice root's picker. rootQuestId is sent explicitly, rather
+// than resolved via getActiveQuest, since the root never goes through the normal
+// accept/entityProgress pipeline and so has no "active quest" to look it up by.
 public record ChooseQuestLinePacket(
         int entityId,
         ResourceLocation rootQuestId,

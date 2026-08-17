@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.compat.PufferfishSkillsCompat;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -12,11 +12,8 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.Optional;
 
-// Pufferfish's Skills doesn't expose a category's icon through its cross-mod API - the icon data
-// is internal and only synced lazily per-category, per-player - so this leans on
-// texture_override_id to let a quest author point at that skill tree's own icon texture directly
-// (e.g. "skill_tree_rpgs:textures/gui/icon.png" from its category.json). Falls back to a generic
-// XP-bottle icon if omitted.
+// Pufferfish's Skills doesn't expose a category's icon through its API (synced lazily per-category, per-player) -
+// texture_override_id lets a quest author point directly at that skill tree's own icon.
 public record SkillExperienceReward(
         ResourceLocation skillTreeId,
         int amount,
@@ -37,13 +34,13 @@ public record SkillExperienceReward(
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("skill_experience");
+        return ResourceLocation.fromNamespaceAndPath("puffish_skills", "skill_experience");
     }
 
     @Override
     public void grant(ServerPlayer player) {
         if (!PufferfishSkillsCompat.isLoaded()) {
-            QuestEntityAPI.LOGGER.warn("[SkillExperienceReward] Pufferfish's Skills isn't loaded - skipping reward for {}", skillTreeId);
+            QuestAPI.LOGGER.warn("[SkillExperienceReward] Pufferfish's Skills isn't loaded - skipping reward for {}", skillTreeId);
             return;
         }
         PufferfishSkillsCompat.addExperience(player, skillTreeId, amount);
@@ -51,7 +48,7 @@ public record SkillExperienceReward(
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.skill_experience", amount, skillTreeId.toString());
+        return Component.translatable("reward.quest_api.skill_experience", amount, skillTreeId.toString());
     }
 
     @Override

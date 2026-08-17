@@ -11,27 +11,26 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-// Tracks block breaking for MineBlockTask. destroyBlock is core vanilla server logic (not
-// Fabric/NeoForge-specific), so a single shared mixin covers both loaders - same pattern as
-// LivingEntityMixin/BrewingStandBlockEntityMixin.
+// Tracks block breaking for MineBlockTask; destroyBlock is core vanilla logic (not loader-specific)
+// so one shared mixin covers both loaders, same as LivingEntityMixin/BrewingStandBlockEntityMixin.
 @Mixin(ServerPlayerGameMode.class)
 public abstract class ServerPlayerGameModeMixin {
 
     @Shadow
     protected ServerPlayer player;
 
-    private BlockState qe_api$minedState;
+    private BlockState quest_api$minedState;
 
     @Inject(method = "destroyBlock", at = @At("HEAD"))
-    private void qe_api$onDestroyBlockStart(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
-        qe_api$minedState = player.level().getBlockState(pos);
+    private void quest_api$onDestroyBlockStart(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
+        quest_api$minedState = player.level().getBlockState(pos);
     }
 
     @Inject(method = "destroyBlock", at = @At("RETURN"))
-    private void qe_api$onDestroyBlockEnd(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
-        if (Boolean.TRUE.equals(cir.getReturnValue()) && qe_api$minedState != null) {
-            QuestEventHandler.onBlockMined(player, qe_api$minedState);
+    private void quest_api$onDestroyBlockEnd(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
+        if (Boolean.TRUE.equals(cir.getReturnValue()) && quest_api$minedState != null) {
+            QuestEventHandler.onBlockMined(player, quest_api$minedState);
         }
-        qe_api$minedState = null;
+        quest_api$minedState = null;
     }
 }

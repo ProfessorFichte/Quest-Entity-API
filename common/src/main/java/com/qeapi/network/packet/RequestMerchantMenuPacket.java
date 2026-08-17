@@ -6,8 +6,7 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
-// Client-to-server packet to request reopening the merchant trading menu, used when clicking the
-// back button on the quest screen (when opened from a merchant).
+// Sent when clicking the back button on the quest screen, when it was opened from a merchant.
 public record RequestMerchantMenuPacket(
         int entityId
 ) implements CustomPacketPayload {

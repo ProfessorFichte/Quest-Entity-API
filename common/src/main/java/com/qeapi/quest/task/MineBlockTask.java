@@ -3,7 +3,7 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.TextMutator;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -21,6 +21,8 @@ public record MineBlockTask(
         Optional<ResourceLocation> blockId,
         Optional<TagKey<Block>> blockTag,
         int amount,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
@@ -29,13 +31,15 @@ public record MineBlockTask(
                     ResourceLocation.CODEC.optionalFieldOf("block_id").forGetter(MineBlockTask::blockId),
                     TagKey.codec(Registries.BLOCK).optionalFieldOf("block_tag").forGetter(MineBlockTask::blockTag),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(MineBlockTask::amount),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(MineBlockTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(MineBlockTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(MineBlockTask::textureOverrideId)
             ).apply(instance, MineBlockTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("mine_block");
+        return QuestAPI.id("mine_block");
     }
 
     @Override
@@ -58,7 +62,7 @@ public record MineBlockTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.mine_block";
+        return "task.quest_api.mine_block";
     }
 
     @Override
@@ -86,6 +90,8 @@ public record MineBlockTask(
         private Optional<ResourceLocation> blockId = Optional.empty();
         private Optional<TagKey<Block>> blockTag = Optional.empty();
         private int amount = 1;
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder blockId(ResourceLocation id) {
@@ -111,6 +117,16 @@ public record MineBlockTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
@@ -120,7 +136,7 @@ public record MineBlockTask(
             if (blockId.isEmpty() && blockTag.isEmpty()) {
                 throw new IllegalStateException("MineBlockTask requires blockId or blockTag");
             }
-            return new MineBlockTask(blockId, blockTag, amount, textureOverrideId);
+            return new MineBlockTask(blockId, blockTag, amount, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

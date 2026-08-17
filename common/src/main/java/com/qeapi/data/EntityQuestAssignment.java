@@ -3,7 +3,7 @@ package com.qeapi.data;
 import com.mojang.datafixers.util.Either;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 
@@ -15,7 +15,7 @@ import java.util.Optional;
 // Example JSON:
 // {
 //   "entity_id": "minecraft:villager",
-//   "quest_pool": "qe_api:test_quests",
+//   "quest_pool": "quest_api:test_quests",
 //   "quest_chance": 0.25,
 //   "chunk_restriction_radius": 0,
 //   "villager_data": {
@@ -28,12 +28,16 @@ import java.util.Optional;
 // assignment. "chunk_restriction_radius" is optional; when present, only one entity within
 // that many chunks of another can receive this same assignment at a time (freed on death).
 // Modded professions use a full resource location, e.g. "wizards:wizard_merchant".
+// "accept_quest_sound_override"/"finish_quest_sound_override" are optional per-assignment sound
+// overrides - see the priority chain in QuestEventHandler.playAcceptSound/playClaimEffects.
 public record EntityQuestAssignment(
         ResourceLocation entityId,
         List<String> questPools,
         double questChance,
         Optional<Integer> chunkRestrictionRadius,
-        Optional<VillagerMatcher> villagerData
+        Optional<VillagerMatcher> villagerData,
+        Optional<ResourceLocation> acceptQuestSoundOverride,
+        Optional<ResourceLocation> finishQuestSoundOverride
 ) {
     private static final Codec<List<String>> QUEST_POOLS_CODEC = Codec.either(Codec.STRING, Codec.STRING.listOf())
             .xmap(
@@ -47,7 +51,9 @@ public record EntityQuestAssignment(
                     QUEST_POOLS_CODEC.fieldOf("quest_pool").forGetter(EntityQuestAssignment::questPools),
                     Codec.DOUBLE.optionalFieldOf("quest_chance", 1.0).forGetter(EntityQuestAssignment::questChance),
                     Codec.INT.optionalFieldOf("chunk_restriction_radius").forGetter(EntityQuestAssignment::chunkRestrictionRadius),
-                    VillagerMatcher.CODEC.optionalFieldOf("villager_data").forGetter(EntityQuestAssignment::villagerData)
+                    VillagerMatcher.CODEC.optionalFieldOf("villager_data").forGetter(EntityQuestAssignment::villagerData),
+                    ResourceLocation.CODEC.optionalFieldOf("accept_quest_sound_override").forGetter(EntityQuestAssignment::acceptQuestSoundOverride),
+                    ResourceLocation.CODEC.optionalFieldOf("finish_quest_sound_override").forGetter(EntityQuestAssignment::finishQuestSoundOverride)
             ).apply(instance, EntityQuestAssignment::new)
     );
 
@@ -80,17 +86,17 @@ public record EntityQuestAssignment(
         );
 
         public boolean matches(String villagerBiomeType, String villagerProfession) {
-            QuestEntityAPI.LOGGER.debug("[VillagerMatcher] Checking match: villagerBiome={}, villagerProfession={}",
+            QuestAPI.LOGGER.debug("[VillagerMatcher] Checking match: villagerBiome={}, villagerProfession={}",
                     villagerBiomeType, villagerProfession);
-            QuestEntityAPI.LOGGER.debug("[VillagerMatcher]   Against: requiredBiome={}, requiredProfession={}",
+            QuestAPI.LOGGER.debug("[VillagerMatcher]   Against: requiredBiome={}, requiredProfession={}",
                     biomeType, profession);
 
             if (biomeType.isPresent()) {
                 boolean biomeMatches = biomeType.get().equalsIgnoreCase(villagerBiomeType);
-                QuestEntityAPI.LOGGER.debug("[VillagerMatcher]   Biome check: '{}' vs '{}' = {}",
+                QuestAPI.LOGGER.debug("[VillagerMatcher]   Biome check: '{}' vs '{}' = {}",
                         biomeType.get(), villagerBiomeType, biomeMatches);
                 if (!biomeMatches) {
-                    QuestEntityAPI.LOGGER.debug("[VillagerMatcher]   FAILED biome check");
+                    QuestAPI.LOGGER.debug("[VillagerMatcher]   FAILED biome check");
                     return false;
                 }
             }
@@ -108,15 +114,15 @@ public record EntityQuestAssignment(
                 }
 
                 boolean professionMatches = requiredProfession.equalsIgnoreCase(actualProfession);
-                QuestEntityAPI.LOGGER.debug("[VillagerMatcher]   Profession check: '{}' vs '{}' = {}",
+                QuestAPI.LOGGER.debug("[VillagerMatcher]   Profession check: '{}' vs '{}' = {}",
                         requiredProfession, actualProfession, professionMatches);
                 if (!professionMatches) {
-                    QuestEntityAPI.LOGGER.debug("[VillagerMatcher]   FAILED profession check");
+                    QuestAPI.LOGGER.debug("[VillagerMatcher]   FAILED profession check");
                     return false;
                 }
             }
 
-            QuestEntityAPI.LOGGER.debug("[VillagerMatcher]   MATCHED!");
+            QuestAPI.LOGGER.debug("[VillagerMatcher]   MATCHED!");
             return true;
         }
     }

@@ -2,7 +2,7 @@ package com.qeapi.quest.reward;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.advancements.AdvancementProgress;
 import net.minecraft.network.chat.Component;
@@ -27,7 +27,7 @@ public record AdvancementReward(
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("advancement");
+        return QuestAPI.id("advancement");
     }
 
     @Override
@@ -35,7 +35,7 @@ public record AdvancementReward(
         AdvancementHolder advancement = player.server.getAdvancements().get(advancementId);
 
         if (advancement == null) {
-            QuestEntityAPI.LOGGER.warn("AdvancementReward: Advancement {} not found", advancementId);
+            QuestAPI.LOGGER.warn("AdvancementReward: Advancement {} not found", advancementId);
             return;
         }
 
@@ -45,13 +45,13 @@ public record AdvancementReward(
             player.getAdvancements().award(advancement, criterion);
         }
 
-        QuestEntityAPI.LOGGER.debug("Granted advancement {} to player {}",
+        QuestAPI.LOGGER.debug("Granted advancement {} to player {}",
                 advancementId, player.getName().getString());
     }
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.advancement", advancementId.toString());
+        return Component.translatable("reward.quest_api.advancement", advancementId.toString());
     }
 
     @Override

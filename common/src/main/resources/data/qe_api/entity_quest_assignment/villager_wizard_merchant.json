@@ -1,9 +1,0 @@
-{
-  "entity_id": "minecraft:villager",
-  "quest_pool": "qe_api:wizard_paths",
-  "quest_chance": 1.0,
-  "chunk_restriction_radius": 0,
-  "villager_data": {
-    "profession": "wizards:wizard_merchant"
-  }
-}

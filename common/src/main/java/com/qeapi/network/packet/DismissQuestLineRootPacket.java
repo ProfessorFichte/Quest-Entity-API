@@ -7,9 +7,9 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-// Client-to-server packet to dismiss (un-accept) an already-accepted, not-yet-claimed
-// quest_line_choice root, sent when clicking that root's own checkbox a second time - mirrors
-// CancelQuestLinePacket's shape, just scoped to the whole root rather than a single line.
+// Dismisses an already-accepted, not-yet-claimed quest_line_choice root, sent when clicking
+// that root's own checkbox a second time - mirrors CancelQuestLinePacket, just scoped to the
+// whole root rather than a single line.
 public record DismissQuestLineRootPacket(
         int entityId,
         ResourceLocation rootQuestId

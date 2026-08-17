@@ -1,0 +1,68 @@
+{
+  "accept_quest_sound_override": "minecraft:entity.experience_orb.pickup",
+  "finish_quest_sound_override": "minecraft:ui.toast.challenge_complete",
+  "id": "quest_api:apprentice_basics/test",
+  "rewards": [
+    {
+      "item_id": "minecraft:enchanted_golden_apple",
+      "reward": "quest_api:item"
+    },
+    {
+      "amplifier": 2,
+      "duration": 60,
+      "effect_id": "minecraft:regeneration",
+      "reward": "quest_api:status_effect"
+    },
+    {
+      "amount": 150,
+      "reward": "quest_api:experience"
+    },
+    {
+      "options": [
+        {
+          "reward": {
+            "amount": 2,
+            "item_id": "minecraft:diamond",
+            "reward": "quest_api:item"
+          }
+        },
+        {
+          "reward": {
+            "amount": 6,
+            "item_id": "minecraft:emerald",
+            "reward": "quest_api:item"
+          }
+        },
+        {
+          "reward": {
+            "duration": 300,
+            "effect_id": "minecraft:luck",
+            "reward": "quest_api:status_effect"
+          }
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 5,
+      "item_id": "minecraft:golden_apple",
+      "task": "quest_api:item_used"
+    },
+    {
+      "amount": 3,
+      "potion_id": "minecraft:swiftness",
+      "task": "quest_api:brew_potion"
+    },
+    {
+      "amount": 3,
+      "block_id": "minecraft:oak_log",
+      "task": "quest_api:mine_block"
+    },
+    {
+      "distance": 500,
+      "task": "quest_api:blocks_traveled"
+    }
+  ],
+  "tier": 1
+}

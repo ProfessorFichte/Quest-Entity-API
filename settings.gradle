@@ -7,7 +7,7 @@ pluginManagement {
     }
 }
 
-rootProject.name = 'qe_api'
+rootProject.name = 'quest_api'
 
 include 'common'
 include 'fabric'

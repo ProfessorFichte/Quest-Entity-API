@@ -1,0 +1,21 @@
+{
+  "follow_quest_order": false,
+  "id": "quest_api:epic_monster_story/dragon_trial_2",
+  "quest_line": "ender_dragon_story",
+  "rewards": [
+    {
+      "amount": 300,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 10,
+      "entity_ids": [
+        "minecraft:enderman"
+      ],
+      "task": "quest_api:entity_kill"
+    }
+  ],
+  "tier": 4
+}

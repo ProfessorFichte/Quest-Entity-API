@@ -1,6 +1,6 @@
 package com.qeapi.data;
 
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.quest.Quest;
 import com.qeapi.quest.QuestPool;
 import net.minecraft.resources.ResourceLocation;
@@ -18,17 +18,17 @@ public final class QuestManager {
     public static void clear() {
         QUESTS.clear();
         // tags are cleared separately via clearTags()
-        QuestEntityAPI.LOGGER.info("Cleared quest data");
+        QuestAPI.LOGGER.info("Cleared quest data");
     }
 
     public static void clearTags() {
         ENTITY_QUEST_TAGS.clear();
-        QuestEntityAPI.LOGGER.debug("Cleared entity quest tags");
+        QuestAPI.LOGGER.debug("Cleared entity quest tags");
     }
 
     public static void registerQuest(Quest quest) {
         QUESTS.put(quest.id(), quest);
-        QuestEntityAPI.LOGGER.debug("Registered quest: {}", quest.id());
+        QuestAPI.LOGGER.debug("Registered quest: {}", quest.id());
     }
 
     public static Optional<Quest> getQuest(ResourceLocation id) {
@@ -48,7 +48,7 @@ public final class QuestManager {
     }
 
     public static void logSummary() {
-        QuestEntityAPI.LOGGER.info("Loaded {} quests, {} entity quest tags",
+        QuestAPI.LOGGER.info("Loaded {} quests, {} entity quest tags",
                 QUESTS.size(), ENTITY_QUEST_TAGS.size());
     }
 
@@ -56,7 +56,7 @@ public final class QuestManager {
 
     public static void registerEntityQuestTag(EntityQuestTag tag) {
         ENTITY_QUEST_TAGS.put(tag.getId(), tag);
-        QuestEntityAPI.LOGGER.debug("Registered entity quest tag: {}", tag.getId());
+        QuestAPI.LOGGER.debug("Registered entity quest tag: {}", tag.getId());
     }
 
     public static Optional<EntityQuestTag> getEntityQuestTag(ResourceLocation id) {
@@ -75,13 +75,11 @@ public final class QuestManager {
         return ENTITY_QUEST_TAGS.size();
     }
 
-    // Resolves a tag into a single synthetic QuestPool built from every quest it references,
-    // directly or through nested tags, grouped by each quest's own tier. Empty if the tag
-    // doesn't exist or resolves to no quests.
+    // builds a synthetic QuestPool from every quest the tag references, directly or through nested tags
     public static Optional<QuestPool> getQuestPoolFromTag(ResourceLocation tagId) {
         List<Quest> quests = resolveTagToQuests(tagId, new HashSet<>());
         if (quests.isEmpty()) {
-            QuestEntityAPI.LOGGER.warn("[QuestManager] Tag {} resolved to no quests!", tagId);
+            QuestAPI.LOGGER.warn("[QuestManager] Tag {} resolved to no quests!", tagId);
             return Optional.empty();
         }
         return Optional.of(QuestPool.fromQuests(tagId, quests));
@@ -89,13 +87,13 @@ public final class QuestManager {
 
     private static List<Quest> resolveTagToQuests(ResourceLocation tagId, Set<ResourceLocation> visited) {
         if (!visited.add(tagId)) {
-            QuestEntityAPI.LOGGER.warn("[QuestManager] Circular tag reference detected involving {}", tagId);
+            QuestAPI.LOGGER.warn("[QuestManager] Circular tag reference detected involving {}", tagId);
             return List.of();
         }
 
         Optional<EntityQuestTag> tagOpt = getEntityQuestTag(tagId);
         if (tagOpt.isEmpty()) {
-            QuestEntityAPI.LOGGER.warn("[QuestManager] Tag {} not found! Available tags: {}",
+            QuestAPI.LOGGER.warn("[QuestManager] Tag {} not found! Available tags: {}",
                     tagId, ENTITY_QUEST_TAGS.keySet());
             return List.of();
         }
@@ -105,7 +103,7 @@ public final class QuestManager {
 
         for (ResourceLocation questId : tag.getQuestIds()) {
             getQuest(questId).ifPresentOrElse(result::add,
-                    () -> QuestEntityAPI.LOGGER.warn("[QuestManager] Quest {} referenced in tag {} does not exist!",
+                    () -> QuestAPI.LOGGER.warn("[QuestManager] Quest {} referenced in tag {} does not exist!",
                             questId, tagId));
         }
 
@@ -117,16 +115,16 @@ public final class QuestManager {
     }
 
     public static void debugPrintAll() {
-        QuestEntityAPI.LOGGER.info("=== QuestManager Debug Info ===");
-        QuestEntityAPI.LOGGER.info("Registered quests ({}):", QUESTS.size());
+        QuestAPI.LOGGER.info("=== QuestManager Debug Info ===");
+        QuestAPI.LOGGER.info("Registered quests ({}):", QUESTS.size());
         for (ResourceLocation questId : QUESTS.keySet()) {
-            QuestEntityAPI.LOGGER.info("  - {} (tier {})", questId, QUESTS.get(questId).tier());
+            QuestAPI.LOGGER.info("  - {} (tier {})", questId, QUESTS.get(questId).tier());
         }
-        QuestEntityAPI.LOGGER.info("Registered entity quest tags ({}):", ENTITY_QUEST_TAGS.size());
+        QuestAPI.LOGGER.info("Registered entity quest tags ({}):", ENTITY_QUEST_TAGS.size());
         for (ResourceLocation tagId : ENTITY_QUEST_TAGS.keySet()) {
             EntityQuestTag tag = ENTITY_QUEST_TAGS.get(tagId);
-            QuestEntityAPI.LOGGER.info("  - {} -> quests: {}", tagId, tag.getQuestIds());
+            QuestAPI.LOGGER.info("  - {} -> quests: {}", tagId, tag.getQuestIds());
         }
-        QuestEntityAPI.LOGGER.info("=== End Debug Info ===");
+        QuestAPI.LOGGER.info("=== End Debug Info ===");
     }
 }

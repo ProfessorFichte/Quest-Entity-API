@@ -9,7 +9,6 @@ import net.minecraft.resources.ResourceLocation;
 
 import java.util.Map;
 
-// Server-to-client packet to sync quest progress updates.
 public record QuestProgressPacket(
         int entityId,
         ResourceLocation questId,

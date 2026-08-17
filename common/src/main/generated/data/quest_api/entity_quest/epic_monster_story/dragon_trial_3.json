@@ -1,0 +1,25 @@
+{
+  "follow_quest_order": false,
+  "id": "quest_api:epic_monster_story/dragon_trial_3",
+  "quest_line": "ender_dragon_story",
+  "rewards": [
+    {
+      "item_id": "minecraft:dragon_egg",
+      "reward": "quest_api:item"
+    },
+    {
+      "amount": 500,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 1,
+      "entity_ids": [
+        "minecraft:ender_dragon"
+      ],
+      "task": "quest_api:entity_kill"
+    }
+  ],
+  "tier": 5
+}

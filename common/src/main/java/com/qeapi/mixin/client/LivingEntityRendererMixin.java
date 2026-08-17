@@ -12,7 +12,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Renders quest markers above living entities.
 @Mixin(LivingEntityRenderer.class)
 public abstract class LivingEntityRendererMixin<T extends LivingEntity> extends EntityRenderer<T> {
 
@@ -22,7 +21,7 @@ public abstract class LivingEntityRendererMixin<T extends LivingEntity> extends 
 
     @Inject(method = "render(Lnet/minecraft/world/entity/LivingEntity;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V",
             at = @At("TAIL"))
-    private void qe_api$renderQuestMarker(T entity, float entityYaw, float partialTick,
+    private void quest_api$renderQuestMarker(T entity, float entityYaw, float partialTick,
                                            PoseStack poseStack, MultiBufferSource buffer,
                                            int packedLight, CallbackInfo ci) {
         if (QuestMarkerRenderer.shouldRender(entity)) {

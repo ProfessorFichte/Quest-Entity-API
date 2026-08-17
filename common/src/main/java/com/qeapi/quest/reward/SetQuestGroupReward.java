@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.api.QuestEntityAccess;
 import com.qeapi.component.EntityQuestComponent;
 import com.qeapi.util.TextFormatting;
@@ -15,14 +15,9 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.Optional;
 
-// Records which quest_group the player picked for this entity's pool (see Quest.questGroup) -
-// usually one option in a RewardChoicePool, so a "pick your path" quest locks the player into one
-// branch. No-op if granted without entity context (see EntityAwareReward); that only happens
-// through the direct-completion API, which doesn't pass an entity through.
-//
-// textureOverrideId is that path's own icon (e.g. a school's symbol), shown bordered with
-// selection.png so the player can see what they picked. Falls back to a generic XP-bottle icon if
-// omitted, same as SkillExperienceReward/SkillLevelReward.
+// Records which quest_group the player picked (see Quest.questGroup) - usually one RewardChoicePool option, so a "pick your path" quest locks the player into a branch.
+// No-op without entity context (only happens via the direct-completion API).
+// textureOverrideId is the path's own icon, shown bordered with selection.png; falls back to a generic XP-bottle icon if omitted.
 public record SetQuestGroupReward(String group, Optional<ResourceLocation> textureOverrideId) implements QuestReward, EntityAwareReward {
 
     public SetQuestGroupReward(String group, ResourceLocation textureOverrideId) {
@@ -38,19 +33,19 @@ public record SetQuestGroupReward(String group, Optional<ResourceLocation> textu
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("set_quest_group");
+        return QuestAPI.id("set_quest_group");
     }
 
     @Override
     public void grant(ServerPlayer player) {
-        QuestEntityAPI.LOGGER.warn("[SetQuestGroupReward] granted without entity context - skipping");
+        QuestAPI.LOGGER.warn("[SetQuestGroupReward] granted without entity context - skipping");
     }
 
     @Override
     public void grantWithEntity(ServerPlayer player, Entity entity) {
         EntityQuestComponent component = QuestEntityAccess.getEntityQuestComponent(entity);
         if (component == null) {
-            QuestEntityAPI.LOGGER.warn("[SetQuestGroupReward] entity {} has no quest component - skipping", entity.getId());
+            QuestAPI.LOGGER.warn("[SetQuestGroupReward] entity {} has no quest component - skipping", entity.getId());
             return;
         }
         QuestEntityAccess.setEntityQuestComponent(entity, component.withChosenQuestGroup(player.getUUID(), group));
@@ -58,7 +53,7 @@ public record SetQuestGroupReward(String group, Optional<ResourceLocation> textu
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.set_quest_group", TextFormatting.titleCaseWords(group));
+        return Component.translatable("reward.quest_api.set_quest_group", TextFormatting.titleCaseWords(group));
     }
 
     @Override

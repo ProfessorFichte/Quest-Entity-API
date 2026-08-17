@@ -1,0 +1,100 @@
+{
+  "id": "quest_api:monster_hunter_trials/test",
+  "requirements": [
+    {
+      "experience_level": 20,
+      "requirement": "quest_api:has_level"
+    },
+    {
+      "item_id": "minecraft:diamond_sword",
+      "requirement": "quest_api:has_item"
+    },
+    {
+      "advancement_id": "minecraft:adventure/kill_a_mob",
+      "requirement": "quest_api:has_advancement"
+    }
+  ],
+  "rewards": [
+    {
+      "functions": [
+        {
+          "enchantments": [
+            {
+              "id": "minecraft:sharpness",
+              "level": 5
+            },
+            {
+              "id": "minecraft:unbreaking",
+              "level": 3
+            },
+            {
+              "id": "minecraft:fire_aspect",
+              "level": 2
+            }
+          ],
+          "function": "quest_api:set_enchantments"
+        },
+        {
+          "function": "quest_api:set_name",
+          "name": {
+            "bold": true,
+            "color": "gold",
+            "text": "Legendary Blade"
+          }
+        },
+        {
+          "function": "quest_api:set_lore",
+          "lore": [
+            {
+              "color": "gray",
+              "italic": true,
+              "text": "Forged in dragon fire"
+            },
+            {
+              "color": "dark_purple",
+              "text": "The blade of heroes"
+            }
+          ]
+        }
+      ],
+      "item_id": "minecraft:diamond_sword",
+      "reward": "quest_api:item"
+    },
+    {
+      "command": "title {player} title {\"text\":\"Wither Hunter!\",\"color\":\"dark_purple\"}",
+      "display_name": "Title: Wither Hunter",
+      "reward": "quest_api:command"
+    },
+    {
+      "loot_table_id": "minecraft:chests/simple_dungeon",
+      "reward": "quest_api:loot_table"
+    },
+    {
+      "amount": 500,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 1,
+      "entity_ids": [
+        "minecraft:zombie"
+      ],
+      "filters": {
+        "min_attribute_value": 15.0,
+        "required_item_id": "minecraft:diamond_sword"
+      },
+      "task": "quest_api:entity_kill"
+    },
+    {
+      "amount": 100.0,
+      "filters": {
+        "entity_ids": [
+          "minecraft:zombie"
+        ]
+      },
+      "task": "quest_api:deal_damage_amount"
+    }
+  ],
+  "tier": 1
+}

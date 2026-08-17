@@ -3,7 +3,7 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.TextMutator;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -19,6 +19,8 @@ import java.util.Optional;
 public record ItemUsedTask(
         ResourceLocation itemId,
         int amount,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
@@ -26,13 +28,15 @@ public record ItemUsedTask(
             instance.group(
                     ResourceLocation.CODEC.fieldOf("item_id").forGetter(ItemUsedTask::itemId),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(ItemUsedTask::amount),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(ItemUsedTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(ItemUsedTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(ItemUsedTask::textureOverrideId)
             ).apply(instance, ItemUsedTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("item_used");
+        return QuestAPI.id("item_used");
     }
 
     @Override
@@ -53,7 +57,7 @@ public record ItemUsedTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.item_used";
+        return "task.quest_api.item_used";
     }
 
     @Override
@@ -74,6 +78,8 @@ public record ItemUsedTask(
     public static class Builder {
         private ResourceLocation itemId;
         private int amount = 1;
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder itemId(ResourceLocation id) {
@@ -94,6 +100,16 @@ public record ItemUsedTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
@@ -103,7 +119,7 @@ public record ItemUsedTask(
             if (itemId == null) {
                 throw new IllegalStateException("ItemUsedTask requires itemId");
             }
-            return new ItemUsedTask(itemId, amount, textureOverrideId);
+            return new ItemUsedTask(itemId, amount, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

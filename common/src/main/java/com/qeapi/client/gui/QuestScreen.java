@@ -1,10 +1,10 @@
 package com.qeapi.client.gui;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.client.ClientQuestCache;
 import com.qeapi.component.EntityQuestComponent;
-import com.qeapi.config.QuestEntityAPIConfig;
+import com.qeapi.config.QuestAPIConfig;
 import com.qeapi.network.ClientPacketSender;
 import com.qeapi.quest.Quest;
 import com.qeapi.quest.QuestProgress;
@@ -87,7 +87,7 @@ import java.util.UUID;
 public class QuestScreen extends Screen {
 
     private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(
-            QuestEntityAPI.MOD_ID, "textures/gui/quests.png");
+            QuestAPI.MOD_ID, "textures/gui/quests.png");
 
     // width is configurable, rest is fixed to the texture
     private static final int DEFAULT_GUI_WIDTH = 240;
@@ -116,11 +116,11 @@ public class QuestScreen extends Screen {
 
     // standalone 16x16 checkmarks, centered in the 19x19 checkbox slot instead of stretched, so the pixel art stays crisp
     private static final ResourceLocation WHITE_CHECKMARK_TEXTURE = ResourceLocation.fromNamespaceAndPath(
-            QuestEntityAPI.MOD_ID, "textures/gui/marker/white_checkmark.png");
+            QuestAPI.MOD_ID, "textures/gui/marker/white_checkmark.png");
     private static final ResourceLocation GREEN_CHECKMARK_TEXTURE = ResourceLocation.fromNamespaceAndPath(
-            QuestEntityAPI.MOD_ID, "textures/gui/marker/green_checkmark.png");
+            QuestAPI.MOD_ID, "textures/gui/marker/green_checkmark.png");
     private static final ResourceLocation QUEST_LOCKED_TEXTURE = ResourceLocation.fromNamespaceAndPath(
-            QuestEntityAPI.MOD_ID, "textures/gui/marker/quest_locked.png");
+            QuestAPI.MOD_ID, "textures/gui/marker/quest_locked.png");
     private static final int CHECK_SIZE = 19;
     private static final int CHECKMARK_SOURCE_SIZE = 16;
     private static final int CHECKMARK_INSET = (CHECK_SIZE - CHECKMARK_SOURCE_SIZE) / 2;
@@ -135,14 +135,13 @@ public class QuestScreen extends Screen {
     // 22x22 border with a transparent 16x16 center, offset -3,-3 so it lines up over a 16x16 icon.
     // Used for reward-choice-pool selection and the item-picker overlay's chosen/hovered slot.
     private static final ResourceLocation SELECTION_TEXTURE = ResourceLocation.fromNamespaceAndPath(
-            QuestEntityAPI.MOD_ID, "textures/gui/selection.png");
+            QuestAPI.MOD_ID, "textures/gui/selection.png");
     private static final int SELECTION_SIZE = 22;
     private static final int SELECTION_INSET = (SELECTION_SIZE - 16) / 2;
 
-    // selection.png's border is wider than the 16x16 icon it wraps, so a BringItemTask/TargetItemReward
-    // icon shifts right by this much to clear the info box's left edge instead of clipping under the
-    // scissor rect. Text shifts further to clear the border's own overhang - calculateInfoContentHeight
-    // has the matching wrap-width math.
+    // selection.png's border is wider than the 16x16 icon it wraps, so a BringItemTask/TargetItemReward icon
+    // shifts right by this much to clear the info box's left edge. Text shifts further to clear the
+    // border's own overhang - calculateInfoContentHeight has the matching wrap-width math.
     private static final int SELECTION_ICON_X_OFFSET = 5;
     private static final int SELECTION_TEXT_X_OFFSET = 10;
 
@@ -152,7 +151,7 @@ public class QuestScreen extends Screen {
     // item-picker overlay background, 210x109, drawn over the info box at INFO_BOX_X/Y. Back arrow and
     // grid frame are baked into the art; only the strings and item icons/borders get drawn on top.
     private static final ResourceLocation ITEM_SELECTION_TEXTURE = ResourceLocation.fromNamespaceAndPath(
-            QuestEntityAPI.MOD_ID, "textures/gui/item_selection.png");
+            QuestAPI.MOD_ID, "textures/gui/item_selection.png");
     private static final int ITEM_SELECTION_WIDTH = 210;
     private static final int ITEM_SELECTION_HEIGHT = 109;
 
@@ -180,7 +179,9 @@ public class QuestScreen extends Screen {
     private static final int DEFAULT_INFO_BOX_WIDTH = 210;
     private static final int INFO_BOX_HEIGHT = 109;
 
-    // info scrollbar, position relative to right edge - track at (219, 81), 14x110, shares SCROLLBAR_RIGHT_OFFSET with the quest scrollbar
+    // info scrollbar, position relative to right edge - track at (219, 81), 14x110, same column as
+    // the quest scrollbar (verified against quests.png directly, not just eyeballed).
+    private static final int INFO_SCROLLBAR_RIGHT_OFFSET = 21; // GUI_WIDTH - INFO_SCROLLBAR_X
     private static final int INFO_SCROLLBAR_Y = 81;
     private static final int INFO_SCROLLBAR_WIDTH = 14;
     private static final int INFO_SCROLLBAR_HEIGHT = 110;
@@ -196,11 +197,10 @@ public class QuestScreen extends Screen {
     private static final int TRADE_BUTTON_Y = 2;
     private static final int TRADE_BUTTON_SIZE = 12;
 
-    // confirm-dismiss overlay, shown before a dismiss checkbox click actually fires - same
-    // bundled-but-unsupplied-texture convention as every other DEFAULT_TEXTURE in this mod (see
-    // e.g. FishingTask.DEFAULT_TEXTURE); the PNG itself isn't included, only the reference to it
+    // Shown before a dismiss checkbox click actually fires. Same bundled-but-unsupplied-texture
+    // convention as every other DEFAULT_TEXTURE in this mod (see FishingTask.DEFAULT_TEXTURE) - the PNG itself isn't included, only the reference to it.
     private static final ResourceLocation CONFIRM_DIALOG_TEXTURE = ResourceLocation.fromNamespaceAndPath(
-            QuestEntityAPI.MOD_ID, "textures/gui/confirm_dialog.png");
+            QuestAPI.MOD_ID, "textures/gui/confirm_dialog.png");
     private static final int CONFIRM_DIALOG_ATLAS_SIZE = 256;
     private static final int CONFIRM_DIALOG_WIDTH = 130;
     private static final int CONFIRM_DIALOG_HEIGHT = 60;
@@ -216,21 +216,19 @@ public class QuestScreen extends Screen {
     private static final int CONFIRM_DIALOG_HOVER_U = 0;
     private static final int CONFIRM_DIALOG_HOVER_V = 60;
 
-    private static final int SCROLL_DELAY_TICKS = 30;
-    private static final int SCROLL_SPEED_TICKS = 3;
-    private static final int SCROLL_PAUSE_TICKS = 40;
+    // Quest-name marquee timing (see computeMarqueeOffset) - wait, scroll to the end, pause, scroll back, repeat.
+    private static final long SCROLL_DELAY_MS = 1500;
+    private static final long SCROLL_STEP_MS = 150;
+    private static final long SCROLL_PAUSE_MS = 2000;
 
     private final int entityId;
     private final List<Quest> availableQuests;
     private final EntityQuestComponent questComponent;
     private final UUID playerId;
-    // giver-scoped LineSelectionState fields (see PlayerQuestData) for whichever quest_line_choice
-    // root(s) are in availableQuests - acceptedRoots gates the picker row becoming interactive at
-    // all (mirrors the accept step every other quest requires), resolvedLines/claimedRoots gate the
-    // Claim button ("fully resolved, not yet claimed"). None of this reads
-    // questComponent.hasCompletedQuest for the root any more - that only flips once the root's
-    // reward is actually claimed, same timing as every other quest, so a sibling root at a higher
-    // tier's follow_quest_order gate isn't unlocked early.
+    // Giver-scoped LineSelectionState fields (see PlayerQuestData) for whichever quest_line_choice root(s)
+    // are in availableQuests: acceptedRoots gates the picker row, resolvedLines/claimedRoots gate the
+    // Claim button. Deliberately not questComponent.hasCompletedQuest - that only flips once the reward
+    // is claimed, so a sibling root's follow_quest_order gate isn't unlocked early.
     private final Optional<String> activeLine;
     private final Set<String> resolvedLines;
     private final Set<ResourceLocation> claimedRoots;
@@ -248,9 +246,8 @@ public class QuestScreen extends Screen {
     private int questScrollOffset = 0;
     private boolean isDraggingQuestScrollbar = false;
 
-    // infoScrollOffset is reused for the item-picker grid too (see renderItemPicker), since the two
-    // are never shown at once. descriptionScrollOffset stashes the description's position across a
-    // picker visit so coming back doesn't reset it to the top.
+    // infoScrollOffset is reused for the item-picker grid too (see renderItemPicker), since the two are
+    // never shown at once. descriptionScrollOffset stashes the description's position across a picker visit.
     private int infoScrollOffset = 0;
     private int descriptionScrollOffset = 0;
     private int maxInfoScroll = 0;
@@ -266,10 +263,11 @@ public class QuestScreen extends Screen {
     private ResourceLocation typewriterQuestId = null;
     private long typewriterStartMs = 0;
 
-    private int textScrollTicks = 0;
-    private int textScrollOffset = 0;
-    private boolean textScrollPaused = false;
     private int lastSelectedIndex = -1;
+
+    // which name box the mouse is hovering, and when - same elapsed-time style as typewriterStartMs
+    private int hoveredNameBoxIndex = -1;
+    private long nameBoxHoverStartMs = 0;
 
     private final List<HoverArea> hoverAreas = new ArrayList<>();
 
@@ -277,11 +275,12 @@ public class QuestScreen extends Screen {
     private final List<ChoiceArea> choiceAreas = new ArrayList<>();
     private final List<LineOptionArea> lineOptionAreas = new ArrayList<>();
 
-    // which TargetItemReward (index into selectedQuest.rewards()) or ambiguous BringItemTask (index
-    // into selectedQuest.tasks()) the player is currently picking an inventory item for. Only one of
-    // the two is ever non-null, and the normal reward/task list doesn't render while a picker is open.
+    // Which TargetItemReward (index into rewards()) or ambiguous BringItemTask (index into tasks()) the
+    // player is picking an inventory item for. Only one of the two is ever non-null.
     private Integer activePickerRewardIndex = null;
     private Integer activePickerTaskIndex = null;
+    // groupId -> chosen task index; unlike activePickerTaskIndex this persists after the picker closes
+    private final Map<String, Integer> selectedChoiceGroupTask = new HashMap<>();
     private final Map<Integer, Integer> selectedTargetSlots = new HashMap<>(); // rewardIndex -> chosen inventory slot
     private final Map<Integer, List<Integer>> selectedBringItemSlots = new HashMap<>(); // taskIndex -> chosen slots
     private final List<PickerCandidateArea> pickerCandidateAreas = new ArrayList<>();
@@ -296,14 +295,14 @@ public class QuestScreen extends Screen {
 
     private boolean claimButtonHovered = false;
 
-    // true while the confirm-dismiss overlay is showing, intercepting the dismiss checkbox click
-    // it was opened from until the player picks Confirm or Cancel - covers both a normal quest and
-    // a quest-line step, since both dismiss through the same DismissQuestPacket path
+    // True while the confirm-dismiss overlay is showing, intercepting the dismiss checkbox click it
+    // was opened from until the player picks Confirm or Cancel. Covers both a normal quest and a
+    // quest-line step, since both dismiss through the same DismissQuestPacket path.
     private boolean confirmDismissOpen = false;
     private boolean confirmDismissConfirmHovered = false;
     private boolean confirmDismissCancelHovered = false;
-    // what Yes actually does - set alongside confirmDismissOpen at each trigger site, since the same
-    // dialog is now reused for both a normal quest dismiss and a quest-line cancel
+    // What Yes actually does - set alongside confirmDismissOpen at each trigger site, since the
+    // same dialog is shared by both a normal quest dismiss and a quest-line cancel.
     private Runnable confirmDismissAction;
 
     private static final int ENTITY_ROTATION_TICKS = 60; // 3 seconds at 20 ticks/second
@@ -325,9 +324,8 @@ public class QuestScreen extends Screen {
     private final Map<Integer, List<ResourceLocation>> taskEffectLists = new HashMap<>();
     private final Map<Integer, int[]> taskEffectIconBounds = new HashMap<>();
 
-    // some reward functions (Dungeon Difficulty's SetPowerLevelFunction) roll randomized attribute
-    // values on every call, so this caches the display stack per quest selection instead of re-rolling
-    // (and flickering) every frame
+    // Some reward functions (Dungeon Difficulty's SetPowerLevelFunction) roll randomized attribute
+    // values on every call, so this caches the display stack per quest selection instead of re-rolling (and flickering) every frame.
     private final Map<QuestReward, ItemStack> rewardDisplayItemCache = new HashMap<>();
 
     private int lootTableRotationTicks = 0;
@@ -376,7 +374,7 @@ public class QuestScreen extends Screen {
     public QuestScreen(int entityId, List<Quest> quests, EntityQuestComponent component, UUID playerId,
                         List<String> activeLine, List<String> resolvedLines, List<ResourceLocation> claimedRoots,
                         List<ResourceLocation> acceptedRoots) {
-        super(Component.translatable("gui.qe_api.quest_screen.title"));
+        super(Component.translatable("gui.quest_api.quest_screen.title"));
         this.entityId = entityId;
         this.availableQuests = quests;
         this.questComponent = component;
@@ -418,7 +416,7 @@ public class QuestScreen extends Screen {
         questBoxWidth = DEFAULT_QUEST_BOX_WIDTH + widthDiff;
         questScrollbarX = guiWidth - SCROLLBAR_RIGHT_OFFSET;
         infoBoxWidth = DEFAULT_INFO_BOX_WIDTH + widthDiff;
-        infoScrollbarX = guiWidth - SCROLLBAR_RIGHT_OFFSET;
+        infoScrollbarX = guiWidth - INFO_SCROLLBAR_RIGHT_OFFSET;
         tradeButtonX = guiWidth - TRADE_BUTTON_RIGHT_OFFSET;
 
         // has to happen here, after the old screen's removed() saved them
@@ -454,12 +452,9 @@ public class QuestScreen extends Screen {
     public void tick() {
         super.tick();
 
-        // selection changed - reset the scroll animation and per-quest caches
+        // selection changed - reset per-quest caches (marquee is hover-driven, resets separately)
         if (selectedQuestIndex != lastSelectedIndex) {
             lastSelectedIndex = selectedQuestIndex;
-            textScrollTicks = 0;
-            textScrollOffset = 0;
-            textScrollPaused = false;
             taskEntityIndices.clear();
             taskEntityLists.clear();
             taskSpellIndices.clear();
@@ -476,42 +471,9 @@ public class QuestScreen extends Screen {
             selectedPoolChoices.clear();
             selectedTargetSlots.clear();
             selectedBringItemSlots.clear();
+            selectedChoiceGroupTask.clear();
             activePickerRewardIndex = null;
             activePickerTaskIndex = null;
-        }
-
-        if (selectedQuestIndex >= 0 && selectedQuestIndex < availableQuests.size()) {
-            Quest quest = availableQuests.get(selectedQuestIndex);
-            String questName = quest.getDisplayName().getString();
-            int maxTextWidth = questBoxWidth - 6;
-            int textWidth = font.width(questName);
-
-            if (textWidth > maxTextWidth) {
-                textScrollTicks++;
-
-                int maxScrollOffset = textWidth - maxTextWidth + 10; // extra padding
-
-                if (textScrollPaused) {
-                    if (textScrollTicks >= SCROLL_PAUSE_TICKS) {
-                        textScrollTicks = 0;
-                        textScrollOffset = 0;
-                        textScrollPaused = false;
-                    }
-                } else if (textScrollTicks < SCROLL_DELAY_TICKS) {
-                    textScrollOffset = 0;
-                } else {
-                    int scrollTicks = textScrollTicks - SCROLL_DELAY_TICKS;
-                    textScrollOffset = scrollTicks / SCROLL_SPEED_TICKS;
-
-                    if (textScrollOffset >= maxScrollOffset) {
-                        textScrollOffset = maxScrollOffset;
-                        textScrollPaused = true;
-                        textScrollTicks = 0;
-                    }
-                }
-            } else {
-                textScrollOffset = 0;
-            }
         }
 
         entityRotationTicks++;
@@ -651,6 +613,22 @@ public class QuestScreen extends Screen {
         int maxScroll = Math.max(0, availableQuests.size() - VISIBLE_QUESTS);
         questScrollOffset = Math.max(0, Math.min(questScrollOffset, maxScroll));
 
+        int hoveredIndexThisFrame = -1;
+        for (int i = 0; i < VISIBLE_QUESTS; i++) {
+            int questIndex = questScrollOffset + i;
+            if (questIndex >= availableQuests.size()) continue;
+            int slotY = guiTop + QUEST_LIST_Y + (i * CHECKBOX_SIZE);
+            int nameBoxX = guiLeft + 28;
+            if (mouseX >= nameBoxX && mouseX < nameBoxX + questBoxWidth
+                    && mouseY >= slotY && mouseY < slotY + QUEST_BOX_HEIGHT) {
+                hoveredIndexThisFrame = questIndex;
+            }
+        }
+        if (hoveredIndexThisFrame != hoveredNameBoxIndex) {
+            hoveredNameBoxIndex = hoveredIndexThisFrame;
+            nameBoxHoverStartMs = System.currentTimeMillis();
+        }
+
         for (int i = 0; i < VISIBLE_QUESTS; i++) {
             int questIndex = questScrollOffset + i;
             int slotY = guiTop + QUEST_LIST_Y + (i * CHECKBOX_SIZE);
@@ -680,7 +658,7 @@ public class QuestScreen extends Screen {
                     graphics.blit(QUEST_LOCKED_TEXTURE, checkboxX + CHECKMARK_INSET, slotY + CHECKMARK_INSET,
                             0, 0, CHECKMARK_SOURCE_SIZE, CHECKMARK_SOURCE_SIZE, CHECKMARK_SOURCE_SIZE, CHECKMARK_SOURCE_SIZE);
                     hoverAreas.add(new HoverArea(checkboxX, slotY, CHECKBOX_SIZE, CHECKBOX_SIZE,
-                            List.of(Component.translatable("gui.qe_api.quest_locked"))));
+                            List.of(Component.translatable("gui.quest_api.quest_locked"))));
                 }
                 // empty checkbox is already part of the background texture
 
@@ -695,8 +673,11 @@ public class QuestScreen extends Screen {
 
                 graphics.enableScissor(nameBoxX + 2, slotY + 1, nameBoxX + questBoxWidth - 2, slotY + QUEST_BOX_HEIGHT - 1);
 
-                if (selectedQuestIndex == questIndex && font.width(questName) > maxTextWidth) {
-                    graphics.drawString(font, questName, nameBoxX + 3 - textScrollOffset, slotY + 6, textColor, false);
+                if (hoveredNameBoxIndex == questIndex && font.width(questName) > maxTextWidth) {
+                    int maxScrollOffset = font.width(questName) - maxTextWidth + 10; // extra padding
+                    long elapsedMs = System.currentTimeMillis() - nameBoxHoverStartMs;
+                    int scrollOffset = computeMarqueeOffset(elapsedMs, maxScrollOffset);
+                    graphics.drawString(font, questName, nameBoxX + 3 - scrollOffset, slotY + 6, textColor, false);
                 } else {
                     String displayName = questName;
                     if (font.width(questName) > maxTextWidth) {
@@ -714,6 +695,38 @@ public class QuestScreen extends Screen {
                     QUEST_SCROLLBAR_WIDTH, QUEST_SCROLLBAR_HEIGHT,
                     questScrollOffset, maxScroll);
         }
+    }
+
+    private int computeMarqueeOffset(long elapsedMs, int maxScrollOffset) {
+        if (maxScrollOffset <= 0) return 0;
+        long scrollDurationMs = maxScrollOffset * SCROLL_STEP_MS;
+        long cycleMs = SCROLL_DELAY_MS + scrollDurationMs + SCROLL_PAUSE_MS + scrollDurationMs + SCROLL_PAUSE_MS;
+        long t = elapsedMs % cycleMs;
+
+        if (t < SCROLL_DELAY_MS) return 0;
+        t -= SCROLL_DELAY_MS;
+        if (t < scrollDurationMs) return (int) (t / SCROLL_STEP_MS);
+        t -= scrollDurationMs;
+        if (t < SCROLL_PAUSE_MS) return maxScrollOffset;
+        t -= SCROLL_PAUSE_MS;
+        if (t < scrollDurationMs) return (int) (maxScrollOffset - t / SCROLL_STEP_MS);
+        return 0;
+    }
+
+    // null unless selectedQuest is a completed, still-cooling-down repeatable quest. Minutes assume
+    // normal tick speed, same as Quest.remainingRepeatTicks/isDueForRepeat.
+    private String getRefreshTimerText() {
+        if (selectedQuest == null || selectedQuest.repeatAfterDays().isEmpty()) return null;
+        if (!questComponent.hasCompletedQuest(playerId, selectedQuest.id())) return null;
+        if (minecraft.level == null) return null;
+
+        long completedAt = questComponent.getCompletionDayTime(playerId, selectedQuest.id());
+        long currentDayTime = minecraft.level.getDayTime();
+        long remainingTicks = selectedQuest.remainingRepeatTicks(completedAt, currentDayTime);
+        if (remainingTicks <= 0) return null;
+
+        int minutes = (int) Math.max(1, Math.ceil(remainingTicks / 1200.0));
+        return Component.translatable("gui.quest_api.refresh_timer", minutes).getString();
     }
 
     private void renderQuestInfo(GuiGraphics graphics, int mouseX, int mouseY) {
@@ -746,14 +759,22 @@ public class QuestScreen extends Screen {
         }
         currentY += 6;
 
+        String refreshTimerText = getRefreshTimerText();
+        if (refreshTimerText != null) {
+            graphics.drawString(font, refreshTimerText, infoX, currentY, 0x606060, false);
+            currentY += 10;
+            currentY += 6;
+        }
+
         if (!selectedQuest.requirements().isEmpty()) {
-            graphics.drawString(font, Component.translatable("gui.qe_api.requirements")
+            graphics.drawString(font, Component.translatable("gui.quest_api.requirements")
                     .withStyle(ChatFormatting.UNDERLINE), infoX, currentY, 0x000000, false);
             currentY += 11;
 
             for (QuestRequirement requirement : selectedQuest.requirements()) {
                 Component reqText = requirement.getDisplayText();
                 boolean isMet = requirement.canCheckClientSide() && requirement.isMetClientSide(minecraft.player);
+                int rowStartY = currentY;
 
                 int iconX = infoX;
                 int textX = infoX;
@@ -795,6 +816,7 @@ public class QuestScreen extends Screen {
                         graphics.drawString(font, line, textX, currentY, textColor, false);
                         currentY += 10;
                     }
+                    currentY = Math.max(currentY, rowStartY + 18); // reserve the icon's height so short requirements don't overlap the next one
                 } else {
                     // nothing to badge, so just color the bullet text green when met
                     List<FormattedCharSequence> reqLines = font.split(
@@ -808,19 +830,29 @@ public class QuestScreen extends Screen {
             currentY += 6;
         }
 
-        graphics.drawString(font, Component.translatable("gui.qe_api.tasks")
-                .withStyle(ChatFormatting.UNDERLINE), infoX, currentY, 0x000000, false);
+        Optional<Quest.TaskChoiceInfo> fullTaskChoice = selectedQuest.singleChoiceGroupCoveringAllTasks();
+        Component tasksHeader = fullTaskChoice.isPresent()
+                ? Component.translatable("gui.quest_api.choose_tasks",
+                        fullTaskChoice.get().requiredCount(), fullTaskChoice.get().totalMembers())
+                : Component.translatable("gui.quest_api.tasks");
+        graphics.drawString(font, tasksHeader.copy().withStyle(ChatFormatting.UNDERLINE), infoX, currentY, 0x000000, false);
         currentY += 14; // extra spacing so icons don't overlap the header
 
         QuestProgress progress = getProgressForQuest(selectedQuest);
         for (int i = 0; i < selectedQuest.tasks().size(); i++) {
             QuestTask task = selectedQuest.tasks().get(i);
             boolean complete = task.isComplete(progress, i);
-            // BringItemTask completion is recomputed live off current inventory count, so it's not a
-            // permanent "done" signal like every other task's stored progress - the badge/picker below
-            // are meant to react to it, but the description text staying green would misleadingly read
-            // as permanent when it can flip back to false the moment the item's spent elsewhere
-            int color = 0x404040;
+            boolean taskLocked = !selectedQuest.isTaskUnlocked(progress, i);
+            // "(OR)" hint on every choice_group member except the group's own last one in list order (see
+            // QuestTask.choiceGroup/Quest.isComplete). Suppressed when the whole quest is one group, since
+            // the header already says "Choose Tasks: (X/Y)".
+            boolean showOrHint = fullTaskChoice.isEmpty() && task.choiceGroup().isPresent() && selectedQuest.tasks().stream()
+                    .skip(i + 1)
+                    .anyMatch(other -> other.choiceGroup().equals(task.choiceGroup()));
+            // BringItemTask completion is recomputed live off current inventory count, so unlike every
+            // other task it isn't a permanent "done" signal - the text color stays neutral even when
+            // complete, since it can flip back to false the moment the item's spent elsewhere.
+            int color = taskLocked ? 0x808080 : 0x404040;
 
             int iconX = infoX;
             int textX = iconX + 2;
@@ -828,9 +860,9 @@ public class QuestScreen extends Screen {
             Component taskText;
             if (task instanceof EntityKillTask killTask) {
                 EntityType<?> displayEntity = getDisplayEntityForTask(i, killTask);
-                if (displayEntity != null && (killTask.entityTag().isPresent() || killTask.entityIds().size() > 1)) {
+                if (displayEntity != null && (!killTask.entityTags().isEmpty() || killTask.entityIds().size() > 1)) {
                     int current = Math.min(progress.getTaskProgress(i), killTask.amount());
-                    taskText = Component.translatable("task.qe_api.entity_kill_dynamic",
+                    taskText = Component.translatable("task.quest_api.entity_kill_dynamic",
                             killTask.amount(), displayEntity.getDescription().getString(), current, killTask.amount());
                 } else {
                     taskText = task.getDisplayText(progress, i);
@@ -839,20 +871,20 @@ public class QuestScreen extends Screen {
                     && minecraft.player != null) {
                 // resolve to the actual translated spell/school name instead of the raw id/tag
                 Optional<String> resolvedName = Optional.empty();
-                if (spellCastTask.spellId().isPresent()) {
-                    resolvedName = Optional.of(SpellEngineClientCompat.spellName(spellCastTask.spellId().get(), minecraft.player));
-                } else if (spellCastTask.spellPool().isPresent()) {
-                    ResourceLocation currentSpell = getDisplaySpellForPool(i, spellCastTask.spellPool().get());
+                if (!spellCastTask.spellIds().isEmpty()) {
+                    resolvedName = Optional.of(SpellEngineClientCompat.spellName(spellCastTask.spellIds().get(0), minecraft.player));
+                } else if (!spellCastTask.spellPools().isEmpty()) {
+                    ResourceLocation currentSpell = getDisplaySpellForPool(i, spellCastTask.spellPools().get(0));
                     if (currentSpell != null) {
                         resolvedName = Optional.of(SpellEngineClientCompat.spellName(currentSpell, minecraft.player));
                     }
-                } else if (spellCastTask.spellSchool().isPresent()) {
-                    resolvedName = Optional.of(SpellEngineClientCompat.schoolDisplayName(spellCastTask.spellSchool().get()).getString());
+                } else if (!spellCastTask.spellSchools().isEmpty()) {
+                    resolvedName = Optional.of(SpellEngineClientCompat.schoolDisplayName(spellCastTask.spellSchools().get(0)).getString());
                 }
 
                 if (resolvedName.isPresent()) {
                     int current = Math.min(progress.getTaskProgress(i), spellCastTask.amount());
-                    taskText = Component.translatable("task.qe_api.spell_cast_dynamic",
+                    taskText = Component.translatable("task.quest_api.spell_cast_dynamic",
                             spellCastTask.amount(), resolvedName.get(), current, spellCastTask.amount());
                 } else {
                     taskText = task.getDisplayText(progress, i);
@@ -875,7 +907,7 @@ public class QuestScreen extends Screen {
                             if (complete) {
                                 renderCompletionBadge(graphics, iconX, currentY);
                             }
-                            if (killTask.minPowerLevel().isPresent() && DungeonDifficultyCompat.isLoaded()) {
+                            if (killTask.filters().minPowerLevel().isPresent() && DungeonDifficultyCompat.isLoaded()) {
                                 graphics.pose().pushPose();
                                 graphics.pose().translate(0, 0, 200);
                                 graphics.blit(POWER_LEVEL_ICON, iconX + 5, currentY, 0, 0, 9, 9, 9, 9);
@@ -892,14 +924,9 @@ public class QuestScreen extends Screen {
                                     entityTooltip.add(info.copy().withStyle(ChatFormatting.GRAY));
                                 }
 
-                                if (killTask.entityTag().isPresent()) {
-                                    entityTooltip.add(Component.literal("Tag: #" + killTask.entityTag().get().location())
-                                            .withStyle(ChatFormatting.DARK_AQUA));
-                                }
-
                                 List<EntityType<?>> entityList = taskEntityLists.get(i);
                                 if (entityList != null && entityList.size() > 1) {
-                                    entityTooltip.add(Component.translatable("gui.qe_api.entity_rotating",
+                                    entityTooltip.add(Component.translatable("gui.quest_api.entity_rotating",
                                             taskEntityIndices.getOrDefault(i, 0) + 1, entityList.size())
                                             .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
                                 }
@@ -910,18 +937,17 @@ public class QuestScreen extends Screen {
                     } catch (Exception ignored) {}
                 }
 
-                // if the kill has to be attributed to a spell, show that spell's icon/tooltip (or a
-                // representative rotating/generic one for spell_pool/spell_school filters) right after
+                // if the kill has to be attributed to a spell, show that spell's icon/tooltip right after
                 // the entity icon, so players can tell which spell(s) they need to use
                 if (SpellEngineClientCompat.isLoaded()
-                        && (killTask.inSpellId().isPresent() || killTask.inSpellPool().isPresent() || killTask.inSpellSchool().isPresent())) {
+                        && (!killTask.filters().inSpellIds().isEmpty() || !killTask.filters().inSpellPools().isEmpty() || !killTask.filters().inSpellSchools().isEmpty())) {
                     int spellIconX = iconX + 18;
                     ResourceLocation displaySpellId = null;
 
-                    if (killTask.inSpellId().isPresent()) {
-                        displaySpellId = killTask.inSpellId().get();
-                    } else if (killTask.inSpellPool().isPresent()) {
-                        displaySpellId = getDisplaySpellForPool(i, killTask.inSpellPool().get());
+                    if (!killTask.filters().inSpellIds().isEmpty()) {
+                        displaySpellId = killTask.filters().inSpellIds().get(0);
+                    } else if (!killTask.filters().inSpellPools().isEmpty()) {
+                        displaySpellId = getDisplaySpellForPool(i, killTask.filters().inSpellPools().get(0));
                         taskSpellIconBounds.put(i, new int[]{spellIconX, currentY});
                     }
 
@@ -934,24 +960,30 @@ public class QuestScreen extends Screen {
                             hoverAreas.add(new HoverArea(spellIconX, currentY, 16, 16,
                                     SpellEngineClientCompat.tooltipLines(displaySpellId, minecraft.player)));
                         }
-                    } else if (killTask.inSpellSchool().isPresent()) {
+                    } else if (!killTask.filters().inSpellSchools().isEmpty()) {
                         // Spell Power has no per-school icons, so fall back to its generic mob-effect icon - the school name is in the task text
                         graphics.blit(SpellEngineClientCompat.SCHOOL_GENERIC_ICON, spellIconX, currentY, 0, 0, 16, 16, 16, 16);
                         textX = spellIconX + 18;
 
                         if (currentY >= guiTop + INFO_BOX_Y && currentY + 16 <= guiTop + INFO_BOX_Y + INFO_BOX_HEIGHT) {
                             hoverAreas.add(new HoverArea(spellIconX, currentY, 16, 16,
-                                    List.of(SpellEngineClientCompat.schoolDisplayName(killTask.inSpellSchool().get()))));
+                                    List.of(SpellEngineClientCompat.schoolDisplayName(killTask.filters().inSpellSchools().get(0)))));
                         }
                     }
                 }
             } else if (task instanceof BringItemTask bringTask) {
                 ItemStack itemStack = bringTask.getDisplayStack();
+                // ungrouped tasks are always "chosen"; a choice_group alternative only counts once
+                // actually clicked (see the PickerOpenArea handler), so holding both doesn't light up both
+                int taskIndex = i;
+                boolean isChosenAlternative = task.choiceGroup()
+                        .map(groupId -> selectedChoiceGroupTask.getOrDefault(groupId, -1) == taskIndex)
+                        .orElse(true);
                 if (!itemStack.isEmpty()) {
-                    int pickerIconX = iconX;
+                    int pickerIconX = iconX + SELECTION_ICON_X_OFFSET; // clears the info box's left edge, same as TargetItemReward's picker icon
                     if (!renderTextureOverride(graphics, bringTask.textureOverrideId(), pickerIconX - 2, currentY, complete)) {
                         graphics.renderItem(itemStack, pickerIconX - 2, currentY);
-                        if (complete) {
+                        if (complete && isChosenAlternative) {
                             renderCompletionBadge(graphics, pickerIconX - 2, currentY);
                         }
 
@@ -960,17 +992,19 @@ public class QuestScreen extends Screen {
                                     Screen.getTooltipFromItem(minecraft, itemStack)));
                         }
                     }
-                    textX = iconX + 16;
+                    textX = iconX + 18 + SELECTION_TEXT_X_OFFSET;
 
-                    // always offer the picker, even with only one matching stack - otherwise the server
-                    // just consumes whichever it hits first in slot order (see ClaimRewardsHelper's
-                    // greedy fallback). Not gated on `complete`: checkAndUpdateBringItemProgress reads
-                    // this task's progress straight off live inventory count, so it's "complete" exactly
-                    // while the player is carrying enough to turn in - which is when they need the picker.
-                    if (minecraft.player != null && isSelectedQuestActive()
-                            && bringTask.countMatchingItems(minecraft.player.getInventory().items) > 0
+                    // Always offer the picker, even with only one matching stack - otherwise the server just
+                    // consumes whichever it hits first in slot order (see ClaimRewardsHelper's greedy fallback).
+                    // Gated on !taskLocked since a locked task's progress reads 0 regardless of what's held.
+                    // A choice_group member skips the "has matching items" check too, so switching to an
+                    // alternative you're not currently holding stays possible.
+                    if (minecraft.player != null && isSelectedQuestActive() && !taskLocked
+                            && (task.choiceGroup().isPresent() || bringTask.countMatchingItems(minecraft.player.getInventory().items) > 0)
                             && currentY >= guiTop + INFO_BOX_Y && currentY + 16 <= guiTop + INFO_BOX_Y + INFO_BOX_HEIGHT) {
-                        renderSelectionBorder(graphics, pickerIconX - 2, currentY);
+                        if (isChosenAlternative) {
+                            renderSelectionBorder(graphics, pickerIconX - 2, currentY);
+                        }
                         pickerOpenAreas.add(new PickerOpenArea(false, i,
                                 pickerIconX - 2 - SELECTION_INSET, currentY - SELECTION_INSET, SELECTION_SIZE, SELECTION_SIZE));
                     }
@@ -1106,10 +1140,10 @@ public class QuestScreen extends Screen {
                     textX = iconX + 18;
                 } else {
                     ResourceLocation displaySpellId = null;
-                    if (spellCastTask.spellId().isPresent()) {
-                        displaySpellId = spellCastTask.spellId().get();
-                    } else if (spellCastTask.spellPool().isPresent()) {
-                        displaySpellId = getDisplaySpellForPool(i, spellCastTask.spellPool().get());
+                    if (!spellCastTask.spellIds().isEmpty()) {
+                        displaySpellId = spellCastTask.spellIds().get(0);
+                    } else if (!spellCastTask.spellPools().isEmpty()) {
+                        displaySpellId = getDisplaySpellForPool(i, spellCastTask.spellPools().get(0));
                         taskSpellIconBounds.put(i, new int[]{iconX, currentY});
                     }
 
@@ -1124,7 +1158,7 @@ public class QuestScreen extends Screen {
                             hoverAreas.add(new HoverArea(iconX, currentY, 16, 16,
                                     SpellEngineClientCompat.tooltipLines(displaySpellId, minecraft.player)));
                         }
-                    } else if (spellCastTask.spellSchool().isPresent()) {
+                    } else if (!spellCastTask.spellSchools().isEmpty()) {
                         // same generic-icon fallback as above
                         graphics.blit(SpellEngineClientCompat.SCHOOL_GENERIC_ICON, iconX, currentY, 0, 0, 16, 16, 16, 16);
                         if (complete) {
@@ -1171,7 +1205,7 @@ public class QuestScreen extends Screen {
 
                             List<ResourceLocation> effectList = taskEffectLists.get(i);
                             if (effectList != null && effectList.size() > 1) {
-                                effectTooltip.add(Component.translatable("gui.qe_api.entity_rotating",
+                                effectTooltip.add(Component.translatable("gui.quest_api.entity_rotating",
                                         taskEffectIndices.getOrDefault(i, 0) + 1, effectList.size())
                                         .withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC));
                             }
@@ -1197,7 +1231,9 @@ public class QuestScreen extends Screen {
             }
             // no special icon - textX stays at its default (iconX + 2), rendered as a colored bullet below
             String prefix = (textX == iconX + 2) ? "\u2022 " : "";
-            String taskStr = prefix + taskText.getString();
+            String taskStr = prefix + taskText.getString()
+                    + (taskLocked ? " " + Component.translatable("gui.quest_api.task_locked").getString() : "")
+                    + (showOrHint ? " " + Component.translatable("gui.quest_api.task_or_hint").getString() : "");
             int availableWidth = infoWidth - (textX - infoX);
             List<FormattedCharSequence> taskLines = font.split(Component.literal(taskStr), availableWidth);
 
@@ -1207,15 +1243,15 @@ public class QuestScreen extends Screen {
                     currentY += 10;
                 }
             }
-            currentY += 18;
+            currentY += (task instanceof BringItemTask) ? SELECTION_SIZE : 18; // its border is 22px tall, taller than the flat 18px row
 
             if (task instanceof QuestLineChoiceTask lineChoiceTask) {
                 LineRowState rowState = lineRowState(lineChoiceTask);
                 if (rowState == LineRowState.NOT_ACCEPTED) {
-                    currentY = drawWrappedLine(graphics, Component.translatable("gui.qe_api.quest_line_not_accepted"),
+                    currentY = drawWrappedLine(graphics, Component.translatable("gui.quest_api.quest_line_not_accepted"),
                             infoX, currentY, infoWidth, 0x606060);
                 } else if (rowState == LineRowState.RESOLVED) {
-                    currentY = drawWrappedLine(graphics, Component.translatable("gui.qe_api.quest_line_finished"),
+                    currentY = drawWrappedLine(graphics, Component.translatable("gui.quest_api.quest_line_finished"),
                             infoX, currentY, infoWidth, 0x606060);
                 } else {
                     currentY = renderLineOptionsRow(graphics, lineChoiceTask, infoX, currentY, infoWidth, mouseX, mouseY);
@@ -1225,7 +1261,7 @@ public class QuestScreen extends Screen {
 
         currentY += 6;
 
-        graphics.drawString(font, Component.translatable("gui.qe_api.rewards")
+        graphics.drawString(font, Component.translatable("gui.quest_api.rewards")
                 .withStyle(ChatFormatting.UNDERLINE), infoX, currentY, 0x000000, false);
         currentY += 14;
 
@@ -1252,14 +1288,10 @@ public class QuestScreen extends Screen {
     private static final int LINE_OPTION_SPACING = 4;
     private static final int LINE_OPTION_STEP = LINE_OPTION_ICON_SIZE + LINE_OPTION_SPACING;
 
-    // wraps every available LineOption's icon into a row within maxWidth, always - even once one is
-    // already active - bordering whichever matches activeLine the same way a chosen reward-pool
-    // option is bordered, or badging it instead if the line is already in resolvedLines (and
-    // skipping its click area, so a resolved line can't be re-picked). Registers a hover tooltip
-    // for each option regardless. Mirrors lineOptionsRowHeight's wrap math exactly, since that one
-    // has to predict this method's total height without actually rendering. See mouseClicked's
-    // lineOptionAreas handling for what each remaining icon does when clicked (picks a line, opens
-    // the cancel dialog, or is swallowed).
+    // Wraps every available LineOption's icon into a row within maxWidth, bordering whichever matches
+    // activeLine or badging it if already in resolvedLines (and skipping its click area). Mirrors
+    // lineOptionsRowHeight's wrap math exactly, since that one predicts this method's total height
+    // without actually rendering. See mouseClicked's lineOptionAreas handling for what a click does.
     private int renderLineOptionsRow(GuiGraphics graphics, QuestLineChoiceTask task, int x, int startY, int maxWidth, int mouseX, int mouseY) {
         List<QuestLineChoiceTask.LineOption> options = task.availableLineOptions();
         int offset = 0;
@@ -1321,7 +1353,7 @@ public class QuestScreen extends Screen {
     private Component getAnimatedDescription() {
         Component fullDescription = selectedQuest.getDescription(getGivingEntity());
 
-        if (!QuestEntityAPIConfig.get().quest_description_typewriter_enabled) {
+        if (!QuestAPIConfig.get().quest_description_typewriter_enabled) {
             return fullDescription;
         }
 
@@ -1336,7 +1368,7 @@ public class QuestScreen extends Screen {
         }
 
         String fullText = fullDescription.getString();
-        int speedMs = Math.max(1, QuestEntityAPIConfig.get().quest_description_typewriter_speed_ms);
+        int speedMs = Math.max(1, QuestAPIConfig.get().quest_description_typewriter_speed_ms);
         long elapsedMs = System.currentTimeMillis() - typewriterStartMs;
         int charsToShow = (int) (elapsedMs / speedMs);
 
@@ -1360,12 +1392,17 @@ public class QuestScreen extends Screen {
         List<FormattedCharSequence> descLines = font.split(getAnimatedDescription(), infoBoxWidth - 8);
         height += descLines.size() * 10 + 6;
 
+        if (getRefreshTimerText() != null) {
+            height += 10 + 6;
+        }
+
         if (!selectedQuest.requirements().isEmpty()) {
             height += 11; // requirements header
             for (QuestRequirement requirement : selectedQuest.requirements()) {
                 List<FormattedCharSequence> reqLines = font.split(
                         Component.literal("\u2022 ").append(requirement.getDisplayText()), infoBoxWidth - 8);
-                height += reqLines.size() * 10;
+                boolean hasIcon = requirement instanceof HasItemRequirement || requirement.getDisplayTexture().isPresent();
+                height += hasIcon ? Math.max(reqLines.size() * 10, 18) : reqLines.size() * 10;
             }
             height += 6;
         }
@@ -1387,7 +1424,7 @@ public class QuestScreen extends Screen {
                 // an override always wins and always renders as a single 16x16 icon, even for
                 // EntityKillTask's normally-wider entity+spell-icon layout
                 textX = 18;
-            } else if (task instanceof EntityKillTask ekt && ekt.inSpellId().isPresent() && SpellEngineClientCompat.isLoaded()) {
+            } else if (task instanceof EntityKillTask ekt && !ekt.filters().inSpellIds().isEmpty() && SpellEngineClientCompat.isLoaded()) {
                 textX = 36; // entity icon + spell icon side by side
             } else if (task instanceof EntityKillTask || task instanceof ItemUsedTask
                     || task instanceof BrewPotionTask || task instanceof MineBlockTask
@@ -1397,23 +1434,23 @@ public class QuestScreen extends Screen {
                     || task instanceof SpellBindTask || task instanceof SpellPoolCompleteTask
                     || task instanceof ConditionalDropTask || task instanceof DeliverItemTask
                     || task instanceof RaidCompleteTask || task instanceof TrialSpawnerCompleteTask
-                    || (task instanceof SpellCastTask sct && sct.spellId().isPresent() && SpellEngineClientCompat.isLoaded())
+                    || (task instanceof SpellCastTask sct && !sct.spellIds().isEmpty() && SpellEngineClientCompat.isLoaded())
                     || task.getDisplayTexture().isPresent()) {
                 textX = 18;
             }
 
             int availableWidth = (infoBoxWidth - 8) - textX;
             List<FormattedCharSequence> taskLines = font.split(Component.literal(taskStr), availableWidth);
-            height += 18 + (taskLines.size() - 1) * 10;
+            height += (task instanceof BringItemTask ? SELECTION_SIZE : 18) + (taskLines.size() - 1) * 10;
 
             if (task instanceof QuestLineChoiceTask lineChoiceTask) {
                 LineRowState rowState = lineRowState(lineChoiceTask);
                 if (rowState == LineRowState.PICKABLE) {
                     height += lineOptionsRowHeight(lineChoiceTask.availableLineOptions(), infoBoxWidth - 8);
                 } else if (rowState == LineRowState.NOT_ACCEPTED) {
-                    height += wrappedLineHeight(Component.translatable("gui.qe_api.quest_line_not_accepted"), infoBoxWidth - 8);
+                    height += wrappedLineHeight(Component.translatable("gui.quest_api.quest_line_not_accepted"), infoBoxWidth - 8);
                 } else {
-                    height += wrappedLineHeight(Component.translatable("gui.qe_api.quest_line_finished"), infoBoxWidth - 8);
+                    height += wrappedLineHeight(Component.translatable("gui.quest_api.quest_line_finished"), infoBoxWidth - 8);
                 }
             }
         }
@@ -1432,7 +1469,7 @@ public class QuestScreen extends Screen {
             }
             String displayText;
             if (reward instanceof SpellBindReward spellBind && SpellEngineClientCompat.isLoaded() && minecraft.player != null) {
-                displayText = Component.translatable("reward.qe_api.spell_bind",
+                displayText = Component.translatable("reward.quest_api.spell_bind",
                         SpellEngineClientCompat.spellName(spellBind.spellId(), minecraft.player)).getString();
             } else {
                 displayText = reward.getDisplayText().getString();
@@ -1522,10 +1559,10 @@ public class QuestScreen extends Screen {
                     effectTooltip.add(effect.getDisplayName().copy().append(levelText).withStyle(ChatFormatting.WHITE));
 
                     String durationText = formatDuration(effectReward.duration());
-                    effectTooltip.add(Component.translatable("gui.qe_api.effect_duration", durationText)
+                    effectTooltip.add(Component.translatable("gui.quest_api.effect_duration", durationText)
                             .withStyle(ChatFormatting.GRAY));
 
-                    effectTooltip.add(Component.translatable("gui.qe_api.effect_level", effectReward.amplifier() + 1)
+                    effectTooltip.add(Component.translatable("gui.quest_api.effect_level", effectReward.amplifier() + 1)
                             .withStyle(ChatFormatting.GRAY));
 
                     effectReward.getEffectDescription().ifPresent(desc ->
@@ -1552,9 +1589,8 @@ public class QuestScreen extends Screen {
             }
         } else if (reward instanceof SkillExperienceReward || reward instanceof SkillLevelReward
                 || reward instanceof SetQuestGroupReward) {
-            // texture_override_id (this type's only icon concept) is already handled by the
-            // top-of-method override shortcut - reaching here means it was absent, so this is
-            // always the generic experience-bottle fallback
+            // texture_override_id (this type's only icon concept) is handled by the top-of-method
+            // shortcut - reaching here means it was absent, so this is always the generic fallback.
             return renderSkillTreeReward(graphics, Optional.empty(), reward.getDisplayText().getString(), x, y, maxWidth);
         } else if (reward instanceof LevelZSkillLevelReward levelZSkillLevel) {
             Optional<ResourceLocation> icon = LevelZCompat.isLoaded()
@@ -1574,9 +1610,8 @@ public class QuestScreen extends Screen {
         }
     }
 
-    // generic icon+text row: the quest author's own icon if given, else a generic experience-bottle
-    // icon - shared by Pufferfish's Skills rewards (whose category icon isn't queryable through its
-    // stable API) and SetQuestGroupReward
+    // Generic icon+text row: the quest author's own icon if given, else a generic experience-bottle icon -
+    // shared by Pufferfish's Skills rewards (category icon isn't queryable via its stable API) and SetQuestGroupReward.
     private int renderSkillTreeReward(GuiGraphics graphics, Optional<ResourceLocation> icon, String rewardStr,
                                        int x, int y, int maxWidth) {
         if (icon.isPresent()) {
@@ -1619,13 +1654,12 @@ public class QuestScreen extends Screen {
                     && pool.options().stream().allMatch(option -> option.reward() instanceof SetQuestGroupReward);
             int availableCount = (int) pool.options().stream().filter(RewardChoicePool.Option::isAvailable).count();
             Component header = isPathChoice
-                    ? Component.translatable("gui.qe_api.choose_quest_path")
-                    : Component.translatable("gui.qe_api.choose_rewards",
+                    ? Component.translatable("gui.quest_api.choose_quest_path")
+                    : Component.translatable("gui.quest_api.choose_rewards",
                             selected.size(), pool.pick(), availableCount);
 
-            // path-choice's selection border is wider than its 16x16 icon (SELECTION_INSET), so it
-            // clips past the info box's left edge at x - shift the whole section right to clear it,
-            // same fix as renderTargetItemReward
+            // path-choice's selection border is wider than its 16x16 icon (SELECTION_INSET), so it clips
+            // past the info box's left edge at x - shift the whole section right, same as renderTargetItemReward.
             int sectionX = isPathChoice ? x + SELECTION_ICON_X_OFFSET : x;
             int sectionMaxWidth = isPathChoice ? maxWidth - SELECTION_ICON_X_OFFSET : maxWidth;
 
@@ -1640,7 +1674,7 @@ public class QuestScreen extends Screen {
 
                 currentY = renderReward(graphics, option, -1, sectionX, currentY, sectionMaxWidth, mouseX, mouseY);
 
-                // border goes around the option's own icon, not the whole row - replaces the old full-row green fill
+                // border goes around the option's own icon, not the whole row
                 if (isSelected && rewardHasIcon(option)) {
                     renderSelectionBorder(graphics, sectionX - 2, optionStartY);
                 }
@@ -1666,7 +1700,7 @@ public class QuestScreen extends Screen {
 
             if (y >= guiTop + INFO_BOX_Y && y + 16 <= guiTop + INFO_BOX_Y + INFO_BOX_HEIGHT) {
                 List<Component> lootTooltip = new ArrayList<>();
-                lootTooltip.add(Component.translatable("gui.qe_api.loot_table_reward")
+                lootTooltip.add(Component.translatable("gui.quest_api.loot_table_reward")
                         .withStyle(ChatFormatting.GOLD));
                 lootTooltip.add(Component.literal(lootReward.lootTableId().toString())
                         .withStyle(ChatFormatting.GRAY));
@@ -1675,7 +1709,7 @@ public class QuestScreen extends Screen {
         }
 
         String formattedName = formatLootTableName(lootReward.lootTableId());
-        String rewardStr = Component.translatable("reward.qe_api.loot_table_formatted", formattedName).getString();
+        String rewardStr = Component.translatable("reward.quest_api.loot_table_formatted", formattedName).getString();
         List<FormattedCharSequence> rewardLines = font.split(Component.literal(rewardStr), maxWidth - 20);
 
         for (int lineIdx = 0; lineIdx < rewardLines.size(); lineIdx++) {
@@ -1692,11 +1726,10 @@ public class QuestScreen extends Screen {
         return operations.get(index % operations.size());
     }
 
-    // "nothing picked yet" placeholder icon for a TargetItemReward, dispatched by concrete type -
-    // works the same whether targetItemReward is a standalone reward or one of enhance_item's own
-    // operations, since every permitted EnhanceOperation type is also one of these concrete reward
-    // records. Returns false (renders nothing) for a type with no special icon of its own, so the
-    // caller falls back to PICKER_PLACEHOLDER_STACK (BARRIER).
+    // "nothing picked yet" placeholder icon for a TargetItemReward, dispatched by concrete type - works
+    // the same whether it's a standalone reward or one of enhance_item's own operations, since every
+    // permitted EnhanceOperation type is also one of these records. Returns false for a type with no
+    // special icon, so the caller falls back to PICKER_PLACEHOLDER_STACK (BARRIER).
     private boolean renderTargetItemPlaceholderIcon(GuiGraphics graphics, TargetItemReward targetItemReward, int x, int y) {
         if (targetItemReward instanceof EnchantRandomlyReward || targetItemReward instanceof EnchantSpecificReward) {
             graphics.renderItem(new ItemStack(Items.ENCHANTED_BOOK), x, y);
@@ -1784,7 +1817,7 @@ public class QuestScreen extends Screen {
 
         String rewardStr;
         if (reward instanceof SpellBindReward spellBind && SpellEngineClientCompat.isLoaded() && minecraft.player != null) {
-            rewardStr = Component.translatable("reward.qe_api.spell_bind",
+            rewardStr = Component.translatable("reward.quest_api.spell_bind",
                     SpellEngineClientCompat.spellName(spellBind.spellId(), minecraft.player)).getString();
         } else {
             rewardStr = reward.getDisplayText().getString();
@@ -1856,10 +1889,10 @@ public class QuestScreen extends Screen {
         graphics.blit(ITEM_SELECTION_TEXTURE, panelX, panelY, 0, 0,
                 ITEM_SELECTION_WIDTH, ITEM_SELECTION_HEIGHT, TEXTURE_SIZE, TEXTURE_SIZE);
 
-        graphics.drawString(font, Component.translatable("gui.qe_api.pick_item"),
+        graphics.drawString(font, Component.translatable("gui.quest_api.pick_item"),
                 panelX + PICKER_TITLE_X, panelY + PICKER_TITLE_Y, 0x000000, false);
 
-        Component backLabel = Component.translatable("gui.qe_api.back");
+        Component backLabel = Component.translatable("gui.quest_api.back");
         int backTextX = panelX + PICKER_BACK_TEXT_X;
         int backTextY = panelY + PICKER_BACK_TEXT_Y;
         graphics.drawString(font, backLabel, backTextX, backTextY, 0x000000, false);
@@ -1875,7 +1908,7 @@ public class QuestScreen extends Screen {
         pickerGridVisibleHeight = PICKER_GRID_FRAME_HEIGHT;
 
         if (candidateSlots.isEmpty()) {
-            graphics.drawString(font, Component.translatable("gui.qe_api.no_valid_items"),
+            graphics.drawString(font, Component.translatable("gui.quest_api.no_valid_items"),
                     panelX + PICKER_GRID_ICON_X, panelY + PICKER_GRID_ICON_Y, 0xAAAAAA, false);
             maxInfoScroll = 0;
             return;
@@ -1990,7 +2023,7 @@ public class QuestScreen extends Screen {
                     buttonY + CLAIM_BUTTON_HEIGHT - 1, 0x40FFFFFF);
         }
 
-        Component buttonText = Component.translatable("gui.qe_api.claim");
+        Component buttonText = Component.translatable("gui.quest_api.claim");
         int textWidth = font.width(buttonText);
         int textX = buttonX + (CLAIM_BUTTON_WIDTH - textWidth) / 2;
         int textY = buttonY + (CLAIM_BUTTON_HEIGHT - 8) / 2;
@@ -2021,9 +2054,8 @@ public class QuestScreen extends Screen {
         graphics.drawString(font, buttonText, textX, textY, 0x404040, false);
     }
 
-    // shown before a dismiss checkbox click actually fires - see confirmDismissOpen. Button UV
-    // coordinates in the atlas double as their draw offset from the dialog's top-left, since the
-    // art is laid out 1:1 with where each piece renders.
+    // Button UV coordinates in the atlas double as their draw offset from the dialog's top-left,
+    // since the art is laid out 1:1 with where each piece renders.
     private void renderConfirmDismissDialog(GuiGraphics graphics, int mouseX, int mouseY) {
         graphics.fill(0, 0, width, height, 0x80000000);
 
@@ -2061,13 +2093,13 @@ public class QuestScreen extends Screen {
                     CONFIRM_DIALOG_ATLAS_SIZE, CONFIRM_DIALOG_ATLAS_SIZE);
         }
 
-        Component message = Component.translatable("gui.qe_api.confirm_dismiss_message");
+        Component message = Component.translatable("gui.quest_api.confirm_dismiss_message");
         drawWrappedCenteredText(graphics, message, dialogX + CONFIRM_DIALOG_TEXT_BOX_X,
                 dialogY + CONFIRM_DIALOG_TEXT_BOX_Y, CONFIRM_DIALOG_TEXT_BOX_WIDTH,
                 CONFIRM_DIALOG_TEXT_BOX_HEIGHT, 0x404040);
 
-        Component confirmText = Component.translatable("gui.qe_api.confirm_dismiss");
-        Component cancelText = Component.translatable("gui.qe_api.cancel_dismiss");
+        Component confirmText = Component.translatable("gui.quest_api.confirm_dismiss");
+        Component cancelText = Component.translatable("gui.quest_api.cancel_dismiss");
         graphics.drawString(font, confirmText,
                 yesX + (CONFIRM_DIALOG_BUTTON_WIDTH - font.width(confirmText)) / 2,
                 buttonY + (CONFIRM_DIALOG_BUTTON_HEIGHT - 8) / 2, 0x404040, false);
@@ -2215,13 +2247,6 @@ public class QuestScreen extends Screen {
         if (!taskEntityLists.containsKey(taskIndex)) {
             List<EntityType<?>> entities = new ArrayList<>();
 
-            if (killTask.entityId().isPresent()) {
-                EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.get(killTask.entityId().get());
-                if (type != null) {
-                    entities.add(type);
-                }
-            }
-
             if (!killTask.entityIds().isEmpty()) {
                 for (ResourceLocation id : killTask.entityIds()) {
                     EntityType<?> type = BuiltInRegistries.ENTITY_TYPE.get(id);
@@ -2231,8 +2256,7 @@ public class QuestScreen extends Screen {
                 }
             }
 
-            if (killTask.entityTag().isPresent()) {
-                var tagKey = killTask.entityTag().get();
+            for (var tagKey : killTask.entityTags()) {
                 var tagOptional = BuiltInRegistries.ENTITY_TYPE.getTag(tagKey);
                 if (tagOptional.isPresent()) {
                     for (var holder : tagOptional.get()) {
@@ -2282,7 +2306,6 @@ public class QuestScreen extends Screen {
     private ResourceLocation getDisplayEffectForTask(int taskIndex, ApplyStatusEffectTask effectTask) {
         if (!taskEffectLists.containsKey(taskIndex)) {
             List<ResourceLocation> effects = new ArrayList<>();
-            effectTask.effectId().ifPresent(effects::add);
             for (ResourceLocation id : effectTask.effectIds()) {
                 if (!effects.contains(id)) {
                     effects.add(id);
@@ -2358,9 +2381,8 @@ public class QuestScreen extends Screen {
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == 0) {
-            // Modal while the confirm-dismiss overlay is open - takes priority over the item-picker
-            // modal below too, since the checkbox that opened it is only ever reachable when the
-            // picker isn't already open.
+            // Modal while the confirm-dismiss overlay is open - takes priority over the item-picker modal
+            // below too, since the checkbox that opened it is only reachable when the picker isn't open.
             if (confirmDismissOpen) {
                 int dialogX = guiLeft + (guiWidth - CONFIRM_DIALOG_WIDTH) / 2;
                 int dialogY = guiTop + (GUI_HEIGHT - CONFIRM_DIALOG_HEIGHT) / 2;
@@ -2452,11 +2474,10 @@ public class QuestScreen extends Screen {
 
                     if (!isCompleted) {
                         if (isLineRootQuest(quest)) {
-                            // requires the same accept step as any other quest before its line
-                            // picker becomes usable. Once accepted-and-not-yet-claimed, re-clicking
-                            // opens the same confirm-dismiss dialog a line's own icon uses, this
-                            // time un-accepting the whole root. Once claimed, there's nothing left
-                            // to dismiss.
+                            // Requires the same accept step as any other quest before its line picker
+                            // becomes usable. Once accepted-and-not-yet-claimed, re-clicking opens the
+                            // same confirm-dismiss dialog a line's own icon uses, un-accepting the whole
+                            // root. Once claimed, there's nothing left to dismiss.
                             if (!acceptedRoots.contains(quest.id())) {
                                 sendAcceptPacket(quest.id());
                             } else if (!claimedRoots.contains(quest.id())) {
@@ -2517,6 +2538,10 @@ public class QuestScreen extends Screen {
                         activePickerRewardIndex = area.index();
                     } else {
                         activePickerTaskIndex = area.index();
+                        if (selectedQuest != null && area.index() < selectedQuest.tasks().size()) {
+                            selectedQuest.tasks().get(area.index()).choiceGroup()
+                                    .ifPresent(groupId -> selectedChoiceGroupTask.put(groupId, area.index()));
+                        }
                     }
                     descriptionScrollOffset = infoScrollOffset;
                     infoScrollOffset = 0; // fresh picker context - don't inherit a stale scroll position
@@ -2644,23 +2669,23 @@ public class QuestScreen extends Screen {
     }
 
     private void sendAcceptPacket(ResourceLocation questId) {
-        QuestEntityAPI.LOGGER.debug("Sending accept quest packet: {}", questId);
+        QuestAPI.LOGGER.debug("Sending accept quest packet: {}", questId);
         ClientPacketSender.sendAcceptQuest(entityId, questId);
     }
 
     private void sendDismissPacket() {
-        QuestEntityAPI.LOGGER.debug("Sending dismiss quest packet");
+        QuestAPI.LOGGER.debug("Sending dismiss quest packet");
         ClientPacketSender.sendDismissQuest(entityId);
     }
 
     private void sendClaimPacket() {
         if (selectedQuest != null && isLineRootQuest(selectedQuest)) {
-            QuestEntityAPI.LOGGER.debug("Sending claim quest line root packet");
+            QuestAPI.LOGGER.debug("Sending claim quest line root packet");
             ClientPacketSender.sendClaimQuestLineRoot(entityId, selectedQuest.id());
             return;
         }
 
-        QuestEntityAPI.LOGGER.debug("Sending claim rewards packet");
+        QuestAPI.LOGGER.debug("Sending claim rewards packet");
         List<List<Integer>> poolChoices = new ArrayList<>();
         List<Integer> rewardTargetSlots = new ArrayList<>();
         List<List<Integer>> bringItemSlots = new ArrayList<>();

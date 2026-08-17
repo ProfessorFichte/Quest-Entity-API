@@ -1,0 +1,35 @@
+{
+  "required": true,
+  "package": "com.qeapi.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "client": [
+    "client.MerchantScreenMixin",
+    "client.LivingEntityRendererMixin",
+    "client.MultiPlayerGameModeMixin"
+  ],
+  "mixins": [
+    "VillagerMixin",
+    "PlayerInteractMixin",
+    "ServerPlayerMixin",
+    "LivingEntityMixin",
+    "BrewingStandBlockEntityMixin",
+    "ServerPlayerGameModeMixin",
+    "VillagerXpAccessor",
+    "LootTableAccessor",
+    "FishingRodHookedTriggerMixin",
+    "AnvilMenuMixin",
+    "SmithingMenuMixin",
+    "EnchantedItemTriggerMixin",
+    "ServerPlayerRecipeCraftedMixin",
+    "RaidTickMixin",
+    "TrialSpawnerEjectRewardMixin",
+    "LivingEntityAddEffectMixin",
+    "LivingEntityDamageMixin",
+    "LivingEntityHealMixin",
+    "FireworkRocketEntityMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

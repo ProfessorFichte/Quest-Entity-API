@@ -5,15 +5,14 @@ import com.qeapi.network.ClientPacketSender;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 
-// The Active Quests screen's keybind. The KeyMapping itself is shared here; actual registration
-// with the key-binding settings screen is platform-specific (Fabric's KeyBindingHelper vs
-// NeoForge's RegisterKeyMappingsEvent), done from each platform's client init.
+// The KeyMapping itself is shared here; actual registration with the key-binding settings screen
+// is platform-specific (Fabric's KeyBindingHelper vs NeoForge's RegisterKeyMappingsEvent).
 public final class QuestKeybinds {
 
-    public static final String CATEGORY = "key.categories.qe_api";
+    public static final String CATEGORY = "key.categories.quest_api";
 
     public static final KeyMapping OPEN_ACTIVE_QUESTS = new KeyMapping(
-            "key.qe_api.open_active_quests",
+            "key.quest_api.open_active_quests",
             InputConstants.Type.KEYSYM,
             InputConstants.KEY_J,
             CATEGORY

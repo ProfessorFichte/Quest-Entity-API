@@ -11,9 +11,9 @@ import net.minecraft.resources.ResourceLocation;
 
 import java.util.UUID;
 
-// One row of the Active Quests screen: the quest itself, its live progress, and everything needed
-// to render the giving entity without having to locate it in the world (see PlayerQuestData's
-// QuestGiverLocation - this mirrors that, but only carries what the client needs to draw).
+// One row of the Active Quests screen: the quest, its progress, and everything needed to render
+// the giving entity without locating it in the world (see PlayerQuestData.QuestGiverLocation,
+// which this mirrors but trims to only what the client needs to draw).
 public record ActiveQuestEntry(
         UUID entityUuid,
         GiverLocation location,

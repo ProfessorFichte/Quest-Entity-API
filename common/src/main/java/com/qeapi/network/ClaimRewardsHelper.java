@@ -1,6 +1,7 @@
 package com.qeapi.network;
 
 import com.qeapi.quest.Quest;
+import com.qeapi.quest.QuestProgress;
 import com.qeapi.quest.task.BringItemTask;
 import com.qeapi.quest.task.QuestTask;
 import net.minecraft.server.level.ServerPlayer;
@@ -8,21 +9,21 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
-// BringItemTask consumption logic shared by FabricNetworking and NeoForgeNetworking's
-// handleClaimRewards - factored out so the new slot-aware disambiguation (see
-// ClaimRewardsPacket's bringItemSlots) only needs to be implemented, and kept correct, once.
+// Shared by FabricNetworking/NeoForgeNetworking's handleClaimRewards, so the slot-aware
+// disambiguation (see ClaimRewardsPacket.bringItemSlots) only needs implementing once.
 public final class ClaimRewardsHelper {
 
     private ClaimRewardsHelper() {}
 
-    // Consumes each BringItemTask's required items - from the player's explicitly chosen slots if
-    // they used the GUI's item picker (and that selection is still valid), otherwise the original
-    // greedy slot-order scan (also the fallback when the player never opened the picker, e.g.
-    // because only one matching stack existed).
-    public static void consumeBringItemTasks(ServerPlayer player, Quest quest, List<List<Integer>> bringItemSlots) {
+    // Prefers the player's GUI-picked slots when still valid, else falls back to a greedy scan.
+    // Tasks only satisfied as an unused taskChoiceGroup alternative (see Quest.isTaskConsumable) are skipped,
+    // so an "iron or gold" quest doesn't consume both just because both are held.
+    public static void consumeBringItemTasks(ServerPlayer player, Quest quest, QuestProgress progress,
+                                              List<List<Integer>> bringItemSlots) {
         List<QuestTask> tasks = quest.tasks();
         for (int i = 0; i < tasks.size(); i++) {
             if (!(tasks.get(i) instanceof BringItemTask bringTask)) continue;
+            if (!quest.isTaskConsumable(progress, i)) continue;
 
             List<Integer> chosenSlots = (bringItemSlots != null && i < bringItemSlots.size())
                     ? bringItemSlots.get(i) : List.of();

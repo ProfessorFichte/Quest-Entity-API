@@ -1,7 +1,7 @@
 package com.qeapi.client.gui;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.network.packet.ActiveQuestEntry;
 import com.qeapi.quest.Quest;
 import com.qeapi.quest.QuestProgress;
@@ -25,16 +25,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-// Read-only "where do I stand on all my active quests" overview, opened via keybind - see
-// QuestKeybinds. Reuses QuestScreen's texture/background and list+detail layout conventions
-// (same box coordinates, scrollbar styling, color palette) rather than inventing a new look;
-// unlike QuestScreen there's nothing to accept/claim/pick here, so the picker/reward-choice/claim
-// affordances aren't reproduced, and reward/task icons use one generic renderer instead of the
-// per-type special-casing QuestScreen does (loot table rotation, spell tooltips, item pickers).
+// Read-only overview opened via keybind - see QuestKeybinds. Reuses QuestScreen's texture and
+// list+detail layout conventions rather than inventing a new look, but drops the
+// picker/reward-choice/claim affordances (nothing to accept or claim here) and renders reward/task
+// icons with one generic renderer instead of QuestScreen's per-type special-casing.
 public class ActiveQuestScreen extends Screen {
 
     private static final ResourceLocation TEXTURE = ResourceLocation.fromNamespaceAndPath(
-            QuestEntityAPI.MOD_ID, "textures/gui/quests.png");
+            QuestAPI.MOD_ID, "textures/gui/quests.png");
 
     private static final int GUI_WIDTH = 240;
     private static final int GUI_HEIGHT = 222;
@@ -96,7 +94,7 @@ public class ActiveQuestScreen extends Screen {
     private final List<HoverArea> hoverAreas = new ArrayList<>();
 
     public ActiveQuestScreen(List<ActiveQuestEntry> entries) {
-        super(Component.translatable("gui.qe_api.active_quests_screen.title"));
+        super(Component.translatable("gui.quest_api.active_quests_screen.title"));
         this.allEntries = entries;
         this.visibleEntries = entries;
     }
@@ -129,7 +127,7 @@ public class ActiveQuestScreen extends Screen {
         if (selectedIndex >= 0 && selectedIndex < visibleEntries.size()) {
             renderDetail(graphics, visibleEntries.get(selectedIndex), mouseX, mouseY);
         } else {
-            graphics.drawString(font, Component.translatable("gui.qe_api.no_active_quests"),
+            graphics.drawString(font, Component.translatable("gui.quest_api.no_active_quests"),
                     guiLeft + INFO_BOX_X + 4, guiTop + INFO_BOX_Y + 4, 0x606060, false);
         }
 
@@ -189,8 +187,8 @@ public class ActiveQuestScreen extends Screen {
         }
 
         Component label = tierFilter == 0
-                ? Component.translatable("gui.qe_api.filter_all_tiers")
-                : Component.translatable("gui.qe_api.tier", tierFilter);
+                ? Component.translatable("gui.quest_api.filter_all_tiers")
+                : Component.translatable("gui.quest_api.tier", tierFilter);
         int textWidth = font.width(label);
         graphics.drawString(font, label, buttonX + (FILTER_BUTTON_WIDTH - textWidth) / 2,
                 buttonY + (FILTER_BUTTON_HEIGHT - 8) / 2, 0x404040, false);
@@ -246,10 +244,10 @@ public class ActiveQuestScreen extends Screen {
         }
 
         Component coordsText = entry.location().coordinatesKnown()
-                ? Component.translatable("gui.qe_api.giver_coordinates",
+                ? Component.translatable("gui.quest_api.giver_coordinates",
                         entry.location().pos().getX(), entry.location().pos().getY(), entry.location().pos().getZ(),
                         formatDimension(entry.location().dimension()))
-                : Component.translatable("gui.qe_api.giver_coordinates_unknown");
+                : Component.translatable("gui.quest_api.giver_coordinates_unknown");
         graphics.drawString(font, font.split(coordsText, infoWidth - (textX - infoX)).get(0), textX, nameY, 0x606060, false);
 
         currentY += Math.max(nameLines.size() * 10 + 10, previewEntity != null ? 34 : 0);
@@ -262,7 +260,7 @@ public class ActiveQuestScreen extends Screen {
         }
         currentY += 6;
 
-        graphics.drawString(font, Component.translatable("gui.qe_api.tasks").withStyle(ChatFormatting.UNDERLINE),
+        graphics.drawString(font, Component.translatable("gui.quest_api.tasks").withStyle(ChatFormatting.UNDERLINE),
                 infoX, currentY, 0x000000, false);
         currentY += 12;
 
@@ -270,8 +268,8 @@ public class ActiveQuestScreen extends Screen {
         for (int i = 0; i < quest.tasks().size(); i++) {
             QuestTask task = quest.tasks().get(i);
             boolean complete = task.isComplete(progress, i);
-            // same live/reversible-completion caveat as QuestScreen's task render pass - only the color
-            // is neutralized here, the checkmark still reflects current carry status
+            // BringItemTask completion is reversible (dropping the item un-completes it), so only
+            // the color is neutralized here - the checkmark still reflects current carry status.
             int color = (complete && !(task instanceof BringItemTask)) ? 0x00AA00 : 0x404040;
             String prefix = complete ? "✓ " : "• ";
 
@@ -284,7 +282,7 @@ public class ActiveQuestScreen extends Screen {
         }
         currentY += 6;
 
-        graphics.drawString(font, Component.translatable("gui.qe_api.rewards").withStyle(ChatFormatting.UNDERLINE),
+        graphics.drawString(font, Component.translatable("gui.quest_api.rewards").withStyle(ChatFormatting.UNDERLINE),
                 infoX, currentY, 0x000000, false);
         currentY += 12;
 
@@ -294,7 +292,7 @@ public class ActiveQuestScreen extends Screen {
 
         for (RewardChoicePool pool : quest.rewardChoicePools()) {
             int availableCount = (int) pool.options().stream().filter(RewardChoicePool.Option::isAvailable).count();
-            Component header = Component.translatable("gui.qe_api.choose_rewards",
+            Component header = Component.translatable("gui.quest_api.choose_rewards",
                     pool.pick(), pool.pick(), availableCount);
             graphics.drawString(font, header, infoX, currentY, 0x000000, false);
             currentY += 12;

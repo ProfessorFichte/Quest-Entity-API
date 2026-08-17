@@ -4,8 +4,7 @@ import net.minecraft.resources.ResourceLocation;
 
 import java.util.List;
 
-// Platform-agnostic interface for sending packets from client to server. Platform-specific
-// implementations register their sender via setInstance().
+// Platform-specific senders register themselves via setInstance().
 public final class ClientPacketSender {
 
     private static PacketSender instance;
@@ -32,11 +31,9 @@ public final class ClientPacketSender {
         }
     }
 
-    // poolChoices: per reward-choice-pool (in quest-defined order), the chosen option indices -
-    // empty lists for quests with no reward choice pools. rewardTargetSlots: per reward (in
-    // quest-defined order), the inventory slot picked as that reward's target item, or -1.
-    // bringItemSlots: per task (in quest-defined order), the inventory slots explicitly chosen to
-    // satisfy a BringItemTask, or empty to fall back to automatic consumption.
+    // poolChoices: chosen option indices per reward-choice-pool.
+    // rewardTargetSlots: target slot per reward, or -1.
+    // bringItemSlots: slots chosen per BringItemTask, empty to auto-consume.
     public static void sendClaimRewards(int entityId, List<List<Integer>> poolChoices,
                                          List<Integer> rewardTargetSlots, List<List<Integer>> bringItemSlots) {
         if (instance != null) {

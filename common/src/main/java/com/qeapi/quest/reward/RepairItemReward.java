@@ -2,7 +2,7 @@ package com.qeapi.quest.reward;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -14,7 +14,7 @@ import java.util.Optional;
 
 public record RepairItemReward(Optional<ResourceLocation> textureOverrideId) implements QuestReward, TargetItemReward, EnhanceOperation {
 
-    public static final ResourceLocation DEFAULT_TEXTURE = QuestEntityAPI.id("textures/gui/quest_rewards/repair_item_default.png");
+    public static final ResourceLocation DEFAULT_TEXTURE = QuestAPI.id("textures/gui/quest_rewards/repair_item_default.png");
 
     public RepairItemReward() {
         this(Optional.empty());
@@ -28,7 +28,7 @@ public record RepairItemReward(Optional<ResourceLocation> textureOverrideId) imp
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("repair_item");
+        return QuestAPI.id("repair_item");
     }
 
     @Override
@@ -43,12 +43,12 @@ public record RepairItemReward(Optional<ResourceLocation> textureOverrideId) imp
 
     @Override
     public void grant(ServerPlayer player) {
-        QuestEntityAPI.LOGGER.warn("[RepairItemReward] grant(player) called without a target item - ignoring");
+        QuestAPI.LOGGER.warn("[RepairItemReward] grant(player) called without a target item - ignoring");
     }
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.repair_item");
+        return Component.translatable("reward.quest_api.repair_item");
     }
 
     @Override

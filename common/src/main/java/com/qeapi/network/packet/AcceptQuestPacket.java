@@ -7,7 +7,6 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-// Client-to-server packet to accept a quest.
 public record AcceptQuestPacket(
         int entityId,
         ResourceLocation questId

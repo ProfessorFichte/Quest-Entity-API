@@ -1,7 +1,7 @@
 package com.qeapi.util;
 
 import com.mojang.datafixers.util.Pair;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.HolderSet;
@@ -14,12 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-// Wraps ChunkGenerator.findNearestMapStructure with a blocks-based max-distance cutoff, shared by
-// FindStructureTask's distance gating and the teleport/map structure rewards. Structure instances
-// never move once world-gen places them, so a result is cached forever per (dimension, structure,
-// origin chunk, radius) - repeat lookups for the same stationary quest-giver (offering the quest
-// menu again, a repeat map roll, etc.) then cost a single map read instead of re-running placement
-// math, which matters because that math is invoked on every quest-menu open/refresh.
+// structures never move once world-gen places them, so a result is cached forever per (dimension, structure, origin chunk, radius) - this math runs on every quest-menu open
 public final class StructureDistanceUtil {
 
     public static final int DEFAULT_MAX_DISTANCE = 10000;
@@ -47,7 +42,7 @@ public final class StructureDistanceUtil {
                 .orElse(null);
 
         if (structureHolder == null) {
-            QuestEntityAPI.LOGGER.warn("[StructureDistance] Structure {} not found in registry", structureId);
+            QuestAPI.LOGGER.warn("[StructureDistance] Structure {} not found in registry", structureId);
             CACHE.put(cacheKey, Optional.empty());
             return Optional.empty();
         }
@@ -67,8 +62,7 @@ public final class StructureDistanceUtil {
         return result;
     }
 
-    // Clear on server stop / world change - the cache is keyed by chunk coordinates and structure
-    // ID only, not by world seed, so it would otherwise leak stale results into a newly loaded world.
+    // clear on server stop / world change - the cache isn't keyed by world seed, so it would otherwise leak stale results into a newly loaded world
     public static void clearCache() {
         CACHE.clear();
     }

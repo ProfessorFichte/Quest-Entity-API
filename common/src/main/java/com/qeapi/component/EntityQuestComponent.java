@@ -2,7 +2,7 @@ package com.qeapi.component;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.data.QuestManager;
 import com.qeapi.quest.QuestPool;
 import com.qeapi.quest.QuestProgress;
@@ -14,16 +14,16 @@ import net.minecraft.resources.ResourceLocation;
 
 import java.util.*;
 
-// Data component attached to entities that can provide quests; stores the quest tag ID and per-player state.
-// questPoolId always references a tag under tags/entity_quests/ (e.g. "qe_api:villager" -> data/qe_api/tags/entity_quests/villager.json).
-// "qe_api:no_quest" is a special marker meaning the entity was checked but has no quests.
+// questPoolId always references a tag under tags/entity_quests/; "quest_api:no_quest" is a special marker meaning the entity was checked but has no quests
 public record EntityQuestComponent(
         ResourceLocation questPoolId,
         Map<UUID, ActiveQuestData> activeQuests,
         Map<UUID, Set<ResourceLocation>> completedQuests,
         Map<UUID, Map<ResourceLocation, Long>> questCompletionTimes,  // player -> quest -> in-game day-time last completed, for Quest.repeatAfterDays
         Map<UUID, String> chosenQuestGroups,  // player -> quest_group chosen for this pool, via SetQuestGroupReward
-        Map<UUID, Long> questCooldowns  // Player UUID -> cooldown end time (System.currentTimeMillis)
+        Map<UUID, Long> questCooldowns,  // Player UUID -> cooldown end time (System.currentTimeMillis)
+        Optional<ResourceLocation> acceptQuestSoundOverride,  // from the EntityQuestAssignment that created this entity's quests, if any
+        Optional<ResourceLocation> finishQuestSoundOverride
 ) {
     public static final Codec<EntityQuestComponent> CODEC = RecordCodecBuilder.create(instance ->
             instance.group(
@@ -45,7 +45,11 @@ public record EntityQuestComponent(
                             .forGetter(EntityQuestComponent::chosenQuestGroups),
                     Codec.unboundedMap(UUIDUtil.STRING_CODEC, Codec.LONG)
                             .optionalFieldOf("quest_cooldowns", Map.of())
-                            .forGetter(EntityQuestComponent::questCooldowns)
+                            .forGetter(EntityQuestComponent::questCooldowns),
+                    ResourceLocation.CODEC.optionalFieldOf("accept_quest_sound_override")
+                            .forGetter(EntityQuestComponent::acceptQuestSoundOverride),
+                    ResourceLocation.CODEC.optionalFieldOf("finish_quest_sound_override")
+                            .forGetter(EntityQuestComponent::finishQuestSoundOverride)
             ).apply(instance, EntityQuestComponent::new)
     );
 
@@ -53,16 +57,24 @@ public record EntityQuestComponent(
             ByteBufCodecs.fromCodecWithRegistries(CODEC);
 
     // Marks an entity as checked-but-no-quest, so we don't retry the quest_chance roll on every interaction.
-    private static final ResourceLocation NO_QUEST_MARKER = ResourceLocation.fromNamespaceAndPath("qe_api", "no_quest");
+    private static final ResourceLocation NO_QUEST_MARKER = ResourceLocation.fromNamespaceAndPath("quest_api", "no_quest");
 
     public static EntityQuestComponent create(ResourceLocation tagId) {
-        QuestEntityAPI.LOGGER.debug("[EntityQuestComponent] Creating component with tag ID: {}", tagId);
-        return new EntityQuestComponent(tagId, new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+        return create(tagId, Optional.empty(), Optional.empty());
+    }
+
+    // sound overrides come from the EntityQuestAssignment that resolved this entity's quest pool, if any
+    public static EntityQuestComponent create(ResourceLocation tagId, Optional<ResourceLocation> acceptQuestSoundOverride,
+                                               Optional<ResourceLocation> finishQuestSoundOverride) {
+        QuestAPI.LOGGER.debug("[EntityQuestComponent] Creating component with tag ID: {}", tagId);
+        return new EntityQuestComponent(tagId, new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(),
+                acceptQuestSoundOverride, finishQuestSoundOverride);
     }
 
     public static EntityQuestComponent createNoQuest() {
-        QuestEntityAPI.LOGGER.debug("[EntityQuestComponent] Creating NO_QUEST marker component");
-        return new EntityQuestComponent(NO_QUEST_MARKER, new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+        QuestAPI.LOGGER.debug("[EntityQuestComponent] Creating NO_QUEST marker component");
+        return new EntityQuestComponent(NO_QUEST_MARKER, new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(),
+                Optional.empty(), Optional.empty());
     }
 
     public boolean isNoQuestMarker() {
@@ -71,7 +83,7 @@ public record EntityQuestComponent(
 
     public boolean hasAnyPlayerInteraction() {
         boolean hasInteraction = !activeQuests.isEmpty() || !completedQuests.isEmpty();
-        QuestEntityAPI.LOGGER.debug("[EntityQuestComponent] hasAnyPlayerInteraction: {} (activeQuests={}, completedQuests={})",
+        QuestAPI.LOGGER.debug("[EntityQuestComponent] hasAnyPlayerInteraction: {} (activeQuests={}, completedQuests={})",
                 hasInteraction, activeQuests.size(), completedQuests.size());
         return hasInteraction;
     }
@@ -79,21 +91,21 @@ public record EntityQuestComponent(
     // Resolves questPoolId's tag to its (single, synthetic) pool.
     public List<QuestPool> getAllQuestPools() {
         if (isNoQuestMarker()) {
-            QuestEntityAPI.LOGGER.debug("[EntityQuestComponent] getAllQuestPools called on NO_QUEST marker, returning empty");
+            QuestAPI.LOGGER.debug("[EntityQuestComponent] getAllQuestPools called on NO_QUEST marker, returning empty");
             return List.of();
         }
 
-        QuestEntityAPI.LOGGER.debug("[EntityQuestComponent] getAllQuestPools for tag: {}", questPoolId);
+        QuestAPI.LOGGER.debug("[EntityQuestComponent] getAllQuestPools for tag: {}", questPoolId);
         Optional<QuestPool> pool = QuestManager.getQuestPoolFromTag(questPoolId);
 
         if (pool.isEmpty()) {
-            QuestEntityAPI.LOGGER.warn("[EntityQuestComponent] No quest pool found for tag: {}. " +
+            QuestAPI.LOGGER.warn("[EntityQuestComponent] No quest pool found for tag: {}. " +
                     "Make sure the tag exists at data/{}/tags/entity_quests/{}.json",
                     questPoolId, questPoolId.getNamespace(), questPoolId.getPath());
             return List.of();
         }
 
-        QuestEntityAPI.LOGGER.debug("[EntityQuestComponent] Resolved tag {} to a pool with {} tiers", questPoolId, pool.get().getQuestsByTier().size());
+        QuestAPI.LOGGER.debug("[EntityQuestComponent] Resolved tag {} to a pool with {} tiers", questPoolId, pool.get().getQuestsByTier().size());
         return List.of(pool.get());
     }
 
@@ -114,8 +126,7 @@ public record EntityQuestComponent(
         return completed != null && completed.contains(questId);
     }
 
-    // In-game day-time (see ServerLevel.getDayTime()) this quest was last completed, or -1 if
-    // never recorded - only meaningful for a quest with Quest.repeatAfterDays set.
+    // in-game day-time this quest was last completed, or -1 if never recorded - only meaningful for a quest with Quest.repeatAfterDays set
     public long getCompletionDayTime(UUID playerId, ResourceLocation questId) {
         Map<ResourceLocation, Long> times = questCompletionTimes.get(playerId);
         if (times == null) {
@@ -133,14 +144,14 @@ public record EntityQuestComponent(
         Map<UUID, String> newChosenQuestGroups = new HashMap<>(chosenQuestGroups);
         newChosenQuestGroups.put(playerId, group);
         return new EntityQuestComponent(questPoolId, activeQuests, completedQuests, questCompletionTimes,
-                newChosenQuestGroups, questCooldowns);
+                newChosenQuestGroups, questCooldowns, acceptQuestSoundOverride, finishQuestSoundOverride);
     }
 
     public EntityQuestComponent withoutChosenQuestGroup(UUID playerId) {
         Map<UUID, String> newChosenQuestGroups = new HashMap<>(chosenQuestGroups);
         newChosenQuestGroups.remove(playerId);
         return new EntityQuestComponent(questPoolId, activeQuests, completedQuests, questCompletionTimes,
-                newChosenQuestGroups, questCooldowns);
+                newChosenQuestGroups, questCooldowns, acceptQuestSoundOverride, finishQuestSoundOverride);
     }
 
     public int getHighestCompletedTier(UUID playerId, Map<ResourceLocation, Integer> questTiers) {
@@ -162,17 +173,16 @@ public record EntityQuestComponent(
     public EntityQuestComponent withActiveQuest(UUID playerId, ActiveQuestData questData) {
         Map<UUID, ActiveQuestData> newActiveQuests = new HashMap<>(activeQuests);
         newActiveQuests.put(playerId, questData);
-        return new EntityQuestComponent(questPoolId, newActiveQuests, completedQuests, questCompletionTimes, chosenQuestGroups, questCooldowns);
+        return new EntityQuestComponent(questPoolId, newActiveQuests, completedQuests, questCompletionTimes, chosenQuestGroups, questCooldowns, acceptQuestSoundOverride, finishQuestSoundOverride);
     }
 
     public EntityQuestComponent withoutActiveQuest(UUID playerId) {
         Map<UUID, ActiveQuestData> newActiveQuests = new HashMap<>(activeQuests);
         newActiveQuests.remove(playerId);
-        return new EntityQuestComponent(questPoolId, newActiveQuests, completedQuests, questCompletionTimes, chosenQuestGroups, questCooldowns);
+        return new EntityQuestComponent(questPoolId, newActiveQuests, completedQuests, questCompletionTimes, chosenQuestGroups, questCooldowns, acceptQuestSoundOverride, finishQuestSoundOverride);
     }
 
-    // completionDayTime: ServerLevel.getDayTime() at claim time, recorded regardless of whether
-    // the quest is repeatable - only consulted for one that is (see Quest.repeatAfterDays).
+    // completionDayTime is recorded regardless of whether the quest is repeatable - only consulted for one that is
     public EntityQuestComponent withCompletedQuest(UUID playerId, ResourceLocation questId, long completionDayTime) {
         Map<UUID, Set<ResourceLocation>> newCompletedQuests = new HashMap<>();
         completedQuests.forEach((k, v) -> newCompletedQuests.put(k, new HashSet<>(v)));
@@ -187,11 +197,10 @@ public record EntityQuestComponent(
         Map<UUID, ActiveQuestData> newActiveQuests = new HashMap<>(activeQuests);
         newActiveQuests.remove(playerId);
 
-        return new EntityQuestComponent(questPoolId, newActiveQuests, newCompletedQuests, newCompletionTimes, chosenQuestGroups, questCooldowns);
+        return new EntityQuestComponent(questPoolId, newActiveQuests, newCompletedQuests, newCompletionTimes, chosenQuestGroups, questCooldowns, acceptQuestSoundOverride, finishQuestSoundOverride);
     }
 
-    // Forgets every quest this entity has recorded as completed for playerId - lets them be
-    // re-offered and re-completed, e.g. for testing. Doesn't touch activeQuests or questCooldowns.
+    // lets every completed quest be re-offered and re-completed, e.g. for testing; doesn't touch activeQuests or questCooldowns
     public EntityQuestComponent withoutCompletedQuests(UUID playerId) {
         Map<UUID, Set<ResourceLocation>> newCompletedQuests = new HashMap<>();
         completedQuests.forEach((k, v) -> newCompletedQuests.put(k, new HashSet<>(v)));
@@ -201,7 +210,7 @@ public record EntityQuestComponent(
         questCompletionTimes.forEach((k, v) -> newCompletionTimes.put(k, new HashMap<>(v)));
         newCompletionTimes.remove(playerId);
 
-        return new EntityQuestComponent(questPoolId, activeQuests, newCompletedQuests, newCompletionTimes, chosenQuestGroups, questCooldowns);
+        return new EntityQuestComponent(questPoolId, activeQuests, newCompletedQuests, newCompletionTimes, chosenQuestGroups, questCooldowns, acceptQuestSoundOverride, finishQuestSoundOverride);
     }
 
     public EntityQuestComponent withUpdatedProgress(UUID playerId, QuestProgress progress) {
@@ -212,7 +221,7 @@ public record EntityQuestComponent(
 
         Map<UUID, ActiveQuestData> newActiveQuests = new HashMap<>(activeQuests);
         newActiveQuests.put(playerId, new ActiveQuestData(currentData.questId(), progress));
-        return new EntityQuestComponent(questPoolId, newActiveQuests, completedQuests, questCompletionTimes, chosenQuestGroups, questCooldowns);
+        return new EntityQuestComponent(questPoolId, newActiveQuests, completedQuests, questCompletionTimes, chosenQuestGroups, questCooldowns, acceptQuestSoundOverride, finishQuestSoundOverride);
     }
 
     public boolean isOnCooldown(UUID playerId) {
@@ -223,7 +232,6 @@ public record EntityQuestComponent(
         return System.currentTimeMillis() < cooldownEnd;
     }
 
-    // Returns 0 if not on cooldown.
     public long getRemainingCooldownMs(UUID playerId) {
         Long cooldownEnd = questCooldowns.get(playerId);
         if (cooldownEnd == null) {
@@ -241,13 +249,13 @@ public record EntityQuestComponent(
         Map<UUID, ActiveQuestData> newActiveQuests = new HashMap<>(activeQuests);
         newActiveQuests.remove(playerId);
 
-        return new EntityQuestComponent(questPoolId, newActiveQuests, completedQuests, questCompletionTimes, chosenQuestGroups, newCooldowns);
+        return new EntityQuestComponent(questPoolId, newActiveQuests, completedQuests, questCompletionTimes, chosenQuestGroups, newCooldowns, acceptQuestSoundOverride, finishQuestSoundOverride);
     }
 
     public EntityQuestComponent withoutCooldown(UUID playerId) {
         Map<UUID, Long> newCooldowns = new HashMap<>(questCooldowns);
         newCooldowns.remove(playerId);
-        return new EntityQuestComponent(questPoolId, activeQuests, completedQuests, questCompletionTimes, chosenQuestGroups, newCooldowns);
+        return new EntityQuestComponent(questPoolId, activeQuests, completedQuests, questCompletionTimes, chosenQuestGroups, newCooldowns, acceptQuestSoundOverride, finishQuestSoundOverride);
     }
 
     public record ActiveQuestData(

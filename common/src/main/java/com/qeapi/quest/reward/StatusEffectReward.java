@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -32,14 +32,14 @@ public record StatusEffectReward(
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("status_effect");
+        return QuestAPI.id("status_effect");
     }
 
     @Override
     public void grant(ServerPlayer player) {
         MobEffect effect = BuiltInRegistries.MOB_EFFECT.get(effectId);
         if (effect == null) {
-            QuestEntityAPI.LOGGER.warn("Effect not found for reward: {}", effectId);
+            QuestAPI.LOGGER.warn("Effect not found for reward: {}", effectId);
             return;
         }
 
@@ -73,7 +73,7 @@ public record StatusEffectReward(
 
         String levelText = amplifier > 0 ? " " + com.qeapi.util.TextFormatting.toRomanNumeral(amplifier + 1) : "";
 
-        return Component.translatable("reward.qe_api.status_effect",
+        return Component.translatable("reward.quest_api.status_effect",
                 effectName + levelText, durationText);
     }
 

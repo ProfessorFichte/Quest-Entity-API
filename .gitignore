@@ -17,3 +17,8 @@
 /libs
 /fabric/run
 /.idea
+/.roadmap_documentation
+/.media
+/.architectury-transformer
+/packs/build
+/packs/.gradle

@@ -12,7 +12,7 @@ public class VillagerQuestsDataGenerator implements DataGeneratorEntrypoint {
 
     @Override
     public void onInitializeDataGenerator(FabricDataGenerator fabricDataGenerator) {
-        // the real qe_api mod isn't loaded here (this project only compiles against :common), so
+        // the real quest_api mod isn't loaded here (this project only compiles against :common), so
         // its task/requirement/reward codecs never get registered unless we do it ourselves -
         // without this, encoding any quest that uses e.g. bring_item throws "Unknown task type"
         QERegistries.init();

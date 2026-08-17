@@ -1,0 +1,17 @@
+{
+  "id": "quest_api:locked_tier_test/step_two",
+  "rewards": [
+    {
+      "amount": 75,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 4,
+      "item_id": "minecraft:iron_ingot",
+      "task": "quest_api:bring_item"
+    }
+  ],
+  "tier": 2
+}

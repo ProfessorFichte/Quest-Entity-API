@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.compat.PufferfishSkillsCompat;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -33,13 +33,13 @@ public record SkillLevelReward(
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("skill_level");
+        return ResourceLocation.fromNamespaceAndPath("puffish_skills", "skill_level");
     }
 
     @Override
     public void grant(ServerPlayer player) {
         if (!PufferfishSkillsCompat.isLoaded()) {
-            QuestEntityAPI.LOGGER.warn("[SkillLevelReward] Pufferfish's Skills isn't loaded - skipping reward for {}", skillTreeId);
+            QuestAPI.LOGGER.warn("[SkillLevelReward] Pufferfish's Skills isn't loaded - skipping reward for {}", skillTreeId);
             return;
         }
         PufferfishSkillsCompat.addLevels(player, skillTreeId, levels);
@@ -47,7 +47,7 @@ public record SkillLevelReward(
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.skill_level", levels, skillTreeId.toString());
+        return Component.translatable("reward.quest_api.skill_level", levels, skillTreeId.toString());
     }
 
     @Override

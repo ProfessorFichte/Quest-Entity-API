@@ -1,0 +1,51 @@
+{
+  "id": "quest_api:wizard_paths/wizard_root",
+  "rewards": [
+    {
+      "amount": 100,
+      "reward": "quest_api:experience"
+    },
+    {
+      "options": [
+        {
+          "reward": {
+            "group": "fire",
+            "reward": "quest_api:set_quest_group",
+            "texture_override_id": "quest_api:textures/gui/quest_paths/fire.png"
+          }
+        },
+        {
+          "reward": {
+            "group": "frost",
+            "reward": "quest_api:set_quest_group",
+            "texture_override_id": "quest_api:textures/gui/quest_paths/frost.png"
+          }
+        },
+        {
+          "required_mod": "elemental_wizards_rpg",
+          "reward": {
+            "group": "water",
+            "reward": "quest_api:set_quest_group",
+            "texture_override_id": "quest_api:textures/gui/quest_paths/water.png"
+          }
+        },
+        {
+          "required_mod": "elemental_wizards_rpg",
+          "reward": {
+            "group": "earth",
+            "reward": "quest_api:set_quest_group",
+            "texture_override_id": "quest_api:textures/gui/quest_paths/earth.png"
+          }
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 3,
+      "item_id": "minecraft:book",
+      "task": "quest_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

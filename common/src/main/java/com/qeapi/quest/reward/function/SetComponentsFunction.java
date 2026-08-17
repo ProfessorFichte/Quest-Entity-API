@@ -2,7 +2,7 @@ package com.qeapi.quest.reward.function;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -25,7 +25,7 @@ public record SetComponentsFunction(DataComponentPatch components) implements It
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("set_components");
+        return QuestAPI.id("set_components");
     }
 
     @Override

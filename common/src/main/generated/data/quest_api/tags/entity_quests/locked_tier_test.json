@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "quest_api:locked_tier_test/step_one",
+    "quest_api:locked_tier_test/step_two",
+    "quest_api:locked_tier_test/step_three"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "replace": false,
+  "values": [
+    "quest_api:epic_monster_story/adventurers_task",
+    "quest_api:epic_monster_story/quest_lines_root",
+    "quest_api:epic_monster_story/wither_trial_1",
+    "quest_api:epic_monster_story/dragon_trial_1",
+    "quest_api:epic_monster_story/wither_trial_2",
+    "quest_api:epic_monster_story/dragon_trial_2",
+    "quest_api:epic_monster_story/wither_trial_3",
+    "quest_api:epic_monster_story/dragon_trial_3"
+  ]
+}

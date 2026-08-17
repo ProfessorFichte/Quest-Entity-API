@@ -3,7 +3,7 @@ package com.qeapi.quest.reward.function;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
@@ -79,7 +79,7 @@ public record SetEnchantmentsFunction(List<EnchantmentEntry> enchantments, boole
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("set_enchantments");
+        return QuestAPI.id("set_enchantments");
     }
 
     @Override

@@ -9,20 +9,11 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 import java.util.List;
 
-// Client-to-server packet to claim rewards for a completed quest. poolChoices holds, per reward
-// choice pool (in quest-defined order), the option indices the player selected - empty lists for
-// quests with no reward choice pools.
-//
-// rewardTargetSlots holds, per entry in the quest's flat rewards list (in quest-defined order),
-// the inventory slot (into player.getInventory().items) the player picked as that reward's
-// target item, or -1 if that reward isn't a TargetItemReward. Target-item rewards inside
-// reward_choice_pools aren't supported (see TargetItemReward's javadoc) so pool options never
-// need a slot of their own.
-//
-// bringItemSlots holds, per task in the quest's tasks list (in quest-defined order), the
-// inventory slots the player explicitly chose to satisfy that BringItemTask - empty for tasks
-// that aren't BringItemTask, or when the player never opened the picker (server falls back to the
-// old greedy slot-order consumption in that case).
+// poolChoices: chosen option index per reward_choice_pool, in quest order.
+// rewardTargetSlots: inventory slot picked for each TargetItemReward, or -1 (pool options can't
+// be TargetItemReward - see its javadoc - so they never need a slot of their own).
+// bringItemSlots: inventory slots chosen to satisfy each BringItemTask; empty falls back to the
+// old greedy slot-order consumption.
 public record ClaimRewardsPacket(
         int entityId,
         List<List<Integer>> poolChoices,

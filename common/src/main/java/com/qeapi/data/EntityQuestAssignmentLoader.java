@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonElement;
 import com.mojang.serialization.JsonOps;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
@@ -12,8 +12,7 @@ import net.minecraft.util.profiling.ProfilerFiller;
 
 import java.util.Map;
 
-// Resource reload listener that loads entity quest assignments from
-// data/[namespace]/entity_quest_assignment/[path].json. See EntityQuestAssignment for the JSON format.
+// see EntityQuestAssignment for the JSON format
 public class EntityQuestAssignmentLoader extends SimpleJsonResourceReloadListener {
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -25,8 +24,8 @@ public class EntityQuestAssignmentLoader extends SimpleJsonResourceReloadListene
 
     @Override
     protected void apply(Map<ResourceLocation, JsonElement> jsons, ResourceManager resourceManager, ProfilerFiller profiler) {
-        QuestEntityAPI.LOGGER.info("[AssignmentLoader] Loading entity quest assignments...");
-        QuestEntityAPI.LOGGER.info("[AssignmentLoader] Found {} JSON files", jsons.size());
+        QuestAPI.LOGGER.info("[AssignmentLoader] Loading entity quest assignments...");
+        QuestAPI.LOGGER.info("[AssignmentLoader] Found {} JSON files", jsons.size());
 
         EntityQuestAssignmentManager.clear();
 
@@ -37,8 +36,8 @@ public class EntityQuestAssignmentLoader extends SimpleJsonResourceReloadListene
             ResourceLocation id = entry.getKey();
             JsonElement json = entry.getValue();
 
-            QuestEntityAPI.LOGGER.debug("[AssignmentLoader] Processing: {}", id);
-            QuestEntityAPI.LOGGER.debug("[AssignmentLoader]   JSON: {}", json);
+            QuestAPI.LOGGER.debug("[AssignmentLoader] Processing: {}", id);
+            QuestAPI.LOGGER.debug("[AssignmentLoader]   JSON: {}", json);
 
             try {
                 var result = EntityQuestAssignment.CODEC.parse(JsonOps.INSTANCE, json);
@@ -46,7 +45,7 @@ public class EntityQuestAssignmentLoader extends SimpleJsonResourceReloadListene
                 if (result.result().isPresent()) {
                     EntityQuestAssignment assignment = result.result().get();
 
-                    QuestEntityAPI.LOGGER.debug("[AssignmentLoader]   Parsed: entity={}, pool={}, chance={}, villagerData={}",
+                    QuestAPI.LOGGER.debug("[AssignmentLoader]   Parsed: entity={}, pool={}, chance={}, villagerData={}",
                             assignment.entityId(), assignment.questPools(), assignment.questChance(), assignment.villagerData());
 
                     for (String questPoolRef : assignment.questPools()) {
@@ -54,7 +53,7 @@ public class EntityQuestAssignmentLoader extends SimpleJsonResourceReloadListene
                             continue;
                         }
 
-                        // strip legacy "tag:" prefix, e.g. tag:qe_api/farm -> qe_api:farm
+                        // strip legacy "tag:" prefix, e.g. tag:quest_api/farm -> quest_api:farm
                         String tagIdStr = questPoolRef;
                         if (tagIdStr.startsWith("tag:")) {
                             tagIdStr = tagIdStr.substring(4);
@@ -62,19 +61,19 @@ public class EntityQuestAssignmentLoader extends SimpleJsonResourceReloadListene
                                 int slashIndex = tagIdStr.indexOf('/');
                                 tagIdStr = tagIdStr.substring(0, slashIndex) + ":" + tagIdStr.substring(slashIndex + 1);
                             }
-                            QuestEntityAPI.LOGGER.debug("[AssignmentLoader]   Converted legacy tag format: {} -> {}", questPoolRef, tagIdStr);
+                            QuestAPI.LOGGER.debug("[AssignmentLoader]   Converted legacy tag format: {} -> {}", questPoolRef, tagIdStr);
                         }
 
                         ResourceLocation tagId = ResourceLocation.parse(tagIdStr);
                         boolean tagExists = QuestManager.hasEntityQuestTag(tagId);
 
-                        QuestEntityAPI.LOGGER.debug("[AssignmentLoader]   Checking tag exists: {} = {}", tagId, tagExists);
+                        QuestAPI.LOGGER.debug("[AssignmentLoader]   Checking tag exists: {} = {}", tagId, tagExists);
 
                         if (!tagExists) {
-                            QuestEntityAPI.LOGGER.warn("[AssignmentLoader] Assignment {} references non-existent tag: {}. " +
+                            QuestAPI.LOGGER.warn("[AssignmentLoader] Assignment {} references non-existent tag: {}. " +
                                     "Expected: data/{}/tags/entity_quests/{}.json",
                                     id, tagId, tagId.getNamespace(), tagId.getPath());
-                            QuestEntityAPI.LOGGER.warn("[AssignmentLoader] Available tags: {}", QuestManager.getAllEntityQuestTags().stream()
+                            QuestAPI.LOGGER.warn("[AssignmentLoader] Available tags: {}", QuestManager.getAllEntityQuestTags().stream()
                                     .map(t -> t.getId().toString()).toList());
                         }
                     }
@@ -82,31 +81,31 @@ public class EntityQuestAssignmentLoader extends SimpleJsonResourceReloadListene
                     EntityQuestAssignmentManager.register(assignment);
                     successCount++;
 
-                    QuestEntityAPI.LOGGER.info("[AssignmentLoader] Loaded assignment: {} -> entity={}, tag={}, chance={}",
+                    QuestAPI.LOGGER.info("[AssignmentLoader] Loaded assignment: {} -> entity={}, tag={}, chance={}",
                             id, assignment.entityId(), assignment.questPools(), assignment.questChance());
                 } else {
                     String error = result.error().map(e -> e.message()).orElse("Unknown error");
-                    QuestEntityAPI.LOGGER.error("[AssignmentLoader] Failed to parse {}: {}", id, error);
+                    QuestAPI.LOGGER.error("[AssignmentLoader] Failed to parse {}: {}", id, error);
                     failCount++;
                 }
             } catch (Exception e) {
-                QuestEntityAPI.LOGGER.error("[AssignmentLoader] Exception loading {}: {}", id, e.getMessage());
+                QuestAPI.LOGGER.error("[AssignmentLoader] Exception loading {}: {}", id, e.getMessage());
                 e.printStackTrace();
                 failCount++;
             }
         }
 
         EntityQuestAssignmentManager.logSummary();
-        QuestEntityAPI.LOGGER.info("[AssignmentLoader] Loaded {} entity quest assignments ({} failed)", successCount, failCount);
+        QuestAPI.LOGGER.info("[AssignmentLoader] Loaded {} entity quest assignments ({} failed)", successCount, failCount);
 
-        QuestEntityAPI.LOGGER.info("[AssignmentLoader] === Registered Assignments ===");
+        QuestAPI.LOGGER.info("[AssignmentLoader] === Registered Assignments ===");
         for (var a : EntityQuestAssignmentManager.getAssignmentsForEntity(ResourceLocation.parse("minecraft:villager"))) {
-            QuestEntityAPI.LOGGER.info("[AssignmentLoader]   Villager: pool={}, chance={}, data={}",
+            QuestAPI.LOGGER.info("[AssignmentLoader]   Villager: pool={}, chance={}, data={}",
                     a.questPools(), a.questChance(), a.villagerData());
         }
     }
 
     public static ResourceLocation getId() {
-        return QuestEntityAPI.id("entity_quest_assignment_loader");
+        return QuestAPI.id("entity_quest_assignment_loader");
     }
 }

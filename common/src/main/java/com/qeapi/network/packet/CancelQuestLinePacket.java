@@ -7,10 +7,10 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-// Client-to-server packet to cancel the player's currently active line for a quest_line_choice
-// root, sent when clicking that line's own bordered icon in the picker row. rootQuestId/lineId are
-// sent explicitly for the same reason as ChooseQuestLinePacket - the root never goes through the
-// normal accept/entityProgress pipeline, so there's no "active quest" to look it up by.
+// Cancels the player's active line for a quest_line_choice root, sent from that line's own
+// bordered icon in the picker row. rootQuestId/lineId are explicit for the same reason as
+// ChooseQuestLinePacket: the root never goes through accept/entityProgress, so there's no
+// active quest to look it up by.
 public record CancelQuestLinePacket(
         int entityId,
         ResourceLocation rootQuestId,

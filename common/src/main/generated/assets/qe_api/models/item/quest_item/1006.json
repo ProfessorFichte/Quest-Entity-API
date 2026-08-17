@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "qe_api:item/crop_loot_charm"
-  }
-}

@@ -1,0 +1,19 @@
+{
+  "id": "quest_api:daily_shuffle_test/bring_apples",
+  "repeat_after_days": 1,
+  "rewards": [
+    {
+      "amount": 50,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "shuffle_refreshing_quests": true,
+  "tasks": [
+    {
+      "amount": 4,
+      "item_id": "minecraft:apple",
+      "task": "quest_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

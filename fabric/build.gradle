@@ -22,7 +22,7 @@ loom {
             name 'Data Generation'
             vmArg "-Dfabric-api.datagen"
             vmArg "-Dfabric-api.datagen.output-dir=${datagenOutputDir}"
-            vmArg "-Dfabric-api.datagen.modid=qe_api"
+            vmArg "-Dfabric-api.datagen.modid=quest_api"
             runDir 'build/datagen'
         }
     }

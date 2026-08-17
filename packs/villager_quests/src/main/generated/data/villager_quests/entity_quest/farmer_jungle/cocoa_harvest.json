@@ -4,19 +4,19 @@
   "rewards": [
     {
       "amount": 20,
-      "reward": "qe_api:experience"
+      "reward": "quest_api:experience"
     },
     {
       "amount": 5,
       "item_id": "minecraft:emerald",
-      "reward": "qe_api:item"
+      "reward": "quest_api:item"
     }
   ],
   "tasks": [
     {
       "amount": 16,
       "item_id": "minecraft:cocoa_beans",
-      "task": "qe_api:bring_item"
+      "task": "quest_api:bring_item"
     }
   ],
   "tier": 1

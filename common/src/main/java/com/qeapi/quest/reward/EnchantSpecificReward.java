@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponents;
@@ -35,7 +35,7 @@ public record EnchantSpecificReward(ResourceLocation enchantmentId, int level, O
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("enchant_specific");
+        return QuestAPI.id("enchant_specific");
     }
 
     private Optional<Holder.Reference<Enchantment>> resolve(Level level) {
@@ -55,11 +55,11 @@ public record EnchantSpecificReward(ResourceLocation enchantmentId, int level, O
     public void applyToTarget(ServerPlayer player, ItemStack stack) {
         Optional<Holder.Reference<Enchantment>> holder = resolve(player.level());
         if (holder.isEmpty()) {
-            QuestEntityAPI.LOGGER.warn("[EnchantSpecificReward] Enchantment {} not found", enchantmentId);
+            QuestAPI.LOGGER.warn("[EnchantSpecificReward] Enchantment {} not found", enchantmentId);
             return;
         }
         if (!isValidTarget(player.level(), stack)) {
-            QuestEntityAPI.LOGGER.warn("[EnchantSpecificReward] {} is not compatible with {}", enchantmentId, stack.getItem());
+            QuestAPI.LOGGER.warn("[EnchantSpecificReward] {} is not compatible with {}", enchantmentId, stack.getItem());
             return;
         }
 
@@ -72,12 +72,12 @@ public record EnchantSpecificReward(ResourceLocation enchantmentId, int level, O
 
     @Override
     public void grant(ServerPlayer player) {
-        QuestEntityAPI.LOGGER.warn("[EnchantSpecificReward] grant(player) called without a target item - ignoring");
+        QuestAPI.LOGGER.warn("[EnchantSpecificReward] grant(player) called without a target item - ignoring");
     }
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.enchant_specific", level, Component.translatable(
+        return Component.translatable("reward.quest_api.enchant_specific", level, Component.translatable(
                 "enchantment." + enchantmentId.getNamespace() + "." + enchantmentId.getPath()));
     }
 

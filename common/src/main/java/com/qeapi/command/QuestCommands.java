@@ -2,7 +2,7 @@ package com.qeapi.command;
 
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.context.CommandContext;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.api.QuestEntityAccess;
 import com.qeapi.client.gui.QuestScreen;
 import com.qeapi.component.EntityQuestComponent;
@@ -30,11 +30,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-// Test commands for the Quest Entity API.
+// Test commands for the Quest API.
 public class QuestCommands {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal("qe_api")
+        dispatcher.register(Commands.literal("quest_api")
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.literal("give_tag")
                         .then(Commands.argument("entity", EntityArgument.entity())
@@ -65,9 +65,7 @@ public class QuestCommands {
         );
     }
 
-    // Summons an entity of the given type at the command source's position and immediately gives
-    // it a quest tag - give_tag still needs an existing entity, this is the "just let me test a
-    // quest" one-step version.
+    // give_tag still needs an existing entity - this is the "just let me test a quest" one-step version
     private static int spawnWithTag(CommandContext<CommandSourceStack> context) {
         try {
             ResourceLocation entityTypeId = ResourceLocationArgument.getId(context, "entity_type");
@@ -106,9 +104,7 @@ public class QuestCommands {
         }
     }
 
-    // Forgets everything a player has done with an entity's quests: any in-progress quest,
-    // completed quests (so they can be re-offered and re-completed), and the accept/decline
-    // cooldown - as if that player had never interacted with it.
+    // resets as if this player had never interacted with the entity: progress, completions, chosen group, and cooldown
     private static int resetQuestProgress(CommandContext<CommandSourceStack> context, ServerPlayer player) {
         try {
             Entity entity = EntityArgument.getEntity(context, "entity");
@@ -142,11 +138,7 @@ public class QuestCommands {
         }
     }
 
-    // Grants a quest's rewards directly, bypassing task/requirement progress entirely - for
-    // testing reward output without having to actually complete the quest. Reward choice pools
-    // are left unpicked (nothing from them is granted) and target-item rewards (e.g.
-    // enchant_specific, spell_bind) are skipped with a warning, since there's no GUI picker
-    // context here to choose an item from - test those two through the normal accept+claim flow.
+    // reward choice pools are left unpicked and target-item rewards are skipped, since there's no GUI picker context here - test those through the normal accept+claim flow
     private static int forceCompleteQuest(CommandContext<CommandSourceStack> context, ServerPlayer player) {
         try {
             Entity entity = EntityArgument.getEntity(context, "entity");
@@ -178,8 +170,7 @@ public class QuestCommands {
             playerData.clearEntityProgress(entity.getUUID());
             QuestEntityAccess.setPlayerData(player, playerData);
 
-            // Re-fetch rather than reusing the pre-grant `component` - an EntityAwareReward may
-            // have already written its own update onto the entity during grantRewards above.
+            // re-fetch rather than reusing the pre-grant component, since an EntityAwareReward may have already written its own update during grantRewards above
             EntityQuestComponent postGrantComponent = getEntityQuestComponent(entity);
             if (postGrantComponent == null) {
                 postGrantComponent = component;
@@ -200,7 +191,7 @@ public class QuestCommands {
             return 1;
         } catch (Exception e) {
             context.getSource().sendFailure(Component.literal("Error: " + e.getMessage()));
-            QuestEntityAPI.LOGGER.error("Error force-completing quest", e);
+            QuestAPI.LOGGER.error("Error force-completing quest", e);
             return 0;
         }
     }
@@ -244,7 +235,7 @@ public class QuestCommands {
 
             EntityQuestComponent component = getEntityQuestComponent(entity);
             if (component == null) {
-                context.getSource().sendFailure(Component.literal("Entity has no quests. Use /qe_api give_tag first."));
+                context.getSource().sendFailure(Component.literal("Entity has no quests. Use /quest_api give_tag first."));
                 return 0;
             }
 
@@ -270,7 +261,7 @@ public class QuestCommands {
             return 1;
         } catch (Exception e) {
             context.getSource().sendFailure(Component.literal("Error: " + e.getMessage()));
-            QuestEntityAPI.LOGGER.error("Error opening quest GUI", e);
+            QuestAPI.LOGGER.error("Error opening quest GUI", e);
             return 0;
         }
     }
@@ -287,7 +278,7 @@ public class QuestCommands {
 
     public static class QuestGuiOpener {
         private static QuestGuiOpenerImpl impl = (player, entityId, component, quests) -> {
-            QuestEntityAPI.LOGGER.warn("Quest GUI opener not initialized!");
+            QuestAPI.LOGGER.warn("Quest GUI opener not initialized!");
         };
 
         public static void setImpl(QuestGuiOpenerImpl implementation) {

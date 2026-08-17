@@ -2,7 +2,7 @@ package com.qeapi.advancement;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.advancements.Criterion;
 import net.minecraft.advancements.critereon.ContextAwarePredicate;
 import net.minecraft.advancements.critereon.EntityPredicate;
@@ -13,11 +13,11 @@ import net.minecraft.server.level.ServerPlayer;
 import java.util.Optional;
 
 // Advancement trigger fired when a player completes a quest.
-// Advancement JSON: "trigger": "qe_api:quest_complete", "conditions": { "quest_id": "..." }
+// Advancement JSON: "trigger": "quest_api:quest_complete", "conditions": { "quest_id": "..." }
 public class QuestCompleteTrigger extends SimpleCriterionTrigger<QuestCompleteTrigger.TriggerInstance> {
 
     public static final QuestCompleteTrigger INSTANCE = new QuestCompleteTrigger();
-    public static final ResourceLocation ID = QuestEntityAPI.id("quest_complete");
+    public static final ResourceLocation ID = QuestAPI.id("quest_complete");
 
     private QuestCompleteTrigger() {}
 
@@ -27,7 +27,7 @@ public class QuestCompleteTrigger extends SimpleCriterionTrigger<QuestCompleteTr
     }
 
     public void trigger(ServerPlayer player, ResourceLocation questId) {
-        QuestEntityAPI.LOGGER.debug("Triggering quest_complete advancement criterion for {} completing {}",
+        QuestAPI.LOGGER.debug("Triggering quest_complete advancement criterion for {} completing {}",
                 player.getName().getString(), questId);
         this.trigger(player, instance -> instance.matches(questId));
     }

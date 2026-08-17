@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.compat.SpellEngineCompat;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -13,12 +13,8 @@ import net.minecraft.world.item.ItemStack;
 import java.util.List;
 import java.util.Optional;
 
-// Rolls a random spell matching the filters (pool/tier range/exclusions) unless spell_id is set,
-// in which case that exact spell is always granted.
-//
-// Delegates to Spell Engine's own ScrollItem.applySpell (see SpellEngineCompat.createSpellScroll)
-// instead of setting the scroll's components by hand, so it ends up with the same
-// container/model/rarity/name data a naturally-found scroll would.
+// Rolls a random spell matching the filters (pool/tier range/exclusions) unless spell_id is set, in which case that exact spell is always granted.
+// Delegates to Spell Engine's own ScrollItem.applySpell (SpellEngineCompat.createSpellScroll) instead of hand-setting components, so scrolls match naturally-found ones.
 public record SpellScrollReward(
         Optional<ResourceLocation> spellId,
         Optional<ResourceLocation> pool,
@@ -43,13 +39,13 @@ public record SpellScrollReward(
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("spell_scroll");
+        return ResourceLocation.fromNamespaceAndPath("spell_engine", "spell_scroll");
     }
 
     @Override
     public void grant(ServerPlayer player) {
         if (!SpellEngineCompat.isLoaded()) {
-            QuestEntityAPI.LOGGER.warn("[SpellScrollReward] Spell Engine isn't loaded - skipping reward");
+            QuestAPI.LOGGER.warn("[SpellScrollReward] Spell Engine isn't loaded - skipping reward");
             return;
         }
         for (int i = 0; i < Math.max(1, amount); i++) {
@@ -73,13 +69,12 @@ public record SpellScrollReward(
                     .or(() -> pool.map(id -> "#" + id))
                     .orElse("random spell"));
         }
-        return Component.translatable("reward.qe_api.spell_scroll", amount, target);
+        return Component.translatable("reward.quest_api.spell_scroll", amount, target);
     }
 
     @Override
     public Optional<ItemStack> getDisplayItem() {
-        // the actual spell isn't rolled until claim time, so there's nothing real to preview here -
-        // QuestScreen shows a generic scroll icon instead
+        // spell isn't rolled until claim time, so there's nothing real to preview - shows a generic icon instead
         return Optional.empty();
     }
 

@@ -2,7 +2,7 @@ package com.qeapi.quest.requirement;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.util.TextFormatting;
 import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.network.chat.Component;
@@ -17,7 +17,7 @@ public record HasAdvancementRequirement(
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestRequirement {
 
-    public static final ResourceLocation DEFAULT_TEXTURE = QuestEntityAPI.id("textures/gui/quest_requirements/has_advancement.png");
+    public static final ResourceLocation DEFAULT_TEXTURE = QuestAPI.id("textures/gui/quest_requirements/has_advancement.png");
 
     public static final MapCodec<HasAdvancementRequirement> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
@@ -28,7 +28,7 @@ public record HasAdvancementRequirement(
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("has_advancement");
+        return QuestAPI.id("has_advancement");
     }
 
     @Override
@@ -36,7 +36,7 @@ public record HasAdvancementRequirement(
         ServerAdvancementManager manager = player.server.getAdvancements();
         AdvancementHolder advancement = manager.get(advancementId);
         if (advancement == null) {
-            QuestEntityAPI.LOGGER.warn("Advancement not found: {}", advancementId);
+            QuestAPI.LOGGER.warn("Advancement not found: {}", advancementId);
             return false;
         }
         return player.getAdvancements().getOrStartProgress(advancement).isDone();
@@ -44,12 +44,12 @@ public record HasAdvancementRequirement(
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("requirement.qe_api.has_advancement", getAdvancementText());
+        return Component.translatable("requirement.quest_api.has_advancement", getAdvancementText());
     }
 
     @Override
     public Component getFailureMessage() {
-        return Component.translatable("requirement.qe_api.has_advancement.failure", getAdvancementText());
+        return Component.translatable("requirement.quest_api.has_advancement.failure", getAdvancementText());
     }
 
     private String getAdvancementText() {

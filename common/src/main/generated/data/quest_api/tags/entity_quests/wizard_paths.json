@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "quest_api:wizard_paths/wizard_root",
+    "quest_api:wizard_paths/fire_path",
+    "quest_api:wizard_paths/frost_path",
+    "quest_api:wizard_paths/water_path",
+    "quest_api:wizard_paths/earth_path"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "quest_api:raid_hero/test",
+  "rewards": [
+    {
+      "amount": 300,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "min_raid_level": 2,
+      "task": "quest_api:raid_complete"
+    }
+  ],
+  "tier": 1
+}

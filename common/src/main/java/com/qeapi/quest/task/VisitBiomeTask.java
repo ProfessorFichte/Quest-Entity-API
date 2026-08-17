@@ -3,7 +3,7 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.compat.DungeonDifficultyCompat;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.LocationMatchUtil;
@@ -22,19 +22,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-// no biome_id/biome_tag/biome_ids at all matches any biome - amount then counts distinct biomes
-// visited overall, tracked via PlayerQuestData.visitedBiomes since QuestProgress's int-only map
-// can't hold the visited-id set itself
+// empty selector matches any biome; amount then counts distinct visits, tracked in PlayerQuestData.visitedBiomes since QuestProgress only stores an int
 public record VisitBiomeTask(
         Optional<ResourceLocation> biomeId,
         Optional<TagKey<Biome>> biomeTag,
         List<ResourceLocation> biomeIds,
         int amount,
         Optional<Integer> minPowerLevel,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
-    public static final ResourceLocation DEFAULT_TEXTURE = QuestEntityAPI.id("textures/gui/quest_tasks/visit_biome_default.png");
+    public static final ResourceLocation DEFAULT_TEXTURE = QuestAPI.id("textures/gui/quest_tasks/visit_biome_default.png");
 
     public static final MapCodec<VisitBiomeTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
@@ -43,13 +43,15 @@ public record VisitBiomeTask(
                     ResourceLocation.CODEC.listOf().optionalFieldOf("biome_ids", List.of()).forGetter(VisitBiomeTask::biomeIds),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(VisitBiomeTask::amount),
                     Codec.INT.optionalFieldOf("min_power_level").forGetter(VisitBiomeTask::minPowerLevel),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(VisitBiomeTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(VisitBiomeTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(VisitBiomeTask::textureOverrideId)
             ).apply(instance, VisitBiomeTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("visit_biome");
+        return QuestAPI.id("visit_biome");
     }
 
     @Override
@@ -95,7 +97,7 @@ public record VisitBiomeTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.visit_biome";
+        return "task.quest_api.visit_biome";
     }
 
     @Override
@@ -103,8 +105,6 @@ public record VisitBiomeTask(
         return amount;
     }
 
-    // resolves the biome at pos to a concrete id (for the distinct-visited-set), only if it also
-    // matches this task's selector and, when set, minPowerLevel at that location
     public Optional<ResourceLocation> matchedBiomeAt(ServerLevel level, BlockPos pos) {
         Holder<Biome> biomeHolder = level.getBiome(pos);
         Optional<ResourceKey<Biome>> biomeKey = biomeHolder.unwrapKey();
@@ -139,6 +139,8 @@ public record VisitBiomeTask(
         private List<ResourceLocation> biomeIds = List.of();
         private int amount = 1;
         private Optional<Integer> minPowerLevel = Optional.empty();
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder biomeId(ResourceLocation id) {
@@ -175,13 +177,23 @@ public record VisitBiomeTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
         }
 
         public VisitBiomeTask build() {
-            return new VisitBiomeTask(biomeId, biomeTag, biomeIds, amount, minPowerLevel, textureOverrideId);
+            return new VisitBiomeTask(biomeId, biomeTag, biomeIds, amount, minPowerLevel, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

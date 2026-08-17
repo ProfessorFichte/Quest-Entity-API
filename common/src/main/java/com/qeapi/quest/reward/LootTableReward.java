@@ -2,7 +2,7 @@ package com.qeapi.quest.reward;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceKey;
@@ -34,7 +34,7 @@ public record LootTableReward(
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("loot_table");
+        return QuestAPI.id("loot_table");
     }
 
     @Override
@@ -45,7 +45,7 @@ public record LootTableReward(
                 .getLootTable(ResourceKey.create(Registries.LOOT_TABLE, lootTableId));
 
         if (lootTable == LootTable.EMPTY) {
-            QuestEntityAPI.LOGGER.warn("LootTableReward: Loot table {} not found", lootTableId);
+            QuestAPI.LOGGER.warn("LootTableReward: Loot table {} not found", lootTableId);
             return;
         }
 
@@ -63,13 +63,13 @@ public record LootTableReward(
             }
         }
 
-        QuestEntityAPI.LOGGER.debug("Granted {} items from loot table {} to player {}",
+        QuestAPI.LOGGER.debug("Granted {} items from loot table {} to player {}",
                 loot.size(), lootTableId, player.getName().getString());
     }
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.loot_table", lootTableId.getPath());
+        return Component.translatable("reward.quest_api.loot_table", lootTableId.getPath());
     }
 
     @Override

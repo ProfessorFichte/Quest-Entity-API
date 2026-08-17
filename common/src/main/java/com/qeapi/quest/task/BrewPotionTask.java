@@ -3,7 +3,7 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.TextMutator;
 import net.minecraft.core.Holder;
@@ -21,6 +21,8 @@ import java.util.Optional;
 public record BrewPotionTask(
         ResourceLocation potionId,
         int amount,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
@@ -28,13 +30,15 @@ public record BrewPotionTask(
             instance.group(
                     ResourceLocation.CODEC.fieldOf("potion_id").forGetter(BrewPotionTask::potionId),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(BrewPotionTask::amount),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(BrewPotionTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(BrewPotionTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(BrewPotionTask::textureOverrideId)
             ).apply(instance, BrewPotionTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("brew_potion");
+        return QuestAPI.id("brew_potion");
     }
 
     @Override
@@ -55,7 +59,7 @@ public record BrewPotionTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.brew_potion";
+        return "task.quest_api.brew_potion";
     }
 
     @Override
@@ -89,6 +93,8 @@ public record BrewPotionTask(
     public static class Builder {
         private ResourceLocation potionId;
         private int amount = 1;
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder potionId(ResourceLocation id) {
@@ -109,6 +115,16 @@ public record BrewPotionTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
@@ -118,7 +134,7 @@ public record BrewPotionTask(
             if (potionId == null) {
                 throw new IllegalStateException("BrewPotionTask requires potionId");
             }
-            return new BrewPotionTask(potionId, amount, textureOverrideId);
+            return new BrewPotionTask(potionId, amount, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

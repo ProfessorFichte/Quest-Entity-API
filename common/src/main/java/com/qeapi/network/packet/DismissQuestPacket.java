@@ -6,7 +6,6 @@ import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
-// Client-to-server packet to dismiss/cancel an active quest.
 public record DismissQuestPacket(
         int entityId
 ) implements CustomPacketPayload {

@@ -2,7 +2,7 @@ package com.qeapi.quest.reward.function;
 
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.ComponentSerialization;
@@ -26,7 +26,7 @@ public record SetNameFunction(Component name) implements ItemFunction {
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("set_name");
+        return QuestAPI.id("set_name");
     }
 
     @Override

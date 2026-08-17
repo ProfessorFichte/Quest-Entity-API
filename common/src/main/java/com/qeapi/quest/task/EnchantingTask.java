@@ -3,7 +3,7 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.TextMutator;
 import net.minecraft.core.Holder;
@@ -21,6 +21,8 @@ import java.util.Optional;
 public record EnchantingTask(
         Optional<ResourceLocation> enchantmentId,
         int amount,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
@@ -28,13 +30,15 @@ public record EnchantingTask(
             instance.group(
                     ResourceLocation.CODEC.optionalFieldOf("enchantment_id").forGetter(EnchantingTask::enchantmentId),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(EnchantingTask::amount),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(EnchantingTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(EnchantingTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(EnchantingTask::textureOverrideId)
             ).apply(instance, EnchantingTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("enchanting");
+        return QuestAPI.id("enchanting");
     }
 
     @Override
@@ -54,7 +58,7 @@ public record EnchantingTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.enchanting";
+        return "task.quest_api.enchanting";
     }
 
     @Override
@@ -62,9 +66,7 @@ public record EnchantingTask(
         return amount;
     }
 
-    // level/enchantedItem come straight from CriteriaTriggers.ENCHANTED_ITEM's own trigger call in
-    // EnchantmentMenu, so this only fires for the Enchanting Table specifically - an anvil merging
-    // enchanted books doesn't go through that trigger
+    // only fires for the Enchanting Table - an anvil merging enchanted books doesn't go through CriteriaTriggers.ENCHANTED_ITEM
     public boolean matches(ServerLevel level, ItemStack enchantedItem) {
         if (enchantmentId.isEmpty()) return true;
 
@@ -83,6 +85,8 @@ public record EnchantingTask(
     public static class Builder {
         private Optional<ResourceLocation> enchantmentId = Optional.empty();
         private int amount = 1;
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder enchantmentId(ResourceLocation id) {
@@ -99,13 +103,23 @@ public record EnchantingTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
         }
 
         public EnchantingTask build() {
-            return new EnchantingTask(enchantmentId, amount, textureOverrideId);
+            return new EnchantingTask(enchantmentId, amount, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

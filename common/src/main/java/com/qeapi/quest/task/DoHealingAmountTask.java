@@ -3,9 +3,10 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.compat.SpellEngineCompat;
 import com.qeapi.quest.QuestProgress;
+import com.qeapi.util.FlexibleListCodec;
 import com.qeapi.util.TextMutator;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -21,24 +22,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-// self-healing is always attributable (vanilla LivingEntity.heal(float) has no source parameter at
-// all, unlike damage) - healing of OTHERS can only ever be credited when Spell Engine is loaded and
-// a nearby player recently cast a healing spell (same best-effort heuristic EntityKillTask's spell
-// filters use); there is no vanilla mechanic that heals a separate target anyway (potions/
-// regeneration/golden apples/beacons only ever heal the drinker/wearer)
+// vanilla LivingEntity.heal(float) has no source param, so healing OTHERS can only be credited via the Spell Engine cast heuristic - no vanilla mechanic heals a separate target anyway
 public record DoHealingAmountTask(
-        Optional<ResourceLocation> entityId,
-        Optional<TagKey<EntityType<?>>> entityTag,
-        List<ResourceLocation> entityIds,
-        Optional<ResourceLocation> inSpellId,
-        Optional<ResourceLocation> inSpellPool,
-        Optional<ResourceLocation> inSpellSchool,
-        HealTarget healTarget,
         double amount,
+        Filters filters,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
-    public static final ResourceLocation DEFAULT_TEXTURE = QuestEntityAPI.id("textures/gui/quest_tasks/do_healing_amount_default.png");
+    public static final ResourceLocation DEFAULT_TEXTURE = QuestAPI.id("textures/gui/quest_tasks/do_healing_amount_default.png");
 
     public enum HealTarget implements StringRepresentable {
         SELF("self"),
@@ -59,23 +52,41 @@ public record DoHealingAmountTask(
         }
     }
 
+    public record Filters(
+            List<ResourceLocation> entityIds,
+            List<TagKey<EntityType<?>>> entityTags,
+            List<ResourceLocation> inSpellIds,
+            List<ResourceLocation> inSpellPools,
+            List<ResourceLocation> inSpellSchools,
+            HealTarget healTarget
+    ) {
+        public static final Filters EMPTY = new Filters(List.of(), List.of(), List.of(), List.of(), List.of(), HealTarget.EITHER);
+
+        public static final Codec<Filters> CODEC = RecordCodecBuilder.create(instance ->
+                instance.group(
+                        FlexibleListCodec.listOrSingle(ResourceLocation.CODEC).optionalFieldOf("entity_ids", List.of()).forGetter(Filters::entityIds),
+                        FlexibleListCodec.listOrSingle(TagKey.codec(Registries.ENTITY_TYPE)).optionalFieldOf("entity_tags", List.of()).forGetter(Filters::entityTags),
+                        FlexibleListCodec.listOrSingle(ResourceLocation.CODEC).optionalFieldOf("in_spell_ids", List.of()).forGetter(Filters::inSpellIds),
+                        FlexibleListCodec.listOrSingle(ResourceLocation.CODEC).optionalFieldOf("in_spell_pools", List.of()).forGetter(Filters::inSpellPools),
+                        FlexibleListCodec.listOrSingle(ResourceLocation.CODEC).optionalFieldOf("in_spell_schools", List.of()).forGetter(Filters::inSpellSchools),
+                        HealTarget.CODEC.optionalFieldOf("heal_target", HealTarget.EITHER).forGetter(Filters::healTarget)
+                ).apply(instance, Filters::new)
+        );
+    }
+
     public static final MapCodec<DoHealingAmountTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
-                    ResourceLocation.CODEC.optionalFieldOf("entity_id").forGetter(DoHealingAmountTask::entityId),
-                    TagKey.codec(Registries.ENTITY_TYPE).optionalFieldOf("entity_tag").forGetter(DoHealingAmountTask::entityTag),
-                    ResourceLocation.CODEC.listOf().optionalFieldOf("entity_ids", List.of()).forGetter(DoHealingAmountTask::entityIds),
-                    ResourceLocation.CODEC.optionalFieldOf("in_spell_id").forGetter(DoHealingAmountTask::inSpellId),
-                    ResourceLocation.CODEC.optionalFieldOf("in_spell_pool").forGetter(DoHealingAmountTask::inSpellPool),
-                    ResourceLocation.CODEC.optionalFieldOf("in_spell_school").forGetter(DoHealingAmountTask::inSpellSchool),
-                    HealTarget.CODEC.optionalFieldOf("heal_target", HealTarget.EITHER).forGetter(DoHealingAmountTask::healTarget),
                     Codec.DOUBLE.fieldOf("amount").forGetter(DoHealingAmountTask::amount),
+                    Filters.CODEC.optionalFieldOf("filters", Filters.EMPTY).forGetter(DoHealingAmountTask::filters),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(DoHealingAmountTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(DoHealingAmountTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(DoHealingAmountTask::textureOverrideId)
             ).apply(instance, DoHealingAmountTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("do_healing_amount");
+        return QuestAPI.id("do_healing_amount");
     }
 
     @Override
@@ -98,7 +109,7 @@ public record DoHealingAmountTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.do_healing_amount";
+        return "task.quest_api.do_healing_amount";
     }
 
     @Override
@@ -106,10 +117,9 @@ public record DoHealingAmountTask(
         return (int) Math.round(amount);
     }
 
-    // castSpellId is only relevant (and only ever present) for the others-branch - self-healing
-    // works unconditionally, with no spell attribution required at all
+    // castSpellId only matters for the others-branch; self-healing needs no spell attribution
     public boolean matches(LivingEntity healed, boolean isSelf, Optional<ResourceLocation> castSpellId, ServerLevel level) {
-        switch (healTarget) {
+        switch (filters.healTarget()) {
             case SELF -> {
                 if (!isSelf) return false;
             }
@@ -125,13 +135,12 @@ public record DoHealingAmountTask(
         }
 
         ResourceLocation healedId = BuiltInRegistries.ENTITY_TYPE.getKey(healed.getType());
-        if (entityId.isPresent() && !healedId.equals(entityId.get())) return false;
-        if (!entityIds.isEmpty() && entityIds.stream().noneMatch(id -> healedId.equals(id))) return false;
-        if (entityTag.isPresent() && !healed.getType().is(entityTag.get())) return false;
+        if (!filters.entityIds().isEmpty() && filters.entityIds().stream().noneMatch(id -> healedId.equals(id))) return false;
+        if (!filters.entityTags().isEmpty() && filters.entityTags().stream().noneMatch(tag -> healed.getType().is(tag))) return false;
 
-        if (inSpellId.isPresent() || inSpellPool.isPresent() || inSpellSchool.isPresent()) {
+        if (!filters.inSpellIds().isEmpty() || !filters.inSpellPools().isEmpty() || !filters.inSpellSchools().isEmpty()) {
             if (castSpellId.isEmpty()) return false;
-            if (!SpellEngineCompat.matchesSelector(level, castSpellId.get(), inSpellId, inSpellPool, inSpellSchool)) return false;
+            if (!SpellEngineCompat.matchesSelector(level, castSpellId.get(), filters.inSpellIds(), filters.inSpellPools(), filters.inSpellSchools())) return false;
         }
 
         return true;
@@ -142,19 +151,19 @@ public record DoHealingAmountTask(
     }
 
     public static class Builder {
-        private Optional<ResourceLocation> entityId = Optional.empty();
-        private Optional<TagKey<EntityType<?>>> entityTag = Optional.empty();
         private List<ResourceLocation> entityIds = List.of();
-        private Optional<ResourceLocation> inSpellId = Optional.empty();
-        private Optional<ResourceLocation> inSpellPool = Optional.empty();
-        private Optional<ResourceLocation> inSpellSchool = Optional.empty();
+        private List<TagKey<EntityType<?>>> entityTags = List.of();
+        private List<ResourceLocation> inSpellIds = List.of();
+        private List<ResourceLocation> inSpellPools = List.of();
+        private List<ResourceLocation> inSpellSchools = List.of();
         private HealTarget healTarget = HealTarget.EITHER;
         private double amount = 1.0;
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder entityId(ResourceLocation id) {
-            this.entityId = Optional.of(id);
-            return this;
+            return entityIds(id);
         }
 
         public Builder entityId(String id) {
@@ -162,7 +171,12 @@ public record DoHealingAmountTask(
         }
 
         public Builder entityTag(TagKey<EntityType<?>> tag) {
-            this.entityTag = Optional.of(tag);
+            return entityTags(tag);
+        }
+
+        @SafeVarargs
+        public final Builder entityTags(TagKey<EntityType<?>>... tags) {
+            this.entityTags = List.of(tags);
             return this;
         }
 
@@ -172,21 +186,33 @@ public record DoHealingAmountTask(
         }
 
         public Builder inSpellId(ResourceLocation spellId) {
-            this.inSpellId = Optional.of(spellId);
-            return this;
+            return inSpellIds(spellId);
         }
 
         public Builder inSpellId(String spellId) {
             return inSpellId(ResourceLocation.parse(spellId));
         }
 
+        public Builder inSpellIds(ResourceLocation... spellIds) {
+            this.inSpellIds = List.of(spellIds);
+            return this;
+        }
+
         public Builder inSpellPool(ResourceLocation spellPool) {
-            this.inSpellPool = Optional.of(spellPool);
+            return inSpellPools(spellPool);
+        }
+
+        public Builder inSpellPools(ResourceLocation... spellPools) {
+            this.inSpellPools = List.of(spellPools);
             return this;
         }
 
         public Builder inSpellSchool(ResourceLocation spellSchool) {
-            this.inSpellSchool = Optional.of(spellSchool);
+            return inSpellSchools(spellSchool);
+        }
+
+        public Builder inSpellSchools(ResourceLocation... spellSchools) {
+            this.inSpellSchools = List.of(spellSchools);
             return this;
         }
 
@@ -200,14 +226,24 @@ public record DoHealingAmountTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
         }
 
         public DoHealingAmountTask build() {
-            return new DoHealingAmountTask(entityId, entityTag, entityIds, inSpellId, inSpellPool,
-                    inSpellSchool, healTarget, amount, textureOverrideId);
+            Filters filters = new Filters(entityIds, entityTags, inSpellIds, inSpellPools, inSpellSchools, healTarget);
+            return new DoHealingAmountTask(amount, filters, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

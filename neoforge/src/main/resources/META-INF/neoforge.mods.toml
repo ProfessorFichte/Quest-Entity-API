@@ -4,30 +4,30 @@ loaderVersion = "[4,)"
 license = "MIT"
 
 [[mods]]
-modId = "qe_api"
+modId = "quest_api"
 version = "${version}"
-displayName = "QuestEntityAPI"
+displayName = "Quest API"
 authors = "Fichte"
 description = '''
 A data-driven quest system: give any entity quests with tasks, requirements, and rewards, defined entirely in JSON.
 '''
 #logoFile = ""
 
-[[dependencies.qe_api]]
+[[dependencies.quest_api]]
 modId = "neoforge"
 type = "required"
 versionRange = "[21.1,)"
 ordering = "NONE"
 side = "BOTH"
 
-[[dependencies.qe_api]]
+[[dependencies.quest_api]]
 modId = "minecraft"
 type = "required"
 versionRange = "[1.21.1,)"
 ordering = "NONE"
 side = "BOTH"
 
-[[dependencies.qe_api]]
+[[dependencies.quest_api]]
 modId = "cloth_config"
 type = "required"
 versionRange = "[15.0.0,)"
@@ -35,10 +35,10 @@ ordering = "NONE"
 side = "BOTH"
 
 [[mixins]]
-config = "qe_api.mixins.json"
+config = "quest_api.mixins.json"
 
 [[mixins]]
-config = "qe_api.neoforge.mixins.json"
+config = "quest_api.neoforge.mixins.json"
 
 [[mixins]]
-config = "qe_api.spellengine.mixins.json"
+config = "quest_api.spellengine.mixins.json"

@@ -1,0 +1,20 @@
+{
+  "id": "quest_api:wizard_paths/earth_path",
+  "quest_group": "earth",
+  "required_mod": "elemental_wizards_rpg",
+  "rewards": [
+    {
+      "amount": 8,
+      "item_id": "minecraft:raw_iron",
+      "reward": "quest_api:item"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 3,
+      "item_id": "minecraft:emerald",
+      "task": "quest_api:bring_item"
+    }
+  ],
+  "tier": 2
+}

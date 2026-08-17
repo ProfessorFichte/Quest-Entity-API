@@ -1,6 +1,6 @@
 package com.qeapi.mixin;
 
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.api.QuestEntity;
 import com.qeapi.command.QuestCommands;
 import com.qeapi.component.EntityQuestComponent;
@@ -26,7 +26,7 @@ import java.util.Optional;
 public abstract class PlayerInteractMixin {
 
     @Inject(method = "interactOn", at = @At("HEAD"), cancellable = true)
-    private void qe_api$onInteract(Entity entity, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
+    private void quest_api$onInteract(Entity entity, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
         Player player = (Player) (Object) this;
 
         if (player.level().isClientSide || hand != InteractionHand.MAIN_HAND) {

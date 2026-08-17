@@ -1,8 +1,0 @@
-{
-  "replace": false,
-  "values": [
-    "qe_api:locked_tier_test/step_one",
-    "qe_api:locked_tier_test/step_two",
-    "qe_api:locked_tier_test/step_three"
-  ]
-}

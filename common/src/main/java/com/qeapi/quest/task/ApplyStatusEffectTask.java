@@ -3,8 +3,9 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.quest.QuestProgress;
+import com.qeapi.util.FlexibleListCodec;
 import com.qeapi.util.TextMutator;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -17,15 +18,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-// no effect_id/effect_ids matches any applied effect. target filters whether the applier must be
-// applying it to themselves (SELF), to someone else (OTHERS), or either (EITHER, default) - see
-// LivingEntityAddEffectMixin/QuestEventHandler.onEffectApplied for how self/others is determined
+// self/others determination happens in LivingEntityAddEffectMixin/QuestEventHandler.onEffectApplied
 public record ApplyStatusEffectTask(
-        Optional<ResourceLocation> effectId,
         List<ResourceLocation> effectIds,
         int amount,
-        Optional<Integer> minAmplifier,
-        Target target,
+        Filters filters,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
@@ -48,26 +47,34 @@ public record ApplyStatusEffectTask(
         }
     }
 
+    public record Filters(Optional<Integer> minAmplifier, Target target) {
+        public static final Filters EMPTY = new Filters(Optional.empty(), Target.EITHER);
+
+        public static final Codec<Filters> CODEC = RecordCodecBuilder.create(instance ->
+                instance.group(
+                        Codec.INT.optionalFieldOf("min_amplifier").forGetter(Filters::minAmplifier),
+                        Target.CODEC.optionalFieldOf("target", Target.EITHER).forGetter(Filters::target)
+                ).apply(instance, Filters::new)
+        );
+    }
+
     public static final MapCodec<ApplyStatusEffectTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
-                    ResourceLocation.CODEC.optionalFieldOf("effect_id").forGetter(ApplyStatusEffectTask::effectId),
-                    ResourceLocation.CODEC.listOf().optionalFieldOf("effect_ids", List.of()).forGetter(ApplyStatusEffectTask::effectIds),
+                    FlexibleListCodec.listOrSingle(ResourceLocation.CODEC).optionalFieldOf("effect_ids", List.of()).forGetter(ApplyStatusEffectTask::effectIds),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(ApplyStatusEffectTask::amount),
-                    Codec.INT.optionalFieldOf("min_amplifier").forGetter(ApplyStatusEffectTask::minAmplifier),
-                    Target.CODEC.optionalFieldOf("target", Target.EITHER).forGetter(ApplyStatusEffectTask::target),
+                    Filters.CODEC.optionalFieldOf("filters", Filters.EMPTY).forGetter(ApplyStatusEffectTask::filters),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(ApplyStatusEffectTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(ApplyStatusEffectTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(ApplyStatusEffectTask::textureOverrideId)
             ).apply(instance, ApplyStatusEffectTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("apply_status_effect");
+        return QuestAPI.id("apply_status_effect");
     }
 
-    // no bundled default texture for this task type - the quest GUI renders the real mob-effect
-    // icon(s) instead (single icon for one effect, a rotating slideshow for effect_ids with 2+
-    // entries), the same way StatusEffectReward already renders its effect_id - see QuestScreen
-
+    // no bundled default texture - QuestScreen renders the real mob-effect icon(s) instead, same as StatusEffectReward
     @Override
     public Component getDisplayText(QuestProgress progress, int taskIndex) {
         int current = Math.min(progress.getTaskProgress(taskIndex), amount);
@@ -83,9 +90,6 @@ public record ApplyStatusEffectTask(
     }
 
     public String getEffectDisplayName() {
-        if (effectId.isPresent()) {
-            return effectDisplayName(effectId.get());
-        }
         if (!effectIds.isEmpty()) {
             if (effectIds.size() == 1) {
                 return effectDisplayName(effectIds.get(0));
@@ -102,7 +106,7 @@ public record ApplyStatusEffectTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.apply_status_effect";
+        return "task.quest_api.apply_status_effect";
     }
 
     @Override
@@ -113,17 +117,14 @@ public record ApplyStatusEffectTask(
     public boolean matches(MobEffectInstance instance, boolean isSelf) {
         ResourceLocation appliedId = BuiltInRegistries.MOB_EFFECT.getKey(instance.getEffect().value());
 
-        if (effectId.isPresent() && !effectId.get().equals(appliedId)) {
-            return false;
-        }
         if (!effectIds.isEmpty() && effectIds.stream().noneMatch(id -> id.equals(appliedId))) {
             return false;
         }
-        if (minAmplifier.isPresent() && instance.getAmplifier() < minAmplifier.get()) {
+        if (filters.minAmplifier().isPresent() && instance.getAmplifier() < filters.minAmplifier().get()) {
             return false;
         }
 
-        return switch (target) {
+        return switch (filters.target()) {
             case SELF -> isSelf;
             case OTHERS -> !isSelf;
             case EITHER -> true;
@@ -135,16 +136,16 @@ public record ApplyStatusEffectTask(
     }
 
     public static class Builder {
-        private Optional<ResourceLocation> effectId = Optional.empty();
         private List<ResourceLocation> effectIds = List.of();
         private int amount = 1;
         private Optional<Integer> minAmplifier = Optional.empty();
         private Target target = Target.EITHER;
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder effectId(ResourceLocation id) {
-            this.effectId = Optional.of(id);
-            return this;
+            return effectIds(id);
         }
 
         public Builder effectId(String id) {
@@ -176,13 +177,24 @@ public record ApplyStatusEffectTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
         }
 
         public ApplyStatusEffectTask build() {
-            return new ApplyStatusEffectTask(effectId, effectIds, amount, minAmplifier, target, textureOverrideId);
+            Filters filters = new Filters(minAmplifier, target);
+            return new ApplyStatusEffectTask(effectIds, amount, filters, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

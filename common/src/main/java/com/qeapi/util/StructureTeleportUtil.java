@@ -1,6 +1,6 @@
 package com.qeapi.util;
 
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.server.level.ServerLevel;
@@ -15,13 +15,7 @@ import net.minecraft.world.level.material.FluidState;
 
 import java.util.Optional;
 
-// Finds a surface spot near a located structure that's safe to teleport a player to: outside the
-// structure's own footprint (so not inside a sealed treasure room or "main goal" chamber) and not
-// inside a solid block or standing in lava. There's no vanilla concept of "which room is the
-// treasure room" to query directly - the closest real signal is the structure's overall bounding
-// box (StructureStart.getBoundingBox()), which every one of its pieces/rooms is generated within.
-// Teleporting just outside that box and then snapping to the surface heightmap keeps the player
-// near the structure without ever placing them inside one of its interior spaces.
+// there's no vanilla concept of "which room is the treasure room" to query, so this teleports just outside the structure's overall bounding box and snaps to the surface heightmap
 public final class StructureTeleportUtil {
 
     private static final int[] MARGINS = {8, 16, 32, 64};
@@ -30,9 +24,7 @@ public final class StructureTeleportUtil {
 
     public static Optional<BlockPos> findSafeSpotNearStructure(ServerLevel level, BlockPos structurePos, Holder<Structure> structureHolder) {
         ChunkPos chunkPos = new ChunkPos(structurePos);
-        // Forces only enough generation for structure start/piece data to exist (cheap relative to
-        // full terrain/feature/mob generation) - the reward is usually granted for a structure well
-        // outside anyone's loaded view distance, so without this the bounding box below is unavailable.
+        // forces just enough generation for structure start/piece data, since the reward is usually granted for a structure outside anyone's loaded view distance
         level.getChunkSource().getChunk(chunkPos.x, chunkPos.z, ChunkStatus.STRUCTURE_STARTS, true);
 
         StructureStart start = level.structureManager().getStructureAt(structurePos, structureHolder.value());
@@ -45,7 +37,7 @@ public final class StructureTeleportUtil {
             }
         }
 
-        QuestEntityAPI.LOGGER.debug("[StructureTeleport] No usable bounding box for structure at {} - falling back to an offset surface spot", structurePos);
+        QuestAPI.LOGGER.debug("[StructureTeleport] No usable bounding box for structure at {} - falling back to an offset surface spot", structurePos);
         for (int margin : MARGINS) {
             Optional<BlockPos> spot = trySurfaceSpot(level, structurePos.getX() + margin, structurePos.getZ());
             if (spot.isPresent()) return spot;

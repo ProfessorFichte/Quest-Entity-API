@@ -17,9 +17,7 @@ public record RewardChoicePool(
         List<Option> options,
         int pick
 ) {
-    // reward: the option itself. requiredMod: this option is only shown/pickable when that mod is
-    // loaded, absent (the default) meaning it's always available - lets a pool define several
-    // optional choices (e.g. one per class mod) where only the installed ones actually show up.
+    // requiredMod: shown/pickable only when that mod is loaded; absent means always available - lets a pool offer per-mod choices (e.g. one option per class mod) that hide themselves when missing.
     public record Option(QuestReward reward, Optional<String> requiredMod) {
         public static final Codec<Option> CODEC = RecordCodecBuilder.create(instance ->
                 instance.group(

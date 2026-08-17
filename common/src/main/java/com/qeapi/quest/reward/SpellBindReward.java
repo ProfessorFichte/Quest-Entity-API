@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.compat.SpellEngineCompat;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -35,7 +35,7 @@ public record SpellBindReward(ResourceLocation spellId, boolean clearExisting, O
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("spell_bind");
+        return ResourceLocation.fromNamespaceAndPath("spell_engine", "spell_bind");
     }
 
     @Override
@@ -46,7 +46,7 @@ public record SpellBindReward(ResourceLocation spellId, boolean clearExisting, O
     @Override
     public void applyToTarget(ServerPlayer player, ItemStack stack) {
         if (!SpellEngineCompat.isLoaded()) {
-            QuestEntityAPI.LOGGER.warn("[SpellBindReward] Spell Engine isn't loaded - skipping reward");
+            QuestAPI.LOGGER.warn("[SpellBindReward] Spell Engine isn't loaded - skipping reward");
             return;
         }
         SpellEngineCompat.bindSpellToItem(player.serverLevel(), stack, spellId, clearExisting);
@@ -54,12 +54,12 @@ public record SpellBindReward(ResourceLocation spellId, boolean clearExisting, O
 
     @Override
     public void grant(ServerPlayer player) {
-        QuestEntityAPI.LOGGER.warn("[SpellBindReward] grant(player) called without a target item - ignoring");
+        QuestAPI.LOGGER.warn("[SpellBindReward] grant(player) called without a target item - ignoring");
     }
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.spell_bind", spellId.toString());
+        return Component.translatable("reward.quest_api.spell_bind", spellId.toString());
     }
 
     @Override

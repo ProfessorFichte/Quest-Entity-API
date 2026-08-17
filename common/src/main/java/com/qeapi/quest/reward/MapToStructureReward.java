@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.util.StructureDistanceUtil;
 import com.qeapi.util.StructureMapUtil;
 import com.qeapi.util.TextFormatting;
@@ -42,7 +42,7 @@ public record MapToStructureReward(
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("map_to_structure");
+        return QuestAPI.id("map_to_structure");
     }
 
     @Override
@@ -62,7 +62,7 @@ public record MapToStructureReward(
     private void grantFrom(ServerPlayer player, ServerLevel level, BlockPos origin) {
         Optional<ItemStack> mapStack = StructureMapUtil.createMapToStructure(level, origin, structureId, maxDistanceRange);
         if (mapStack.isEmpty()) {
-            QuestEntityAPI.LOGGER.warn("[MapToStructureReward] No instance of {} found within {} blocks of {} - reward not granted",
+            QuestAPI.LOGGER.warn("[MapToStructureReward] No instance of {} found within {} blocks of {} - reward not granted",
                     structureId, maxDistanceRange, origin);
             return;
         }
@@ -73,7 +73,7 @@ public record MapToStructureReward(
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.map_to_structure", TextFormatting.titleCaseWords(structureId.getPath()));
+        return Component.translatable("reward.quest_api.map_to_structure", TextFormatting.titleCaseWords(structureId.getPath()));
     }
 
     @Override

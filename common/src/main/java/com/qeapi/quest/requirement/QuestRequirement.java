@@ -2,7 +2,7 @@ package com.qeapi.quest.requirement;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -63,10 +63,10 @@ public sealed interface QuestRequirement permits
     }
 
     static void registerBuiltInTypes() {
-        registerType(QuestEntityAPI.id("has_advancement"), HasAdvancementRequirement.CODEC); // player has unlocked a specific advancement
-        registerType(QuestEntityAPI.id("has_item"), HasItemRequirement.CODEC); // player is carrying a specific item (checked, not consumed)
-        registerType(QuestEntityAPI.id("has_level"), HasLevelRequirement.CODEC); // player has at least a minimum XP level
-        registerType(QuestEntityAPI.id("has_levelz_skill"), HasLevelZSkillRequirement.CODEC); // player has at least a minimum level in a LevelZ skill
+        registerType(QuestAPI.id("has_advancement"), HasAdvancementRequirement.CODEC);
+        registerType(QuestAPI.id("has_item"), HasItemRequirement.CODEC);
+        registerType(QuestAPI.id("has_level"), HasLevelRequirement.CODEC);
+        registerType(ResourceLocation.fromNamespaceAndPath("levelz", "has_levelz_skill"), HasLevelZSkillRequirement.CODEC);
     }
 
     record RequirementType<T extends QuestRequirement>(ResourceLocation id, MapCodec<T> codec) {

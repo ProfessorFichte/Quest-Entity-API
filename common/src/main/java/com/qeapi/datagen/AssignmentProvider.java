@@ -2,7 +2,7 @@ package com.qeapi.datagen;
 
 import com.google.gson.JsonElement;
 import com.mojang.serialization.JsonOps;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.data.EntityQuestAssignment;
 import com.qeapi.data.EntityQuestAssignment.VillagerMatcher;
 import net.minecraft.data.CachedOutput;
@@ -44,7 +44,7 @@ public abstract class AssignmentProvider implements DataProvider {
                     .resolve(entry.getKey() + ".json");
 
             JsonElement json = EntityQuestAssignment.CODEC.encodeStart(JsonOps.INSTANCE, entry.getValue())
-                    .resultOrPartial(error -> QuestEntityAPI.LOGGER.error("Failed to encode assignment {}: {}", entry.getKey(), error))
+                    .resultOrPartial(error -> QuestAPI.LOGGER.error("Failed to encode assignment {}: {}", entry.getKey(), error))
                     .orElse(null);
 
             if (json != null) {
@@ -56,7 +56,7 @@ public abstract class AssignmentProvider implements DataProvider {
 
     @Override
     public String getName() {
-        return "Quest Entity API Assignments: " + modId;
+        return "Quest API Assignments: " + modId;
     }
 
     protected AssignmentBuilder assign(String fileName, String entityId) {
@@ -70,6 +70,8 @@ public abstract class AssignmentProvider implements DataProvider {
         private double questChance = 1.0;
         private Optional<Integer> chunkRestrictionRadius = Optional.empty();
         private Optional<VillagerMatcher> villagerData = Optional.empty();
+        private Optional<ResourceLocation> acceptQuestSoundOverride = Optional.empty();
+        private Optional<ResourceLocation> finishQuestSoundOverride = Optional.empty();
 
         AssignmentBuilder(String fileName, ResourceLocation entityId) {
             this.fileName = fileName;
@@ -105,9 +107,21 @@ public abstract class AssignmentProvider implements DataProvider {
             return villager(biomeType, null);
         }
 
+        // overrides the config default for entities carrying this assignment, beaten in turn by a quest's own override
+        public AssignmentBuilder acceptQuestSoundOverride(ResourceLocation soundId) {
+            this.acceptQuestSoundOverride = Optional.of(soundId);
+            return this;
+        }
+
+        public AssignmentBuilder finishQuestSoundOverride(ResourceLocation soundId) {
+            this.finishQuestSoundOverride = Optional.of(soundId);
+            return this;
+        }
+
         public void add() {
             assignments.put(fileName, new EntityQuestAssignment(
-                    entityId, List.copyOf(questPools), questChance, chunkRestrictionRadius, villagerData));
+                    entityId, List.copyOf(questPools), questChance, chunkRestrictionRadius, villagerData,
+                    acceptQuestSoundOverride, finishQuestSoundOverride));
         }
     }
 }

@@ -3,7 +3,7 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.TextMutator;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -17,30 +17,32 @@ import net.minecraft.world.item.ItemStack;
 import java.util.Map;
 import java.util.Optional;
 
-// covers any successful Smithing Table recipe (netherite upgrades, armor/weapon trims, and any
-// custom smithing recipe added by other mods), gated by SmithingMenu.onTake which only fires once
-// a valid recipe result is actually taken
+// covers any successful Smithing Table recipe, including mod-added ones, gated by SmithingMenu.onTake which only fires once a valid result is taken
 public record SmithingTask(
         Optional<ResourceLocation> resultItemId,
         Optional<TagKey<Item>> resultItemTag,
         int amount,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
-    public static final ResourceLocation DEFAULT_TEXTURE = QuestEntityAPI.id("textures/gui/quest_tasks/smithing_default.png");
+    public static final ResourceLocation DEFAULT_TEXTURE = QuestAPI.id("textures/gui/quest_tasks/smithing_default.png");
 
     public static final MapCodec<SmithingTask> CODEC = RecordCodecBuilder.mapCodec(instance ->
             instance.group(
                     ResourceLocation.CODEC.optionalFieldOf("result_item_id").forGetter(SmithingTask::resultItemId),
                     TagKey.codec(Registries.ITEM).optionalFieldOf("result_item_tag").forGetter(SmithingTask::resultItemTag),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(SmithingTask::amount),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(SmithingTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(SmithingTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(SmithingTask::textureOverrideId)
             ).apply(instance, SmithingTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("smithing");
+        return QuestAPI.id("smithing");
     }
 
     @Override
@@ -76,7 +78,7 @@ public record SmithingTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.smithing";
+        return "task.quest_api.smithing";
     }
 
     @Override
@@ -105,6 +107,8 @@ public record SmithingTask(
         private Optional<ResourceLocation> resultItemId = Optional.empty();
         private Optional<TagKey<Item>> resultItemTag = Optional.empty();
         private int amount = 1;
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder resultItemId(ResourceLocation id) {
@@ -130,13 +134,23 @@ public record SmithingTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
         }
 
         public SmithingTask build() {
-            return new SmithingTask(resultItemId, resultItemTag, amount, textureOverrideId);
+            return new SmithingTask(resultItemId, resultItemTag, amount, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

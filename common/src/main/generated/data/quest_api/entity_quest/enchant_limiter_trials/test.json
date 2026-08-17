@@ -1,0 +1,18 @@
+{
+  "id": "quest_api:enchant_limiter_trials/test",
+  "required_mod": "enchant_limiter",
+  "rewards": [
+    {
+      "cap": 6,
+      "reward": "enchant_limiter:increase_enchant_slots"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 3,
+      "item_id": "minecraft:lapis_lazuli",
+      "task": "quest_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

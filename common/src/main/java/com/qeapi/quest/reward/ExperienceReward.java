@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -26,7 +26,7 @@ public record ExperienceReward(
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("experience");
+        return QuestAPI.id("experience");
     }
 
     @Override
@@ -36,7 +36,7 @@ public record ExperienceReward(
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.experience", amount);
+        return Component.translatable("reward.quest_api.experience", amount);
     }
 
     @Override

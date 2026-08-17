@@ -10,17 +10,15 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-// Tracks anvil operations for AnvilTask. onTake only ever runs once mayPickup already confirmed a
-// real (cost > 0) operation, so the input slot's item is still the pre-operation stack at HEAD -
-// comparing it against the taken result is how AnvilTask tells an actual repair apart from a
-// rename or an enchant-merge with no durability repaired. Reads the input slot through the public
-// getSlot(int)/INPUT_SLOT API instead of @Shadow-ing ItemCombinerMenu's inherited inputSlots field,
-// since Mixin can't reliably refmap a @Shadow field that's declared on a superclass.
+// Input slot is still the pre-operation stack at HEAD; AnvilTask compares it against the taken
+// result to tell an actual repair apart from a rename or an enchant-merge with no durability fixed.
+// Reads via getSlot()/INPUT_SLOT rather than @Shadow since Mixin can't reliably refmap a shadowed
+// field inherited from a superclass.
 @Mixin(AnvilMenu.class)
 public abstract class AnvilMenuMixin {
 
     @Inject(method = "onTake", at = @At("HEAD"))
-    private void qe_api$onAnvilTake(Player player, ItemStack itemStack, CallbackInfo ci) {
+    private void quest_api$onAnvilTake(Player player, ItemStack itemStack, CallbackInfo ci) {
         if (!(player instanceof ServerPlayer serverPlayer)) return;
 
         AnvilMenu self = (AnvilMenu) (Object) this;

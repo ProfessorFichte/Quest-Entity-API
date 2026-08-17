@@ -19,11 +19,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 
-// Generates the standard item/generated model for every inline quest_item definition
-// (BringItemTask/ConditionalDropTask's questItem field) it finds across the given QuestProviders,
-// plus the matching custom_model_data override on the shared qe_api:quest_item base item's own
-// model. Re-runs collectQuests() itself, same as LangProvider, so this doesn't depend on
-// unspecified ordering between separately registered DataProviders.
+// re-runs collectQuests() itself, same as LangProvider, so this doesn't depend on unspecified ordering between separately registered DataProviders
 public class QuestItemModelProvider implements DataProvider {
 
     private final PackOutput output;
@@ -38,8 +34,7 @@ public class QuestItemModelProvider implements DataProvider {
 
     @Override
     public CompletableFuture<?> run(CachedOutput cache) {
-        // TreeMap keeps this sorted ascending by custom_model_data - required for vanilla's
-        // threshold-based override resolution to pick the right entry.
+        // TreeMap keeps this sorted ascending, required for vanilla's threshold-based override resolution to pick the right entry
         Map<Integer, QuestItemDefinition> definitions = new TreeMap<>();
 
         for (QuestProvider questProvider : questProviders) {
@@ -105,10 +100,7 @@ public class QuestItemModelProvider implements DataProvider {
         }
         if (def == null) return;
 
-        // The same quest item reused across a conditional_drop + bring_item pair is fine (identical
-        // definition). Two DIFFERENT quest items sharing a custom_model_data is a real collision -
-        // the model predicate can't tell them apart - so fail datagen loudly instead of silently
-        // dropping the second one.
+        // two different quest items sharing a custom_model_data is a real collision, since the predicate can't tell them apart - fail loudly instead of silently dropping one
         QuestItemDefinition existing = definitions.get(def.customModelData());
         if (existing != null && !existing.texture().equals(def.texture())) {
             throw new IllegalStateException("Two different quest items share custom_model_data "
@@ -120,6 +112,6 @@ public class QuestItemModelProvider implements DataProvider {
 
     @Override
     public String getName() {
-        return "Quest Entity API Quest Item Models: " + modId;
+        return "Quest API Quest Item Models: " + modId;
     }
 }

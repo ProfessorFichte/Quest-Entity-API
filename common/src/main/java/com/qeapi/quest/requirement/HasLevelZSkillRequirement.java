@@ -3,7 +3,6 @@ package com.qeapi.quest.requirement;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
 import com.qeapi.compat.LevelZCompat;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -30,7 +29,7 @@ public record HasLevelZSkillRequirement(
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("has_levelz_skill");
+        return ResourceLocation.fromNamespaceAndPath("levelz", "has_levelz_skill");
     }
 
     @Override
@@ -41,12 +40,12 @@ public record HasLevelZSkillRequirement(
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("requirement.qe_api.has_levelz_skill", level, skillId);
+        return Component.translatable("requirement.quest_api.has_levelz_skill", level, skillId);
     }
 
     @Override
     public Component getFailureMessage() {
-        return Component.translatable("requirement.qe_api.has_levelz_skill.failure", level, skillId);
+        return Component.translatable("requirement.quest_api.has_levelz_skill.failure", level, skillId);
     }
 
     @Override

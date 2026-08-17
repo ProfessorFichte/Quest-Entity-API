@@ -10,12 +10,12 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 // Tracks Enchanting Table use for EnchantingTask, off the same trigger vanilla's own "enchanter"
-// advancement uses - only EnchantmentMenu calls this, so an anvil merging enchanted books doesn't.
+// advancement uses - only EnchantmentMenu calls this, so anvil-merging enchanted books doesn't.
 @Mixin(EnchantedItemTrigger.class)
 public abstract class EnchantedItemTriggerMixin {
 
     @Inject(method = "trigger", at = @At("TAIL"))
-    private void qe_api$onEnchantedItem(ServerPlayer player, ItemStack item, int levels, CallbackInfo ci) {
+    private void quest_api$onEnchantedItem(ServerPlayer player, ItemStack item, int levels, CallbackInfo ci) {
         QuestEventHandler.onItemEnchanted(player, item);
     }
 }

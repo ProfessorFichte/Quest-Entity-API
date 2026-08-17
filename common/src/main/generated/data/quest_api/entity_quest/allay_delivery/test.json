@@ -1,0 +1,19 @@
+{
+  "id": "quest_api:allay_delivery/test",
+  "rewards": [
+    {
+      "amount": 150,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "item_id": "minecraft:cake",
+      "target_entity_ids": [
+        "minecraft:allay"
+      ],
+      "task": "quest_api:deliver_item"
+    }
+  ],
+  "tier": 1
+}

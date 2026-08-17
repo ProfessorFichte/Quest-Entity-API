@@ -1,6 +1,6 @@
 package com.qeapi.mixin;
 
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.event.QuestEventHandler;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Registry;
@@ -24,75 +24,74 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-// Tracks player movement and structure entry for quest tasks.
 @Mixin(ServerPlayer.class)
 public abstract class ServerPlayerMixin {
 
     @Unique
-    private Vec3 qe_api$lastPosition = null;
+    private Vec3 quest_api$lastPosition = null;
 
     @Unique
-    private double qe_api$accumulatedDistance = 0.0;
+    private double quest_api$accumulatedDistance = 0.0;
 
     @Unique
-    private int qe_api$structureCheckCooldown = 0;
+    private int quest_api$structureCheckCooldown = 0;
 
     @Unique
-    private Set<ResourceLocation> qe_api$currentStructures = new HashSet<>();
+    private Set<ResourceLocation> quest_api$currentStructures = new HashSet<>();
 
     @Unique
-    private ResourceLocation qe_api$currentBiome = null;
+    private ResourceLocation quest_api$currentBiome = null;
 
     @Inject(method = "tick", at = @At("TAIL"))
-    private void qe_api$onTick(CallbackInfo ci) {
+    private void quest_api$onTick(CallbackInfo ci) {
         ServerPlayer self = (ServerPlayer) (Object) this;
         Vec3 currentPos = self.position();
 
-        if (qe_api$lastPosition == null) {
-            qe_api$lastPosition = currentPos;
+        if (quest_api$lastPosition == null) {
+            quest_api$lastPosition = currentPos;
             return;
         }
 
-        double distance = qe_api$lastPosition.distanceTo(currentPos);
+        double distance = quest_api$lastPosition.distanceTo(currentPos);
         if (distance > 0.01 && distance < 100.0) { // ignore teleports (>100 blocks)
-            qe_api$accumulatedDistance += distance;
+            quest_api$accumulatedDistance += distance;
 
             // batch into >=1 block increments to reduce event spam
-            if (qe_api$accumulatedDistance >= 1.0) {
-                QuestEntityAPI.LOGGER.debug("Player {} moved {} blocks (accumulated), firing event",
-                        self.getName().getString(), qe_api$accumulatedDistance);
-                QuestEventHandler.onPlayerMove(self, qe_api$lastPosition, currentPos, qe_api$accumulatedDistance);
-                qe_api$accumulatedDistance = 0.0;
+            if (quest_api$accumulatedDistance >= 1.0) {
+                QuestAPI.LOGGER.debug("Player {} moved {} blocks (accumulated), firing event",
+                        self.getName().getString(), quest_api$accumulatedDistance);
+                QuestEventHandler.onPlayerMove(self, quest_api$lastPosition, currentPos, quest_api$accumulatedDistance);
+                quest_api$accumulatedDistance = 0.0;
             }
         }
 
-        qe_api$lastPosition = currentPos;
+        quest_api$lastPosition = currentPos;
 
         // cooldown: every 20 ticks = 1 second
-        qe_api$structureCheckCooldown--;
-        if (qe_api$structureCheckCooldown <= 0) {
-            qe_api$structureCheckCooldown = 20;
-            qe_api$checkStructures(self);
-            qe_api$checkBiome(self);
+        quest_api$structureCheckCooldown--;
+        if (quest_api$structureCheckCooldown <= 0) {
+            quest_api$structureCheckCooldown = 20;
+            quest_api$checkStructures(self);
+            quest_api$checkBiome(self);
         }
     }
 
     @Unique
-    private void qe_api$checkBiome(ServerPlayer player) {
+    private void quest_api$checkBiome(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         BlockPos playerPos = player.blockPosition();
 
         level.getBiome(playerPos).unwrapKey().ifPresent(key -> {
             ResourceLocation biomeId = key.location();
-            if (!biomeId.equals(qe_api$currentBiome)) {
-                qe_api$currentBiome = biomeId;
+            if (!biomeId.equals(quest_api$currentBiome)) {
+                quest_api$currentBiome = biomeId;
                 QuestEventHandler.onBiomeEntered(player, biomeId);
             }
         });
     }
 
     @Unique
-    private void qe_api$checkStructures(ServerPlayer player) {
+    private void quest_api$checkStructures(ServerPlayer player) {
         ServerLevel level = player.serverLevel();
         BlockPos playerPos = player.blockPosition();
         ChunkPos chunkPos = new ChunkPos(playerPos);
@@ -116,13 +115,13 @@ public abstract class ServerPlayerMixin {
                             ResourceLocation structureId = key.location();
                             newStructures.add(structureId);
 
-                            if (!qe_api$currentStructures.contains(structureId)) {
+                            if (!quest_api$currentStructures.contains(structureId)) {
                                 QuestEventHandler.onStructureEntered(player, structureId);
                             }
                         });
             }
         }
 
-        qe_api$currentStructures = newStructures;
+        quest_api$currentStructures = newStructures;
     }
 }

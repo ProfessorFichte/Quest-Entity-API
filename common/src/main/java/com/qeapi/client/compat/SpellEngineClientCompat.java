@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-// Client-only half of the Spell Engine integration (icon/tooltip resolution for the quest GUI).
 // Separate from SpellEngineCompat because a dedicated server never has Spell Engine's client
 // classes available. Only call from client-only code, after confirming Spell Engine is loaded.
 public final class SpellEngineClientCompat {
@@ -81,9 +80,9 @@ public final class SpellEngineClientCompat {
         return new ItemStack(BuiltInRegistries.ITEM.get(SPELL_BINDING_TABLE_ID));
     }
 
-    // Placeholder stack for previewing SpellScrollReward in the GUI - the real spell isn't picked
-    // until claim time. Applies the pool's item model if given; Spell Engine keys its model presets
-    // by pool rather than by spell, so this previews accurately without pre-rolling a spell.
+    // Placeholder for previewing SpellScrollReward in the GUI before the real spell is picked at
+    // claim time - Spell Engine keys its model presets by pool rather than by spell, so this
+    // previews accurately without pre-rolling one.
     public static ItemStack genericScrollItemStack(Optional<ResourceLocation> pool) {
         ItemStack stack = new ItemStack(SpellEngineItems.SCROLL.get());
         pool.ifPresent(p -> stack.set(SpellDataComponents.ITEM_MODEL, ScrollItem.modelIdForPool(p)));

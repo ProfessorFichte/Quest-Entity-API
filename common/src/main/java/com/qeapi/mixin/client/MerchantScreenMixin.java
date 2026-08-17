@@ -1,6 +1,6 @@
 package com.qeapi.mixin.client;
 
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.client.ClientQuestCache;
 import com.qeapi.network.ClientPacketSender;
 import net.minecraft.client.gui.components.Button;
@@ -16,55 +16,54 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.UUID;
 
-// Adds a quest tab/button to the MerchantScreen (villager trading).
 @Mixin(MerchantScreen.class)
 public abstract class MerchantScreenMixin extends AbstractContainerScreen<MerchantMenu> {
 
     @Unique
-    private Button qe_api$questButton;
+    private Button quest_api$questButton;
 
     @Unique
-    private boolean qe_api$hasQuests = false;
+    private boolean quest_api$hasQuests = false;
 
     @Unique
-    private int qe_api$merchantEntityId = -1;
+    private int quest_api$merchantEntityId = -1;
 
     public MerchantScreenMixin() {
         super(null, null, null);
     }
 
     @Inject(method = "init", at = @At("TAIL"))
-    private void qe_api$addQuestButton(CallbackInfo ci) {
+    private void quest_api$addQuestButton(CallbackInfo ci) {
         // set by MultiPlayerGameModeMixin when the player interacted
-        qe_api$merchantEntityId = ClientQuestCache.getLastMerchantEntityId();
+        quest_api$merchantEntityId = ClientQuestCache.getLastMerchantEntityId();
         UUID merchantUuid = ClientQuestCache.getLastMerchantEntityUuid();
 
-        qe_api$hasQuests = merchantUuid != null && ClientQuestCache.hasQuests(merchantUuid);
+        quest_api$hasQuests = merchantUuid != null && ClientQuestCache.hasQuests(merchantUuid);
 
-        QuestEntityAPI.LOGGER.debug("MerchantScreen init: entityId={}, uuid={}, hasQuests={}",
-                qe_api$merchantEntityId, merchantUuid, qe_api$hasQuests);
+        QuestAPI.LOGGER.debug("MerchantScreen init: entityId={}, uuid={}, hasQuests={}",
+                quest_api$merchantEntityId, merchantUuid, quest_api$hasQuests);
 
-        if (qe_api$hasQuests && qe_api$merchantEntityId != -1) {
+        if (quest_api$hasQuests && quest_api$merchantEntityId != -1) {
             int buttonX = this.leftPos + this.imageWidth - 24;
             int buttonY = this.topPos + 4;
 
-            qe_api$questButton = Button.builder(
-                    Component.literal("Q"), // Quest button
-                    button -> qe_api$openQuestScreen()
+            quest_api$questButton = Button.builder(
+                    Component.literal("Q"),
+                    button -> quest_api$openQuestScreen()
             ).bounds(buttonX, buttonY, 20, 14).build();
 
-            this.addRenderableWidget(qe_api$questButton);
+            this.addRenderableWidget(quest_api$questButton);
         }
     }
 
     @Unique
-    private void qe_api$openQuestScreen() {
-        if (qe_api$merchantEntityId == -1) {
-            QuestEntityAPI.LOGGER.warn("Cannot open quest screen: merchant entity ID not tracked");
+    private void quest_api$openQuestScreen() {
+        if (quest_api$merchantEntityId == -1) {
+            QuestAPI.LOGGER.warn("Cannot open quest screen: merchant entity ID not tracked");
             return;
         }
 
-        QuestEntityAPI.LOGGER.debug("Opening quest screen for merchant entity {}", qe_api$merchantEntityId);
+        QuestAPI.LOGGER.debug("Opening quest screen for merchant entity {}", quest_api$merchantEntityId);
 
         // so the quest screen's back button returns here
         ClientQuestCache.setOpenedFromMerchant(true);
@@ -74,6 +73,6 @@ public abstract class MerchantScreenMixin extends AbstractContainerScreen<Mercha
             this.onClose();
         }
 
-        ClientPacketSender.sendRequestQuestMenu(qe_api$merchantEntityId);
+        ClientPacketSender.sendRequestQuestMenu(quest_api$merchantEntityId);
     }
 }

@@ -1,12 +1,12 @@
 package com.qeapi.fabric.mixin;
 
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.component.EntityQuestComponent;
 import com.qeapi.data.ChunkAssignmentTracker;
 import com.qeapi.data.EntityQuestAssignment;
 import com.qeapi.data.EntityQuestAssignmentManager;
 import com.qeapi.data.QuestManager;
-import com.qeapi.fabric.QuestEntityAPIFabric;
+import com.qeapi.fabric.QuestAPIFabric;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -22,10 +22,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Optional;
 
-// Handles villager profession changes:
-// - UNEMPLOYED -> JOB: keep quest if a player already interacted, otherwise assign a new one.
-// - JOB -> UNEMPLOYED: remove quest (workstation destroyed).
-// - JOB -> JOB: keep quest if a player already interacted, otherwise reassign.
 @Mixin(Villager.class)
 public abstract class VillagerJobConversionMixin {
 
@@ -33,7 +29,7 @@ public abstract class VillagerJobConversionMixin {
     public abstract VillagerData getVillagerData();
 
     @Inject(method = "setVillagerData", at = @At("HEAD"))
-    private void qe_api$onSetVillagerData(VillagerData newData, CallbackInfo ci) {
+    private void quest_api$onSetVillagerData(VillagerData newData, CallbackInfo ci) {
         Villager villager = (Villager) (Object) this;
 
         if (villager.level().isClientSide()) {
@@ -51,28 +47,28 @@ public abstract class VillagerJobConversionMixin {
         ResourceLocation oldProfId = BuiltInRegistries.VILLAGER_PROFESSION.getKey(oldProfession);
         ResourceLocation newProfId = BuiltInRegistries.VILLAGER_PROFESSION.getKey(newProfession);
 
-        QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Villager {} profession changed: {} -> {}",
+        QuestAPI.LOGGER.debug("[VillagerJobMixin] Villager {} profession changed: {} -> {}",
                 villager.getUUID(), oldProfId, newProfId);
 
-        EntityQuestComponent existingComponent = villager.getAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT);
+        EntityQuestComponent existingComponent = villager.getAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT);
 
         // Becoming UNEMPLOYED (workstation destroyed)
         if (newProfession == VillagerProfession.NONE) {
-            QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Villager {} becoming unemployed", villager.getUUID());
+            QuestAPI.LOGGER.debug("[VillagerJobMixin] Villager {} becoming unemployed", villager.getUUID());
 
             if (existingComponent != null && !existingComponent.isNoQuestMarker()) {
                 if (existingComponent.hasAnyPlayerInteraction()) {
-                    QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Villager {} has player interactions, keeping quest",
+                    QuestAPI.LOGGER.debug("[VillagerJobMixin] Villager {} has player interactions, keeping quest",
                             villager.getUUID());
                     return;
                 }
 
-                QuestEntityAPI.LOGGER.info("[VillagerJobMixin] Villager {} became unemployed, removing quest (no player interaction)",
+                QuestAPI.LOGGER.info("[VillagerJobMixin] Villager {} became unemployed, removing quest (no player interaction)",
                         villager.getUUID());
-                villager.removeAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT);
+                villager.removeAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT);
 
                 // Resync so nearby players see the quest is gone
-                QuestEntityAPIFabric.forceResyncForNearbyPlayers(villager);
+                QuestAPIFabric.forceResyncForNearbyPlayers(villager);
             }
             return;
         }
@@ -81,17 +77,17 @@ public abstract class VillagerJobConversionMixin {
         if (existingComponent != null) {
             if (existingComponent.isNoQuestMarker()) {
                 // Clear the no-quest marker so we retry with the new profession
-                QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Villager {} had no-quest marker, clearing for new profession {}",
+                QuestAPI.LOGGER.debug("[VillagerJobMixin] Villager {} had no-quest marker, clearing for new profession {}",
                         villager.getUUID(), newProfId);
-                villager.removeAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT);
+                villager.removeAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT);
             } else {
                 if (existingComponent.hasAnyPlayerInteraction()) {
-                    QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Villager {} has player interactions, keeping existing quests",
+                    QuestAPI.LOGGER.debug("[VillagerJobMixin] Villager {} has player interactions, keeping existing quests",
                             villager.getUUID());
                     return;
                 }
 
-                QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Villager {} has no player interactions, will reassign quest",
+                QuestAPI.LOGGER.debug("[VillagerJobMixin] Villager {} has no player interactions, will reassign quest",
                         villager.getUUID());
             }
         }
@@ -100,16 +96,16 @@ public abstract class VillagerJobConversionMixin {
             String biomeType = getBiomeType(villager);
             String profession = newProfId != null ? newProfId.toString() : "minecraft:none";
 
-            QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Looking for quest assignment: biome={}, profession={}",
+            QuestAPI.LOGGER.debug("[VillagerJobMixin] Looking for quest assignment: biome={}, profession={}",
                     biomeType, profession);
 
             QuestManager.debugPrintAll();
 
             ResourceLocation villagerId = ResourceLocation.parse("minecraft:villager");
             var allAssignments = EntityQuestAssignmentManager.getAssignmentsForEntity(villagerId);
-            QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Total villager assignments: {}", allAssignments.size());
+            QuestAPI.LOGGER.debug("[VillagerJobMixin] Total villager assignments: {}", allAssignments.size());
             for (var a : allAssignments) {
-                QuestEntityAPI.LOGGER.debug("[VillagerJobMixin]   Assignment: entity={}, pool={}, chance={}, villagerData={}",
+                QuestAPI.LOGGER.debug("[VillagerJobMixin]   Assignment: entity={}, pool={}, chance={}, villagerData={}",
                         a.entityId(), a.questPools(), a.questChance(), a.villagerData());
             }
 
@@ -118,30 +114,30 @@ public abstract class VillagerJobConversionMixin {
 
             if (assignmentOpt.isPresent()) {
                 EntityQuestAssignment assignment = assignmentOpt.get();
-                QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Found assignment: {} -> {}", assignment.entityId(), assignment.questPools());
+                QuestAPI.LOGGER.debug("[VillagerJobMixin] Found assignment: {} -> {}", assignment.entityId(), assignment.questPools());
 
                 EntityQuestComponent newComponent = createComponentFromAssignment(villager, serverLevel, assignment);
 
                 if (newComponent != null) {
-                    villager.setAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT, newComponent);
-                    QuestEntityAPI.LOGGER.info("[VillagerJobMixin] Assigned quest tag {} to villager {} after job conversion to {}",
+                    villager.setAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT, newComponent);
+                    QuestAPI.LOGGER.info("[VillagerJobMixin] Assigned quest tag {} to villager {} after job conversion to {}",
                             assignment.questPools(), villager.getUUID(), profession);
 
                     // Resync so the quest marker shows immediately, without needing to leave/return
-                    QuestEntityAPIFabric.forceResyncForNearbyPlayers(villager);
+                    QuestAPIFabric.forceResyncForNearbyPlayers(villager);
                 } else {
-                    QuestEntityAPI.LOGGER.warn("[VillagerJobMixin] Failed to create component from assignment!");
+                    QuestAPI.LOGGER.warn("[VillagerJobMixin] Failed to create component from assignment!");
                 }
             } else {
-                QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] No matching assignment found for villager (biome={}, profession={})",
+                QuestAPI.LOGGER.debug("[VillagerJobMixin] No matching assignment found for villager (biome={}, profession={})",
                         biomeType, profession);
 
                 if (!allAssignments.isEmpty()) {
-                    villager.setAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT, EntityQuestComponent.createNoQuest());
-                    QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Marked villager {} as no-quest (chance failed or no match)",
+                    villager.setAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT, EntityQuestComponent.createNoQuest());
+                    QuestAPI.LOGGER.debug("[VillagerJobMixin] Marked villager {} as no-quest (chance failed or no match)",
                             villager.getUUID());
 
-                    QuestEntityAPIFabric.forceResyncForNearbyPlayers(villager);
+                    QuestAPIFabric.forceResyncForNearbyPlayers(villager);
                 }
             }
         }
@@ -150,7 +146,7 @@ public abstract class VillagerJobConversionMixin {
     private String getBiomeType(Villager villager) {
         ResourceLocation typeId = BuiltInRegistries.VILLAGER_TYPE.getKey(villager.getVillagerData().getType());
         String biome = typeId != null ? typeId.getPath() : "plains";
-        QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] getBiomeType: {} -> {}", typeId, biome);
+        QuestAPI.LOGGER.debug("[VillagerJobMixin] getBiomeType: {} -> {}", typeId, biome);
         return biome;
     }
 
@@ -162,7 +158,7 @@ public abstract class VillagerJobConversionMixin {
             String restrictionKey = assignment.restrictionKey();
             ChunkPos chunkPos = new ChunkPos(villager.blockPosition());
             if (ChunkAssignmentTracker.get(level).isRestricted(restrictionKey, chunkPos, radius)) {
-                QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Assignment {} is chunk-restricted near {}, marking as no-quest",
+                QuestAPI.LOGGER.debug("[VillagerJobMixin] Assignment {} is chunk-restricted near {}, marking as no-quest",
                         restrictionKey, chunkPos);
                 return EntityQuestComponent.createNoQuest();
             }
@@ -170,36 +166,37 @@ public abstract class VillagerJobConversionMixin {
 
         String questPoolRef = assignment.pickQuestPool(level.getRandom());
 
-        QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] createComponentFromAssignment: {}", questPoolRef);
+        QuestAPI.LOGGER.debug("[VillagerJobMixin] createComponentFromAssignment: {}", questPoolRef);
 
         if (questPoolRef.isEmpty()) {
-            QuestEntityAPI.LOGGER.warn("[VillagerJobMixin] quest_pool is empty!");
+            QuestAPI.LOGGER.warn("[VillagerJobMixin] quest_pool is empty!");
             return null;
         }
 
         // Legacy "tag:" prefix format
         if (questPoolRef.startsWith("tag:")) {
             questPoolRef = questPoolRef.substring(4);
-            // tag:qe_api/farm -> qe_api:farm
+            // tag:quest_api/farm -> quest_api:farm
             if (questPoolRef.contains("/") && !questPoolRef.contains(":")) {
                 int slashIndex = questPoolRef.indexOf('/');
                 questPoolRef = questPoolRef.substring(0, slashIndex) + ":" + questPoolRef.substring(slashIndex + 1);
             }
-            QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Converted legacy tag format to: {}", questPoolRef);
+            QuestAPI.LOGGER.debug("[VillagerJobMixin] Converted legacy tag format to: {}", questPoolRef);
         }
 
         ResourceLocation tagId = ResourceLocation.parse(questPoolRef);
-        QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Creating component with tag ID: {}", tagId);
+        QuestAPI.LOGGER.debug("[VillagerJobMixin] Creating component with tag ID: {}", tagId);
 
-        EntityQuestComponent component = EntityQuestComponent.create(tagId);
+        EntityQuestComponent component = EntityQuestComponent.create(tagId,
+                assignment.acceptQuestSoundOverride(), assignment.finishQuestSoundOverride());
 
         var pools = component.getAllQuestPools();
         if (pools.isEmpty()) {
-            QuestEntityAPI.LOGGER.error("[VillagerJobMixin] WARNING: Tag {} has no quest pools! " +
+            QuestAPI.LOGGER.error("[VillagerJobMixin] WARNING: Tag {} has no quest pools! " +
                     "Check that data/{}/tags/entity_quests/{}.json exists and references valid quest pool files.",
                     tagId, tagId.getNamespace(), tagId.getPath());
         } else {
-            QuestEntityAPI.LOGGER.debug("[VillagerJobMixin] Tag {} has {} quest pools", tagId, pools.size());
+            QuestAPI.LOGGER.debug("[VillagerJobMixin] Tag {} has {} quest pools", tagId, pools.size());
         }
 
         if (assignment.chunkRestrictionRadius().isPresent()) {

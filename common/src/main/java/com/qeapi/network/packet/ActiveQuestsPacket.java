@@ -8,7 +8,6 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 import java.util.List;
 
-// Server-to-client packet carrying the player's currently-active quests, for the Active Quests screen.
 public record ActiveQuestsPacket(
         List<ActiveQuestEntry> entries
 ) implements CustomPacketPayload {

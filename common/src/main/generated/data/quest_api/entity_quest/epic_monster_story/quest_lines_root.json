@@ -1,0 +1,34 @@
+{
+  "id": "quest_api:epic_monster_story/quest_lines_root",
+  "rewards": [
+    {
+      "item_id": "minecraft:netherite_ingot",
+      "reward": "quest_api:item"
+    },
+    {
+      "amount": 1000,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "line_options": [
+        {
+          "description": "Hunt down the Wither and prove your mastery over the undead.",
+          "display_name": "Trial of the Wither",
+          "icon_texture_id": "quest_api:textures/gui/quest_tasks/find_structure_default.png",
+          "id": "wither_story"
+        },
+        {
+          "description": "Journey to the End and slay the dragon itself.",
+          "display_name": "Trial of the Ender Dragon",
+          "icon_texture_id": "quest_api:textures/gui/quest_tasks/travel.png",
+          "id": "ender_dragon_story",
+          "required_mod": "dungeon_difficulty"
+        }
+      ],
+      "task": "quest_api:quest_line_choice"
+    }
+  ],
+  "tier": 2
+}

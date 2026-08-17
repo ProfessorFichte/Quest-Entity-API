@@ -9,10 +9,10 @@
               "id": "minecraft:unbreaking"
             }
           ],
-          "function": "qe_api:set_enchantments"
+          "function": "quest_api:set_enchantments"
         },
         {
-          "function": "qe_api:set_name",
+          "function": "quest_api:set_name",
           "name": {
             "color": "yellow",
             "text": "Farmhand's Hoe"
@@ -20,19 +20,19 @@
         }
       ],
       "item_id": "minecraft:iron_hoe",
-      "reward": "qe_api:item"
+      "reward": "quest_api:item"
     },
     {
       "amount": 4,
       "item_id": "minecraft:emerald",
-      "reward": "qe_api:item"
+      "reward": "quest_api:item"
     }
   ],
   "tasks": [
     {
       "amount": 16,
       "item_id": "minecraft:bone_meal",
-      "task": "qe_api:item_used"
+      "task": "quest_api:item_used"
     }
   ],
   "tier": 2

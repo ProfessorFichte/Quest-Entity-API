@@ -1,0 +1,22 @@
+{
+  "follow_quest_order": false,
+  "id": "quest_api:epic_monster_story/wither_trial_3",
+  "quest_line": "wither_story",
+  "rewards": [
+    {
+      "item_id": "minecraft:netherite_upgrade_smithing_template",
+      "reward": "quest_api:item"
+    },
+    {
+      "amount": 500,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "item_id": "minecraft:nether_star",
+      "task": "quest_api:bring_item"
+    }
+  ],
+  "tier": 5
+}

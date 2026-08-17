@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -29,7 +29,7 @@ public record CommandReward(
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("command");
+        return QuestAPI.id("command");
     }
 
     @Override
@@ -48,17 +48,17 @@ public record CommandReward(
 
             player.getServer().getCommands().performPrefixedCommand(source, processedCommand);
 
-            QuestEntityAPI.LOGGER.debug("Executed command reward: {} for player {}",
+            QuestAPI.LOGGER.debug("Executed command reward: {} for player {}",
                     processedCommand, player.getName().getString());
         } catch (Exception e) {
-            QuestEntityAPI.LOGGER.error("Failed to execute command reward: {} - {}",
+            QuestAPI.LOGGER.error("Failed to execute command reward: {} - {}",
                     processedCommand, e.getMessage());
         }
     }
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.command",
+        return Component.translatable("reward.quest_api.command",
                 displayName.orElse("Command Reward"));
     }
 

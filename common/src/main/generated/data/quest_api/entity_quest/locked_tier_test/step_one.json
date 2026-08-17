@@ -1,0 +1,17 @@
+{
+  "id": "quest_api:locked_tier_test/step_one",
+  "rewards": [
+    {
+      "amount": 50,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 4,
+      "item_id": "minecraft:oak_log",
+      "task": "quest_api:bring_item"
+    }
+  ],
+  "tier": 1
+}

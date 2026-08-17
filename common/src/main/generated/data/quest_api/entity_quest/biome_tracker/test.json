@@ -1,0 +1,48 @@
+{
+  "id": "quest_api:biome_tracker/test",
+  "rewards": [
+    {
+      "amount": 100,
+      "reward": "quest_api:experience"
+    },
+    {
+      "options": [
+        {
+          "reward": {
+            "reward": "quest_api:teleport",
+            "target": {
+              "biome_id": "minecraft:desert",
+              "teleport_type": "biome"
+            }
+          }
+        },
+        {
+          "reward": {
+            "reward": "quest_api:teleport",
+            "target": {
+              "teleport_type": "coordinates",
+              "x": 0.0,
+              "y": 100.0,
+              "z": 0.0
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "item_id": "minecraft:compass",
+      "task": "quest_api:bring_item"
+    },
+    {
+      "amount": 2,
+      "biome_ids": [
+        "minecraft:desert",
+        "minecraft:jungle"
+      ],
+      "task": "quest_api:visit_biome"
+    }
+  ],
+  "tier": 1
+}

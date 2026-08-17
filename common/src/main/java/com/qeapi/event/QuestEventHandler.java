@@ -1,10 +1,10 @@
 package com.qeapi.event;
 
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.api.QuestEntityAccess;
 import com.qeapi.component.EntityQuestComponent;
 import com.qeapi.component.PlayerQuestData;
-import com.qeapi.config.QuestEntityAPIConfig;
+import com.qeapi.config.QuestAPIConfig;
 import com.qeapi.data.QuestManager;
 import com.qeapi.quest.Quest;
 import com.qeapi.quest.QuestProgress;
@@ -46,58 +46,51 @@ public final class QuestEventHandler {
 
     private QuestEventHandler() {}
 
-    // Re-triggers the periodic nearby-entity sync for one entity - that sync only fires once per
-    // entity per player on first proximity detection, so without this a passively-tracked task
-    // completing while the entity stays in range would never flip the marker.
+    // re-triggers the nearby-entity sync, which otherwise only fires once per entity per player on first proximity detection
     private static BiConsumer<ServerPlayer, UUID> progressSyncHandler;
 
     public static void setProgressSyncHandler(BiConsumer<ServerPlayer, UUID> handler) {
         progressSyncHandler = handler;
     }
 
-    // Platform-specific delivery-marker-clear implementation - sends the client an explicit
-    // SyncDeliveryTargetPacket(active=false) so the floating item icon disappears the instant the
-    // item's actually delivered, rather than lingering until the target next drops out of range.
+    // sends an explicit clear so the floating item icon disappears immediately instead of lingering until the target drops out of range
     private static java.util.function.BiConsumer<ServerPlayer, Entity> deliveryClearedHandler;
 
     public static void setDeliveryClearedHandler(java.util.function.BiConsumer<ServerPlayer, Entity> handler) {
         deliveryClearedHandler = handler;
     }
 
-    // Grants villager trading XP scaled by tier on quest completion; no-op for non-villager givers.
-    // setVillagerXp is a plain field setter - the level-up check (shouldIncreaseLevel/
-    // increaseMerchantCareer) is private and normally only runs off a deferred 40-tick trade
-    // timer, so VillagerXpAccessor replicates it here to apply immediately.
+    // setVillagerXp is a plain field setter - the level-up check is private and normally only runs off a deferred 40-tick trade timer, so VillagerXpAccessor replicates it here to apply immediately
     public static void grantVillagerTradeXp(Entity entity, int tier) {
         if (!(entity instanceof Villager villager)) return;
-        if (!QuestEntityAPIConfig.get().villager_trade_xp_enabled) return;
+        if (!QuestAPIConfig.get().villager_trade_xp_enabled) return;
 
-        int xpAmount = tier * QuestEntityAPIConfig.get().villager_trade_xp_per_tier;
+        int xpAmount = tier * QuestAPIConfig.get().villager_trade_xp_per_tier;
         villager.setVillagerXp(villager.getVillagerXp() + xpAmount);
 
         VillagerXpAccessor accessor = (VillagerXpAccessor) villager;
-        if (accessor.qe_api$shouldIncreaseLevel()) {
-            accessor.qe_api$increaseMerchantCareer();
+        if (accessor.quest_api$shouldIncreaseLevel()) {
+            accessor.quest_api$increaseMerchantCareer();
         }
 
-        QuestEntityAPI.LOGGER.debug("Granted {} trade XP (tier {}) to villager {}",
+        QuestAPI.LOGGER.debug("Granted {} trade XP (tier {}) to villager {}",
                 xpAmount, tier, villager.getUUID());
     }
 
-    private static final ResourceLocation DEFAULT_ACCEPT_SOUND = ResourceLocation.withDefaultNamespace("block.note_block.chime");
-    private static final ResourceLocation DEFAULT_FINISH_SOUND = ResourceLocation.withDefaultNamespace("entity.player.levelup");
-
-    // Sound id is resolved via a raw variable-range SoundEvent rather than a BuiltInRegistries
-    // lookup, so a resource-pack-only sound (no Java SoundEvent registration) works too - the
-    // same way vanilla's /playsound command plays an arbitrary id.
-    public static void playAcceptSound(ServerPlayer player, Quest quest) {
-        playQuestSound(player, quest.acceptQuestSoundOverride().orElse(DEFAULT_ACCEPT_SOUND));
+    // resolved via a raw variable-range SoundEvent, not a registry lookup, so a resource-pack-only sound with no Java registration still works
+    // priority lowest to highest: config default -> EntityQuestAssignment override -> the quest's own override; component may be null
+    public static void playAcceptSound(ServerPlayer player, Quest quest, EntityQuestComponent component) {
+        ResourceLocation configDefault = ResourceLocation.parse(QuestAPIConfig.get().accept_quest_sound);
+        Optional<ResourceLocation> assignmentOverride = component != null ? component.acceptQuestSoundOverride() : Optional.empty();
+        playQuestSound(player, quest.acceptQuestSoundOverride().or(() -> assignmentOverride).orElse(configDefault));
     }
 
-    public static void playClaimEffects(ServerPlayer player, Quest quest) {
-        playQuestSound(player, quest.finishQuestSoundOverride().orElse(DEFAULT_FINISH_SOUND));
+    public static void playClaimEffects(ServerPlayer player, Quest quest, EntityQuestComponent component) {
+        ResourceLocation configDefault = ResourceLocation.parse(QuestAPIConfig.get().finish_quest_sound);
+        Optional<ResourceLocation> assignmentOverride = component != null ? component.finishQuestSoundOverride() : Optional.empty();
+        playQuestSound(player, quest.finishQuestSoundOverride().or(() -> assignmentOverride).orElse(configDefault));
 
-        if (QuestEntityAPIConfig.get().finish_quest_fireworks_enabled) {
+        if (QuestAPIConfig.get().finish_quest_fireworks_enabled) {
             spawnClaimFirework(player);
         }
     }
@@ -124,13 +117,12 @@ public final class QuestEventHandler {
         fireworkStack.set(DataComponents.FIREWORKS, new Fireworks(0, explosions));
 
         FireworkRocketEntity firework = new FireworkRocketEntity(level, player.getX(), player.getY(), player.getZ(), fireworkStack);
+        // purely decorative - a real firework entity otherwise deals proximity explosion damage on detonation
+        com.qeapi.util.NoDamageFireworks.mark(firework);
         level.addFreshEntity(firework);
     }
 
-    // Grants a one-time treasure map for any find_structure/entity_kill task with provides_map
-    // set, from the player's current position. Call once, on accept. Never re-grants for the
-    // same quest+task, even across decline/re-accept - see PlayerQuestData.hasMapBeenGranted,
-    // which is deliberately not cleared with the rest of a player's per-entity progress.
+    // never re-grants for the same quest+task, even across decline/re-accept - hasMapBeenGranted is deliberately not cleared with the rest of a player's per-entity progress
     public static void grantStructureMapIfNeeded(ServerPlayer player, Quest quest) {
         ServerLevel level = player.serverLevel();
         PlayerQuestData playerData = QuestEntityAccess.getPlayerData(player);
@@ -145,9 +137,9 @@ public final class QuestEventHandler {
             if (task instanceof FindStructureTask findTask) {
                 structureId = findTask.structureId();
                 providesMap = findTask.providesMap();
-                maxDistance = findTask.maxDistance();
-            } else if (task instanceof EntityKillTask killTask && killTask.inStructure().isPresent()) {
-                structureId = killTask.inStructure().get();
+                maxDistance = findTask.filters().maxDistance();
+            } else if (task instanceof EntityKillTask killTask && killTask.filters().inStructure().isPresent()) {
+                structureId = killTask.filters().inStructure().get();
                 providesMap = killTask.providesMap();
             }
 
@@ -166,7 +158,7 @@ public final class QuestEventHandler {
             playerData.markMapGranted(taskKey);
             dataChanged = true;
 
-            QuestEntityAPI.LOGGER.debug("Granted structure map ({}) to player {} for quest {} task {}",
+            QuestAPI.LOGGER.debug("Granted structure map ({}) to player {} for quest {} task {}",
                     structureId, player.getName().getString(), quest.id(), i);
         }
 
@@ -178,11 +170,7 @@ public final class QuestEventHandler {
     // same 64-block radius entity_kill's nearby-quest-entity scan uses
     private static final double DELIVERY_TARGET_SEARCH_RADIUS = 64.0;
 
-    // Resolves deliver_item's target_entity_id/tag/ids selector to exactly one concrete entity -
-    // the nearest match around the giver's own position - and commits to it for the rest of this
-    // quest's lifetime. Call once, when the quest is accepted, same as grantStructureMapIfNeeded.
-    // Only the first deliver_item task in a quest gets resolved; a quest isn't expected to need more
-    // than one delivery target per giver.
+    // resolves to the nearest match and commits to it for the quest's lifetime; only the first deliver_item task in a quest gets resolved
     public static void resolveDeliveryTargetIfNeeded(ServerPlayer player, Entity giver, Quest quest) {
         if (!(giver.level() instanceof ServerLevel level)) return;
 
@@ -202,7 +190,7 @@ public final class QuestEventHandler {
             }
 
             if (nearest == null) {
-                QuestEntityAPI.LOGGER.warn("No deliver_item target found near {} for quest {}", giver.getUUID(), quest.id());
+                QuestAPI.LOGGER.warn("No deliver_item target found near {} for quest {}", giver.getUUID(), quest.id());
                 return;
             }
 
@@ -210,20 +198,18 @@ public final class QuestEventHandler {
             playerData.recordDeliveryTarget(giver.getUUID(), nearest.getUUID());
             QuestEntityAccess.setPlayerData(player, playerData);
 
-            // protect it the same way accepting a quest protects the giver - if it despawns
-            // mid-quest the player is stranded with nothing to deliver to
+            // protect it the same way accepting a quest protects the giver, or a mid-quest despawn strands the player
             if (nearest instanceof net.minecraft.world.entity.Mob mob) {
                 mob.setPersistenceRequired();
             }
 
-            QuestEntityAPI.LOGGER.debug("Resolved deliver_item target {} for player {} on quest {}",
+            QuestAPI.LOGGER.debug("Resolved deliver_item target {} for player {} on quest {}",
                     nearest.getUUID(), player.getName().getString(), quest.id());
             return;
         }
     }
 
-    // True if a valid deliver_item target already exists within range of the giver - used to gate a
-    // deliver quest from being offered when there's nothing nearby to deliver to (see the offering filter).
+    // gates a deliver quest from being offered when there's nothing nearby to deliver to
     public static boolean hasDeliveryTargetNearby(Entity giver, DeliverItemTask deliverTask) {
         if (!(giver.level() instanceof ServerLevel level)) return false;
         AABB searchBox = AABB.ofSize(giver.position(),
@@ -231,10 +217,7 @@ public final class QuestEventHandler {
         return !level.getEntities(giver, searchBox, deliverTask::matchesTargetSelector).isEmpty();
     }
 
-    // Checks whether targetEntity is the resolved deliver_item target for any of the player's active
-    // quests, and if so, whether they're currently holding enough of the required item - marks that
-    // task's progress complete on match. Returns true if a delivery happened, so callers can decide
-    // whether to consume/cancel the interaction.
+    // returns true if a delivery happened, so callers can decide whether to consume/cancel the interaction
     public static boolean tryDeliverItem(ServerPlayer player, Entity targetEntity) {
         UUID targetUuid = targetEntity.getUUID();
         PlayerQuestData playerData = QuestEntityAccess.getPlayerData(player);
@@ -254,6 +237,7 @@ public final class QuestEventHandler {
                 QuestTask task = quest.tasks().get(i);
                 if (!(task instanceof DeliverItemTask deliverTask)) continue;
                 if (progress.getTaskProgress(i) >= deliverTask.amount()) continue;
+                if (!quest.isTaskUnlocked(progress, i)) continue;
 
                 int have = deliverTask.countMatchingItems(player.getInventory().items);
                 if (have < deliverTask.amount()) continue;
@@ -271,9 +255,9 @@ public final class QuestEventHandler {
                 }
 
                 player.sendSystemMessage(net.minecraft.network.chat.Component.translatable(
-                        "message.qe_api.item_delivered", deliverTask.getItemDisplayName()));
+                        "message.quest_api.item_delivered", deliverTask.getItemDisplayName()));
 
-                QuestEntityAPI.LOGGER.debug("Player {} delivered {}x {} to {} for quest {}",
+                QuestAPI.LOGGER.debug("Player {} delivered {}x {} to {} for quest {}",
                         player.getName().getString(), deliverTask.amount(), deliverTask.getItemDisplayName(),
                         targetUuid, quest.id());
             }
@@ -282,59 +266,18 @@ public final class QuestEventHandler {
         return delivered;
     }
 
-    public static void onEntityKilled(LivingEntity killed, DamageSource source) {
-        if (!(source.getEntity() instanceof ServerPlayer player)) return;
-        if (killed.level().isClientSide) return;
-
-        PlayerQuestData playerData = QuestEntityAccess.getPlayerData(player);
-
-        for (Map.Entry<UUID, QuestProgress> entry : playerData.getAllProgress().entrySet()) {
-            UUID entityUuid = entry.getKey();
-            QuestProgress progress = entry.getValue();
-
-            Optional<Quest> questOpt = QuestManager.getQuest(progress.getQuestId());
-            if (questOpt.isEmpty()) continue;
-
-            Quest quest = questOpt.get();
-            boolean updated = false;
-
-            for (int i = 0; i < quest.tasks().size(); i++) {
-                QuestTask task = quest.tasks().get(i);
-                if (task instanceof EntityKillTask killTask) {
-                    if (killTask.matches(killed, source, killed.level(), player)) {
-                        progress.incrementTaskProgress(i);
-                        updated = true;
-
-                        QuestEntityAPI.LOGGER.debug("Player {} killed {} for quest task ({}/{})",
-                                player.getName().getString(),
-                                BuiltInRegistries.ENTITY_TYPE.getKey(killed.getType()),
-                                progress.getTaskProgress(i),
-                                killTask.amount());
-                    }
-                }
-            }
-
-            if (updated) {
-                QuestEntityAccess.setPlayerData(player, playerData);
-                updateEntityComponent(player, entityUuid, progress);
-                syncProgressToClient(player, entityUuid, progress);
-                checkQuestCompletion(player, entityUuid, quest, progress);
-            }
-        }
-    }
-
-    public static void onPlayerMove(ServerPlayer player, Vec3 from, Vec3 to, double accumulatedDistance) {
+public static void onPlayerMove(ServerPlayer player, Vec3 from, Vec3 to, double accumulatedDistance) {
         if (accumulatedDistance < 0.01) return;
 
         PlayerQuestData playerData = QuestEntityAccess.getPlayerData(player);
         boolean anyUpdated = false;
 
         if (playerData.getAllProgress().isEmpty()) {
-            QuestEntityAPI.LOGGER.debug("Player {} has no active quests for movement tracking", player.getName().getString());
+            QuestAPI.LOGGER.debug("Player {} has no active quests for movement tracking", player.getName().getString());
             return;
         }
 
-        QuestEntityAPI.LOGGER.debug("Player {} has {} active quest(s), checking for BlocksTraveledTask",
+        QuestAPI.LOGGER.debug("Player {} has {} active quest(s), checking for BlocksTraveledTask",
                 player.getName().getString(), playerData.getAllProgress().size());
 
         for (Map.Entry<UUID, QuestProgress> entry : playerData.getAllProgress().entrySet()) {
@@ -349,12 +292,12 @@ public final class QuestEventHandler {
 
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
-                if (task instanceof BlocksTraveledTask) {
+                if (task instanceof BlocksTraveledTask && quest.isTaskUnlocked(progress, i)) {
                     int previousProgress = progress.getTaskProgress(i);
                     progress.addTaskProgress(i, (int) Math.floor(accumulatedDistance));
                     updated = true;
 
-                    QuestEntityAPI.LOGGER.debug("Player {} traveled {} blocks for quest task ({}/{})",
+                    QuestAPI.LOGGER.debug("Player {} traveled {} blocks for quest task ({}/{})",
                             player.getName().getString(),
                             (int) Math.floor(accumulatedDistance),
                             progress.getTaskProgress(i),
@@ -402,11 +345,11 @@ public final class QuestEventHandler {
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof ItemUsedTask useTask) {
-                    if (useTask.matches(stack)) {
+                    if (useTask.matches(stack) && quest.isTaskUnlocked(progress, i)) {
                         progress.incrementTaskProgress(i);
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} used {} for quest task ({}/{})",
+                        QuestAPI.LOGGER.debug("Player {} used {} for quest task ({}/{})",
                                 player.getName().getString(),
                                 BuiltInRegistries.ITEM.getKey(stack.getItem()),
                                 progress.getTaskProgress(i),
@@ -440,11 +383,11 @@ public final class QuestEventHandler {
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof SpellCastTask castTask) {
-                    if (castTask.matches(player.serverLevel(), spellId)) {
+                    if (castTask.matches(player.serverLevel(), spellId) && quest.isTaskUnlocked(progress, i)) {
                         progress.incrementTaskProgress(i);
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} cast spell {} for quest task ({}/{})",
+                        QuestAPI.LOGGER.debug("Player {} cast spell {} for quest task ({}/{})",
                                 player.getName().getString(), spellId,
                                 progress.getTaskProgress(i), castTask.amount());
                     }
@@ -478,11 +421,11 @@ public final class QuestEventHandler {
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof BrewPotionTask brewTask) {
-                    if (brewTask.matches(potionStack)) {
+                    if (brewTask.matches(potionStack) && quest.isTaskUnlocked(progress, i)) {
                         progress.incrementTaskProgress(i);
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} brewed a potion for quest task ({}/{})",
+                        QuestAPI.LOGGER.debug("Player {} brewed a potion for quest task ({}/{})",
                                 player.getName().getString(),
                                 progress.getTaskProgress(i),
                                 brewTask.amount());
@@ -515,21 +458,21 @@ public final class QuestEventHandler {
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof MineBlockTask mineTask) {
-                    if (mineTask.matches(minedState)) {
+                    if (mineTask.matches(minedState) && quest.isTaskUnlocked(progress, i)) {
                         progress.incrementTaskProgress(i);
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} mined {} for quest task ({}/{})",
+                        QuestAPI.LOGGER.debug("Player {} mined {} for quest task ({}/{})",
                                 player.getName().getString(),
                                 BuiltInRegistries.BLOCK.getKey(minedState.getBlock()),
                                 progress.getTaskProgress(i), mineTask.amount());
                     }
                 } else if (task instanceof HarvestCropsTask harvestTask) {
-                    if (harvestTask.matches(minedState)) {
+                    if (harvestTask.matches(minedState) && quest.isTaskUnlocked(progress, i)) {
                         progress.incrementTaskProgress(i);
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} harvested {} for quest task ({}/{})",
+                        QuestAPI.LOGGER.debug("Player {} harvested {} for quest task ({}/{})",
                                 player.getName().getString(),
                                 BuiltInRegistries.BLOCK.getKey(minedState.getBlock()),
                                 progress.getTaskProgress(i), harvestTask.amount());
@@ -565,11 +508,11 @@ public final class QuestEventHandler {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof FishingTask fishingTask) {
                     for (ItemStack caught : caughtItems) {
-                        if (fishingTask.matches(caught)) {
+                        if (fishingTask.matches(caught) && quest.isTaskUnlocked(progress, i)) {
                             progress.incrementTaskProgress(i);
                             updated = true;
 
-                            QuestEntityAPI.LOGGER.debug("Player {} caught {} for quest task ({}/{})",
+                            QuestAPI.LOGGER.debug("Player {} caught {} for quest task ({}/{})",
                                     player.getName().getString(),
                                     BuiltInRegistries.ITEM.getKey(caught.getItem()),
                                     progress.getTaskProgress(i), fishingTask.amount());
@@ -605,11 +548,11 @@ public final class QuestEventHandler {
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof AnvilTask anvilTask) {
-                    if (anvilTask.matches(before, after)) {
+                    if (anvilTask.matches(before, after) && quest.isTaskUnlocked(progress, i)) {
                         progress.incrementTaskProgress(i);
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} repaired {} at an anvil for quest task ({}/{})",
+                        QuestAPI.LOGGER.debug("Player {} repaired {} at an anvil for quest task ({}/{})",
                                 player.getName().getString(),
                                 BuiltInRegistries.ITEM.getKey(after.getItem()),
                                 progress.getTaskProgress(i), anvilTask.amount());
@@ -644,11 +587,11 @@ public final class QuestEventHandler {
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof SmithingTask smithingTask) {
-                    if (smithingTask.matches(result)) {
+                    if (smithingTask.matches(result) && quest.isTaskUnlocked(progress, i)) {
                         progress.incrementTaskProgress(i);
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} smithed {} for quest task ({}/{})",
+                        QuestAPI.LOGGER.debug("Player {} smithed {} for quest task ({}/{})",
                                 player.getName().getString(),
                                 BuiltInRegistries.ITEM.getKey(result.getItem()),
                                 progress.getTaskProgress(i), smithingTask.amount());
@@ -683,11 +626,11 @@ public final class QuestEventHandler {
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof CraftingTask craftingTask) {
-                    if (craftingTask.matches(result)) {
+                    if (craftingTask.matches(result) && quest.isTaskUnlocked(progress, i)) {
                         progress.incrementTaskProgress(i);
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} crafted {} for quest task ({}/{})",
+                        QuestAPI.LOGGER.debug("Player {} crafted {} for quest task ({}/{})",
                                 player.getName().getString(),
                                 BuiltInRegistries.ITEM.getKey(result.getItem()),
                                 progress.getTaskProgress(i), craftingTask.amount());
@@ -722,11 +665,11 @@ public final class QuestEventHandler {
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof EnchantingTask enchantingTask) {
-                    if (enchantingTask.matches(player.serverLevel(), enchantedItem)) {
+                    if (enchantingTask.matches(player.serverLevel(), enchantedItem) && quest.isTaskUnlocked(progress, i)) {
                         progress.incrementTaskProgress(i);
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} enchanted {} for quest task ({}/{})",
+                        QuestAPI.LOGGER.debug("Player {} enchanted {} for quest task ({}/{})",
                                 player.getName().getString(),
                                 BuiltInRegistries.ITEM.getKey(enchantedItem.getItem()),
                                 progress.getTaskProgress(i), enchantingTask.amount());
@@ -743,8 +686,7 @@ public final class QuestEventHandler {
         }
     }
 
-    // Spell Engine integration - fires for every individual spell bind, and also progresses
-    // SpellPoolCompleteTask when this particular bind is the one that completed the pool
+    // Spell Engine integration - fires for every bind, and also progresses SpellPoolCompleteTask when this bind completed the pool
     public static void onSpellBound(ServerPlayer player, ResourceLocation spellPoolId, boolean isComplete) {
         PlayerQuestData playerData = QuestEntityAccess.getPlayerData(player);
 
@@ -761,20 +703,20 @@ public final class QuestEventHandler {
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof SpellBindTask spellBindTask) {
-                    if (spellBindTask.matches(spellPoolId)) {
+                    if (spellBindTask.matches(spellPoolId) && quest.isTaskUnlocked(progress, i)) {
                         progress.incrementTaskProgress(i);
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} bound a spell (pool {}) for quest task ({}/{})",
+                        QuestAPI.LOGGER.debug("Player {} bound a spell (pool {}) for quest task ({}/{})",
                                 player.getName().getString(), spellPoolId,
                                 progress.getTaskProgress(i), spellBindTask.amount());
                     }
                 } else if (isComplete && task instanceof SpellPoolCompleteTask poolCompleteTask) {
-                    if (poolCompleteTask.matches(spellPoolId)) {
+                    if (poolCompleteTask.matches(spellPoolId) && quest.isTaskUnlocked(progress, i)) {
                         progress.incrementTaskProgress(i);
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} completed spell pool {} for quest task ({}/{})",
+                        QuestAPI.LOGGER.debug("Player {} completed spell pool {} for quest task ({}/{})",
                                 player.getName().getString(), spellPoolId,
                                 progress.getTaskProgress(i), poolCompleteTask.amount());
                     }
@@ -790,8 +732,7 @@ public final class QuestEventHandler {
         }
     }
 
-    // Spell Engine integration - fires when a pre-made spellbook is created directly for a pool,
-    // the other path (besides onSpellBound's isComplete flag) that ends with a fully bound book
+    // fires when a pre-made spellbook is created directly - the other path, besides onSpellBound's isComplete flag, that ends with a fully bound book
     public static void onSpellPoolCompleted(ServerPlayer player, ResourceLocation spellPoolId) {
         PlayerQuestData playerData = QuestEntityAccess.getPlayerData(player);
 
@@ -808,11 +749,11 @@ public final class QuestEventHandler {
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof SpellPoolCompleteTask poolCompleteTask) {
-                    if (poolCompleteTask.matches(spellPoolId)) {
+                    if (poolCompleteTask.matches(spellPoolId) && quest.isTaskUnlocked(progress, i)) {
                         progress.incrementTaskProgress(i);
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} created a spellbook for pool {} for quest task ({}/{})",
+                        QuestAPI.LOGGER.debug("Player {} created a spellbook for pool {} for quest task ({}/{})",
                                 player.getName().getString(), spellPoolId,
                                 progress.getTaskProgress(i), poolCompleteTask.amount());
                     }
@@ -845,11 +786,12 @@ public final class QuestEventHandler {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof FindStructureTask findTask) {
                     if (findTask.structureId().equals(structureId)
-                            && findTask.matchesPowerLevel(player.serverLevel(), player.blockPosition())) {
+                            && findTask.matchesPowerLevel(player.serverLevel(), player.blockPosition())
+                            && quest.isTaskUnlocked(progress, i)) {
                         progress.setTaskProgress(i, 1);
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} found structure {} for quest task",
+                        QuestAPI.LOGGER.debug("Player {} found structure {} for quest task",
                                 player.getName().getString(), structureId);
                     }
                 }
@@ -884,11 +826,12 @@ public final class QuestEventHandler {
 
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
-                if (task instanceof ApplyStatusEffectTask effectTask && effectTask.matches(instance, isSelf)) {
+                if (task instanceof ApplyStatusEffectTask effectTask && effectTask.matches(instance, isSelf)
+                        && quest.isTaskUnlocked(progress, i)) {
                     progress.incrementTaskProgress(i);
                     updated = true;
 
-                    QuestEntityAPI.LOGGER.debug("Player {} applied effect {} for quest task ({}/{})",
+                    QuestAPI.LOGGER.debug("Player {} applied effect {} for quest task ({}/{})",
                             player.getName().getString(), BuiltInRegistries.MOB_EFFECT.getKey(instance.getEffect().value()),
                             progress.getTaskProgress(i), effectTask.amount());
                 }
@@ -931,11 +874,12 @@ public final class QuestEventHandler {
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof DealDamageAmountTask damageTask
-                        && damageTask.matches(target, source, level, player)) {
+                        && damageTask.matches(target, source, level, player)
+                        && quest.isTaskUnlocked(progress, i)) {
                     progress.addTaskProgress(i, Math.round(amount));
                     updated = true;
 
-                    QuestEntityAPI.LOGGER.debug("Player {} dealt {} damage for quest task ({}/{})",
+                    QuestAPI.LOGGER.debug("Player {} dealt {} damage for quest task ({}/{})",
                             player.getName().getString(), amount, progress.getTaskProgress(i), damageTask.getTargetAmount());
                 }
             }
@@ -949,8 +893,7 @@ public final class QuestEventHandler {
         }
     }
 
-    // same "nearby player" radius convention onRaidComplete/onTrialSpawnerComplete use for
-    // crediting without a direct source entity
+    // same "nearby player" radius convention onRaidComplete/onTrialSpawnerComplete use for crediting without a direct source entity
     private static final double HEAL_ATTRIBUTION_RANGE = 32.0;
 
     public static void onEntityHealed(LivingEntity healed, float amount) {
@@ -992,11 +935,12 @@ public final class QuestEventHandler {
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
                 if (task instanceof DoHealingAmountTask healTask
-                        && healTask.matches(healed, isSelf, castSpellId, level)) {
+                        && healTask.matches(healed, isSelf, castSpellId, level)
+                        && quest.isTaskUnlocked(progress, i)) {
                     progress.addTaskProgress(i, Math.round(amount));
                     updated = true;
 
-                    QuestEntityAPI.LOGGER.debug("Player {} healed {} for quest task ({}/{})",
+                    QuestAPI.LOGGER.debug("Player {} healed {} for quest task ({}/{})",
                             player.getName().getString(), amount, progress.getTaskProgress(i), healTask.getTargetAmount());
                 }
             }
@@ -1027,14 +971,14 @@ public final class QuestEventHandler {
 
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
-                if (task instanceof VisitBiomeTask visitTask) {
+                if (task instanceof VisitBiomeTask visitTask && quest.isTaskUnlocked(progress, i)) {
                     Optional<ResourceLocation> matched = visitTask.matchedBiomeAt(level, pos);
                     if (matched.isPresent() && playerData.recordVisitedBiome(entityUuid, i, matched.get())) {
                         int distinctCount = playerData.getVisitedBiomes(entityUuid, i).size();
                         progress.setTaskProgress(i, Math.min(distinctCount, visitTask.amount()));
                         updated = true;
 
-                        QuestEntityAPI.LOGGER.debug("Player {} visited new biome {} for quest task ({}/{})",
+                        QuestAPI.LOGGER.debug("Player {} visited new biome {} for quest task ({}/{})",
                                 player.getName().getString(), matched.get(), distinctCount, visitTask.amount());
                     }
                 }
@@ -1066,21 +1010,19 @@ public final class QuestEventHandler {
                 QuestEntityAccess.setPlayerData(player, playerData);
 
                 player.sendSystemMessage(
-                        net.minecraft.network.chat.Component.translatable("message.qe_api.quest_cancelled")
+                        net.minecraft.network.chat.Component.translatable("message.quest_api.quest_cancelled")
                 );
 
-                QuestEntityAPI.LOGGER.info("Quest cancelled for player {} (entity {} removed)",
+                QuestAPI.LOGGER.info("Quest cancelled for player {} (entity {} removed)",
                         player.getName().getString(), entityUuid);
             }
         }
     }
 
-    // same ~32-block radius already used elsewhere in this file/the loader classes for
-    // "nearby player" crediting (team kill-sharing, environmental kills, proximity sync)
+    // same ~32-block radius already used elsewhere for "nearby player" crediting (team kill-sharing, environmental kills, proximity sync)
     private static final double RAID_TRIAL_CREDIT_RANGE = 32.0;
 
-    // a raid has no single "killer" to credit, so every online player near its center with a
-    // matching active quest gets progress - see RaidTickMixin
+    // a raid has no single "killer" to credit, so every online player near its center with a matching active quest gets progress
     public static void onRaidComplete(ServerLevel level, net.minecraft.core.BlockPos center, int raidLevel) {
         AABB searchBox = AABB.ofSize(net.minecraft.world.phys.Vec3.atCenterOf(center),
                 RAID_TRIAL_CREDIT_RANGE * 2, RAID_TRIAL_CREDIT_RANGE * 2, RAID_TRIAL_CREDIT_RANGE * 2);
@@ -1104,11 +1046,12 @@ public final class QuestEventHandler {
 
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
-                if (task instanceof RaidCompleteTask raidTask && raidTask.matches(raidLevel)) {
+                if (task instanceof RaidCompleteTask raidTask && raidTask.matches(raidLevel)
+                        && quest.isTaskUnlocked(progress, i)) {
                     progress.incrementTaskProgress(i);
                     updated = true;
 
-                    QuestEntityAPI.LOGGER.debug("Player {} credited for raid completion (level {}) for quest task ({}/{})",
+                    QuestAPI.LOGGER.debug("Player {} credited for raid completion (level {}) for quest task ({}/{})",
                             player.getName().getString(), raidLevel, progress.getTaskProgress(i), raidTask.amount());
                 }
             }
@@ -1122,8 +1065,20 @@ public final class QuestEventHandler {
         }
     }
 
+    // vanilla ejects one reward per detected player (~30 ticks apart), so without dedup N players clearing one spawner together would each get credited N times
+    private static final Map<String, Long> lastTrialSpawnerCredit = new HashMap<>();
+    private static final long TRIAL_SPAWNER_CREDIT_WINDOW_TICKS = 400; // >> vanilla's 30-tick ejection gap, << a spawner's re-arm time
+
     // same "no single killer" crediting convention as onRaidComplete, radius centered on the spawner block
     public static void onTrialSpawnerComplete(ServerLevel level, net.minecraft.core.BlockPos pos, boolean isOminous) {
+        String key = level.dimension().location() + "@" + pos;
+        long now = level.getGameTime();
+        Long last = lastTrialSpawnerCredit.get(key);
+        if (last != null && now - last < TRIAL_SPAWNER_CREDIT_WINDOW_TICKS) {
+            return;
+        }
+        lastTrialSpawnerCredit.put(key, now);
+
         AABB searchBox = AABB.ofSize(net.minecraft.world.phys.Vec3.atCenterOf(pos),
                 RAID_TRIAL_CREDIT_RANGE * 2, RAID_TRIAL_CREDIT_RANGE * 2, RAID_TRIAL_CREDIT_RANGE * 2);
         for (ServerPlayer player : level.getEntitiesOfClass(ServerPlayer.class, searchBox)) {
@@ -1146,11 +1101,12 @@ public final class QuestEventHandler {
 
             for (int i = 0; i < quest.tasks().size(); i++) {
                 QuestTask task = quest.tasks().get(i);
-                if (task instanceof TrialSpawnerCompleteTask trialTask && trialTask.matches(isOminous)) {
+                if (task instanceof TrialSpawnerCompleteTask trialTask && trialTask.matches(isOminous)
+                        && quest.isTaskUnlocked(progress, i)) {
                     progress.incrementTaskProgress(i);
                     updated = true;
 
-                    QuestEntityAPI.LOGGER.debug("Player {} credited for trial spawner completion (ominous={}) for quest task ({}/{})",
+                    QuestAPI.LOGGER.debug("Player {} credited for trial spawner completion (ominous={}) for quest task ({}/{})",
                             player.getName().getString(), isOminous, progress.getTaskProgress(i), trialTask.amount());
                 }
             }
@@ -1167,57 +1123,71 @@ public final class QuestEventHandler {
     public static void checkQuestCompletion(ServerPlayer player, UUID entityUuid,
                                               Quest quest, QuestProgress progress) {
         if (quest.isComplete(progress)) {
-            player.sendSystemMessage(
-                    net.minecraft.network.chat.Component.translatable(
-                            "message.qe_api.quest_complete",
-                            quest.getDisplayName()
-                    )
-            );
-            QuestEntityAPI.LOGGER.debug("Player {} completed quest {}",
+            Entity questEntity = resolveQuestEntity(player, entityUuid);
+            String entityName = com.qeapi.util.EntityNameResolver.resolve(questEntity);
+            sendHudMessage(player, net.minecraft.network.chat.Component.translatable(
+                    "hud.quest_api.all_tasks_completed", quest.getDisplayName(), entityName));
+
+            QuestAPI.LOGGER.debug("Player {} completed quest {}",
                     player.getName().getString(), quest.id());
         }
     }
 
-    public static void updateEntityComponent(ServerPlayer player, UUID entityUuid, QuestProgress progress) {
+    // nearby search first (cheap, covers most calls), falling back to every loaded entity for one that wandered off; null if unloaded
+    private static Entity resolveQuestEntity(ServerPlayer player, UUID entityUuid) {
         ServerLevel level = player.serverLevel();
 
         AABB searchBox = player.getBoundingBox().inflate(128.0);
         List<Entity> entities = level.getEntities(player, searchBox, entity ->
                 entity.getUUID().equals(entityUuid)
         );
-
-        if (entities.isEmpty()) {
-            // fallback: search all loaded entities, not just nearby ones
-            Entity entity = null;
-            for (Entity e : level.getAllEntities()) {
-                if (e.getUUID().equals(entityUuid)) {
-                    entity = e;
-                    break;
-                }
-            }
-            if (entity == null) {
-                QuestEntityAPI.LOGGER.warn("Quest entity {} not found for progress update - entity may be unloaded", entityUuid);
-                return;
-            }
-            entities = List.of(entity);
+        if (!entities.isEmpty()) {
+            return entities.get(0);
         }
 
-        Entity questEntity = entities.get(0);
+        for (Entity e : level.getAllEntities()) {
+            if (e.getUUID().equals(entityUuid)) {
+                return e;
+            }
+        }
+        return null;
+    }
+
+    // set once at platform init, same pattern as progressSyncHandler/deliveryClearedHandler
+    private static BiConsumer<ServerPlayer, net.minecraft.network.chat.Component> hudMessageHandler;
+
+    public static void setHudMessageHandler(BiConsumer<ServerPlayer, net.minecraft.network.chat.Component> handler) {
+        hudMessageHandler = handler;
+    }
+
+    public static void sendHudMessage(ServerPlayer player, net.minecraft.network.chat.Component message) {
+        if (hudMessageHandler != null) {
+            hudMessageHandler.accept(player, message);
+        }
+    }
+
+    public static void updateEntityComponent(ServerPlayer player, UUID entityUuid, QuestProgress progress) {
+        Entity questEntity = resolveQuestEntity(player, entityUuid);
+        if (questEntity == null) {
+            QuestAPI.LOGGER.warn("Quest entity {} not found for progress update - entity may be unloaded", entityUuid);
+            return;
+        }
+
         EntityQuestComponent component = QuestEntityAccess.getEntityQuestComponent(questEntity);
         if (component == null) {
-            QuestEntityAPI.LOGGER.warn("Entity {} has no quest component attached", entityUuid);
+            QuestAPI.LOGGER.warn("Entity {} has no quest component attached", entityUuid);
             return;
         }
 
         if (!component.hasActiveQuest(player.getUUID())) {
-            QuestEntityAPI.LOGGER.warn("Entity {} has no active quest for player {}", entityUuid, player.getName().getString());
+            QuestAPI.LOGGER.warn("Entity {} has no active quest for player {}", entityUuid, player.getName().getString());
             return;
         }
 
         EntityQuestComponent updated = component.withUpdatedProgress(player.getUUID(), progress);
         QuestEntityAccess.setEntityQuestComponent(questEntity, updated);
 
-        QuestEntityAPI.LOGGER.debug("Updated entity {} quest component - task progress: {}",
+        QuestAPI.LOGGER.debug("Updated entity {} quest component - task progress: {}",
                 entityUuid, progress.getAllTaskProgress());
     }
 

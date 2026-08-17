@@ -1,0 +1,91 @@
+{
+  "id": "quest_api:spell_engine_trials/test",
+  "required_mod": "spell_engine",
+  "rewards": [
+    {
+      "pool": "wizards:spell_scroll/frost",
+      "reward": "spell_engine:spell_scroll",
+      "tier_max": 3
+    },
+    {
+      "reward": "spell_engine:spell_bind",
+      "spell_id": "wizards:fireball"
+    },
+    {
+      "amount": 300,
+      "reward": "quest_api:experience"
+    }
+  ],
+  "tasks": [
+    {
+      "amount": 5,
+      "spell_schools": [
+        "spell_power:arcane"
+      ],
+      "task": "spell_engine:spell_cast"
+    },
+    {
+      "amount": 2,
+      "task": "spell_engine:spell_bind"
+    },
+    {
+      "spell_pool": "wizards:spell_book/frost",
+      "task": "spell_engine:spell_pool_complete"
+    },
+    {
+      "amount": 2,
+      "entity_ids": [
+        "minecraft:zombie"
+      ],
+      "filters": {
+        "in_spell_ids": [
+          "wizards:fireball"
+        ]
+      },
+      "task": "quest_api:entity_kill"
+    },
+    {
+      "amount": 2,
+      "entity_ids": [
+        "minecraft:zombie"
+      ],
+      "filters": {
+        "in_spell_pools": [
+          "wizards:spell_book/frost"
+        ]
+      },
+      "task": "quest_api:entity_kill"
+    },
+    {
+      "amount": 2,
+      "entity_ids": [
+        "minecraft:zombie"
+      ],
+      "filters": {
+        "in_spell_schools": [
+          "spell_power:arcane"
+        ]
+      },
+      "task": "quest_api:entity_kill"
+    },
+    {
+      "amount": 50.0,
+      "filters": {
+        "in_spell_ids": [
+          "wizards:fireball"
+        ]
+      },
+      "task": "quest_api:deal_damage_amount"
+    },
+    {
+      "amount": 30.0,
+      "filters": {
+        "in_spell_pools": [
+          "wizards:spell_book/frost"
+        ]
+      },
+      "task": "quest_api:do_healing_amount"
+    }
+  ],
+  "tier": 1
+}

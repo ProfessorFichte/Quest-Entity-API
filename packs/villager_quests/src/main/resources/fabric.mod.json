@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "villager_quests",
+  "version": "1.0.0",
+  "name": "Villager Quests (datagen only)",
+  "description": "Not a real mod - this exists only so Loom's runDatagen can generate the villager_quests content pack. Never distributed.",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.qeapi.packs.villagerquests.VillagerQuestsInitializer"
+    ],
+    "fabric-datagen": [
+      "com.qeapi.packs.villagerquests.VillagerQuestsDataGenerator"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.4",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

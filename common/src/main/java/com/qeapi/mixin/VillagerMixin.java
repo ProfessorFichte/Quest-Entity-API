@@ -14,18 +14,17 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-// Allows villagers with quest components to provide quests. The quest button is added to the
-// MerchantScreen instead of intercepting interaction.
+// The quest button is added to the MerchantScreen instead of intercepting interaction here.
 @Mixin(Villager.class)
 public abstract class VillagerMixin {
 
-    public boolean qe_api$hasQuests() {
+    public boolean quest_api$hasQuests() {
         Villager self = (Villager) (Object) this;
         EntityQuestComponent component = QuestEntityAccess.getEntityQuestComponent(self);
         return component != null;
     }
 
-    public ResourceLocation qe_api$getQuestPoolId() {
+    public ResourceLocation quest_api$getQuestPoolId() {
         Villager self = (Villager) (Object) this;
         EntityQuestComponent component = QuestEntityAccess.getEntityQuestComponent(self);
         return component != null ? component.questPoolId() : null;

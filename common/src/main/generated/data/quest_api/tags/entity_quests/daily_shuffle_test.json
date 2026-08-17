@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "quest_api:daily_shuffle_test/gather_wood",
+    "quest_api:daily_shuffle_test/gather_stone",
+    "quest_api:daily_shuffle_test/bring_apples"
+  ]
+}

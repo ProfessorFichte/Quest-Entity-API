@@ -1,6 +1,6 @@
 package com.qeapi.util;
 
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.core.Holder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.BlockPos;
@@ -15,8 +15,7 @@ import net.minecraft.world.level.levelgen.structure.StructureStart;
 
 import java.util.Optional;
 
-// Shared biome/structure location-matching helpers, used by both EntityKillTask and
-// ConditionalDropTask's mob-drop targeting.
+// shared biome/structure location-matching helpers, used by both EntityKillTask and ConditionalDropTask's mob-drop targeting
 public final class LocationMatchUtil {
 
     private LocationMatchUtil() {}
@@ -42,7 +41,7 @@ public final class LocationMatchUtil {
 
         Structure targetStructure = structureRegistry.get(structureId);
         if (targetStructure == null) {
-            QuestEntityAPI.LOGGER.warn("Structure {} not found in registry", structureId);
+            QuestAPI.LOGGER.warn("Structure {} not found in registry", structureId);
             return false;
         }
 

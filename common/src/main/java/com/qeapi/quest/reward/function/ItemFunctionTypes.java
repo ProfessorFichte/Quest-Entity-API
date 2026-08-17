@@ -2,7 +2,7 @@ package com.qeapi.quest.reward.function;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.HashMap;
@@ -14,12 +14,12 @@ public final class ItemFunctionTypes {
     private static final Map<ResourceLocation, MapCodec<? extends ItemFunction>> CODECS = new HashMap<>();
 
     static {
-        register(QuestEntityAPI.id("set_components"), SetComponentsFunction.CODEC);
-        register(QuestEntityAPI.id("set_enchantments"), SetEnchantmentsFunction.CODEC);
-        register(QuestEntityAPI.id("set_count"), SetCountFunction.CODEC);
-        register(QuestEntityAPI.id("set_name"), SetNameFunction.CODEC);
-        register(QuestEntityAPI.id("set_lore"), SetLoreFunction.CODEC);
-        register(QuestEntityAPI.id("set_power_level"), SetPowerLevelFunction.CODEC);
+        register(QuestAPI.id("set_components"), SetComponentsFunction.CODEC);
+        register(QuestAPI.id("set_enchantments"), SetEnchantmentsFunction.CODEC);
+        register(QuestAPI.id("set_count"), SetCountFunction.CODEC);
+        register(QuestAPI.id("set_name"), SetNameFunction.CODEC);
+        register(QuestAPI.id("set_lore"), SetLoreFunction.CODEC);
+        register(QuestAPI.id("set_power_level"), SetPowerLevelFunction.CODEC);
     }
 
     private ItemFunctionTypes() {}

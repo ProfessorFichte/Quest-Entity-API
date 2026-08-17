@@ -12,14 +12,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.Collection;
 
-// Tracks fishing catches for FishingTask by piggybacking on the same trigger vanilla uses for its
-// own "Fishy Business" advancement - fires with an empty items collection when the catch was just
-// a hooked entity/junk with no loot, and with the actual rewarded stacks otherwise.
+// Tracks fishing catches for FishingTask via vanilla's "Fishy Business" trigger - fires with an
+// empty items collection for hooked junk/entities with no loot, actual stacks otherwise.
 @Mixin(FishingRodHookedTrigger.class)
 public abstract class FishingRodHookedTriggerMixin {
 
     @Inject(method = "trigger", at = @At("TAIL"))
-    private void qe_api$onFishingRodHooked(ServerPlayer player, ItemStack rod, FishingHook hookEntity,
+    private void quest_api$onFishingRodHooked(ServerPlayer player, ItemStack rod, FishingHook hookEntity,
                                             Collection<ItemStack> items, CallbackInfo ci) {
         QuestEventHandler.onFishCaught(player, items);
     }

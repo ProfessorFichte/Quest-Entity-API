@@ -3,7 +3,7 @@ package com.qeapi.quest.task;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.item.QuestItemDefinition;
 import com.qeapi.quest.QuestProgress;
 import com.qeapi.util.TextMutator;
@@ -17,13 +17,14 @@ import net.minecraft.world.item.ItemStack;
 import java.util.Map;
 import java.util.Optional;
 
-// consumed when the quest reward is claimed. Exactly one of itemId/questItem is set - itemId for
-// any registered item, questItem for an inline quest-only item (see QuestItemDefinition)
+// exactly one of itemId/questItem is set - itemId for any registered item, questItem for an inline quest-only item (see QuestItemDefinition)
 public record BringItemTask(
         Optional<ResourceLocation> itemId,
         Optional<QuestItemDefinition> questItem,
         int amount,
         Optional<ResourceLocation> hasComponent,
+        Optional<Integer> taskOrder,
+        Optional<String> choiceGroup,
         Optional<ResourceLocation> textureOverrideId
 ) implements QuestTask {
 
@@ -33,13 +34,15 @@ public record BringItemTask(
                     QuestItemDefinition.CODEC.optionalFieldOf("quest_item").forGetter(BringItemTask::questItem),
                     Codec.INT.optionalFieldOf("amount", 1).forGetter(BringItemTask::amount),
                     ResourceLocation.CODEC.optionalFieldOf("has_component").forGetter(BringItemTask::hasComponent),
+                    Codec.INT.optionalFieldOf("task_order").forGetter(BringItemTask::taskOrder),
+                    Codec.STRING.optionalFieldOf("choice_group").forGetter(BringItemTask::choiceGroup),
                     ResourceLocation.CODEC.optionalFieldOf("texture_override_id").forGetter(BringItemTask::textureOverrideId)
             ).apply(instance, BringItemTask::new)
     );
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("bring_item");
+        return QuestAPI.id("bring_item");
     }
 
     @Override
@@ -61,8 +64,6 @@ public record BringItemTask(
         return questItem.map(def -> def.name().getString()).orElse("item");
     }
 
-    // either the real registered item, or the inline quest item's synthesized stack (shared base
-    // item + its own components)
     public ItemStack getDisplayStack() {
         if (questItem.isPresent()) {
             return questItem.get().createStack(1);
@@ -72,12 +73,10 @@ public record BringItemTask(
 
     @Override
     public String getDefaultTranslationKey() {
-        return "task.qe_api.bring_item";
+        return "task.quest_api.bring_item";
     }
 
-    // Progress for this task is computed directly from inventory contents when claiming
-    // rewards (see NeoForgeNetworking/FabricNetworking's BringItemTask handling), rather
-    // than incrementally tracked like other tasks - isComplete's default still applies.
+    // unlike other tasks, progress is computed from inventory contents at claim time (see NeoForgeNetworking/FabricNetworking), not tracked incrementally
     @Override
     public int getTargetAmount() {
         return amount;
@@ -124,6 +123,8 @@ public record BringItemTask(
         private Optional<QuestItemDefinition> questItem = Optional.empty();
         private int amount = 1;
         private Optional<ResourceLocation> hasComponent = Optional.empty();
+        private Optional<Integer> taskOrder = Optional.empty();
+        private Optional<String> choiceGroup = Optional.empty();
         private Optional<ResourceLocation> textureOverrideId = Optional.empty();
 
         public Builder itemId(ResourceLocation id) {
@@ -154,6 +155,16 @@ public record BringItemTask(
             return this;
         }
 
+        public Builder taskOrder(int order) {
+            this.taskOrder = Optional.of(order);
+            return this;
+        }
+
+        public Builder choiceGroup(String groupId) {
+            this.choiceGroup = Optional.of(groupId);
+            return this;
+        }
+
         public Builder textureOverrideId(ResourceLocation id) {
             this.textureOverrideId = Optional.of(id);
             return this;
@@ -163,7 +174,7 @@ public record BringItemTask(
             if (itemId.isEmpty() == questItem.isEmpty()) {
                 throw new IllegalStateException("BringItemTask requires exactly one of itemId or questItem");
             }
-            return new BringItemTask(itemId, questItem, amount, hasComponent, textureOverrideId);
+            return new BringItemTask(itemId, questItem, amount, hasComponent, taskOrder, choiceGroup, textureOverrideId);
         }
     }
 }

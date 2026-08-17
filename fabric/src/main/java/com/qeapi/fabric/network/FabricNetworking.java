@@ -1,11 +1,11 @@
 package com.qeapi.fabric.network;
 
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.client.ClientQuestCache;
 import com.qeapi.component.EntityQuestComponent;
 import com.qeapi.component.PlayerQuestData;
 import com.qeapi.data.QuestManager;
-import com.qeapi.fabric.QuestEntityAPIFabric;
+import com.qeapi.fabric.QuestAPIFabric;
 import com.qeapi.network.ClientPacketSender;
 import com.qeapi.network.packet.*;
 import net.minecraft.world.entity.npc.AbstractVillager;
@@ -35,16 +35,15 @@ public final class FabricNetworking {
     private FabricNetworking() {}
 
     public static void registerServer() {
-        QuestEntityAPI.LOGGER.info("Registering server-side Quest Entity API packets");
+        QuestAPI.LOGGER.info("Registering server-side Quest API packets");
 
-        // S2C
         PayloadTypeRegistry.playS2C().register(OpenQuestMenuPacket.TYPE, OpenQuestMenuPacket.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(QuestProgressPacket.TYPE, QuestProgressPacket.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(SyncEntityQuestsPacket.TYPE, SyncEntityQuestsPacket.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(SyncDeliveryTargetPacket.TYPE, SyncDeliveryTargetPacket.STREAM_CODEC);
         PayloadTypeRegistry.playS2C().register(ActiveQuestsPacket.TYPE, ActiveQuestsPacket.STREAM_CODEC);
+        PayloadTypeRegistry.playS2C().register(ShowHudMessagePacket.TYPE, ShowHudMessagePacket.STREAM_CODEC);
 
-        // C2S
         PayloadTypeRegistry.playC2S().register(AcceptQuestPacket.TYPE, AcceptQuestPacket.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(DismissQuestPacket.TYPE, DismissQuestPacket.STREAM_CODEC);
         PayloadTypeRegistry.playC2S().register(ClaimRewardsPacket.TYPE, ClaimRewardsPacket.STREAM_CODEC);
@@ -118,7 +117,7 @@ public final class FabricNetworking {
     }
 
     public static void registerClient() {
-        QuestEntityAPI.LOGGER.info("Registering client-side Quest Entity API packets");
+        QuestAPI.LOGGER.info("Registering client-side Quest API packets");
 
         ClientPlayNetworking.registerGlobalReceiver(OpenQuestMenuPacket.TYPE, (packet, context) -> {
             context.client().execute(() -> {
@@ -147,6 +146,12 @@ public final class FabricNetworking {
         ClientPlayNetworking.registerGlobalReceiver(ActiveQuestsPacket.TYPE, (packet, context) -> {
             context.client().execute(() -> {
                 handleActiveQuests(packet);
+            });
+        });
+
+        ClientPlayNetworking.registerGlobalReceiver(ShowHudMessagePacket.TYPE, (packet, context) -> {
+            context.client().execute(() -> {
+                handleShowHudMessage(packet);
             });
         });
 
@@ -208,18 +213,18 @@ public final class FabricNetworking {
     // ==================== Server Handlers ====================
 
     private static void handleAcceptQuest(ServerPlayer player, AcceptQuestPacket packet) {
-        QuestEntityAPI.LOGGER.debug("Player {} accepting quest {} from entity {}",
+        QuestAPI.LOGGER.debug("Player {} accepting quest {} from entity {}",
                 player.getName().getString(), packet.questId(), packet.entityId());
 
         Entity entity = player.serverLevel().getEntity(packet.entityId());
         if (entity == null) {
-            QuestEntityAPI.LOGGER.warn("Entity {} not found for quest accept", packet.entityId());
+            QuestAPI.LOGGER.warn("Entity {} not found for quest accept", packet.entityId());
             return;
         }
 
-        EntityQuestComponent component = entity.getAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT);
+        EntityQuestComponent component = entity.getAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT);
         if (component == null) {
-            QuestEntityAPI.LOGGER.warn("Entity {} has no quest component attached", packet.entityId());
+            QuestAPI.LOGGER.warn("Entity {} has no quest component attached", packet.entityId());
             return;
         }
 
@@ -231,7 +236,7 @@ public final class FabricNetworking {
         }
 
         if (component.hasActiveQuest(playerId)) {
-            player.sendSystemMessage(Component.translatable("message.qe_api.already_has_quest")
+            player.sendSystemMessage(Component.translatable("message.quest_api.already_has_quest")
                     .withStyle(ChatFormatting.RED));
             return;
         }
@@ -239,7 +244,7 @@ public final class FabricNetworking {
         // Search all pools - entity may reference multiple via tags
         List<QuestPool> allPools = component.getAllQuestPools();
         if (allPools.isEmpty()) {
-            QuestEntityAPI.LOGGER.warn("No quest pools found for {}", component.questPoolId());
+            QuestAPI.LOGGER.warn("No quest pools found for {}", component.questPoolId());
             return;
         }
 
@@ -249,26 +254,25 @@ public final class FabricNetworking {
             if (quest != null) break;
         }
         if (quest == null) {
-            QuestEntityAPI.LOGGER.warn("Quest {} not found in pools for {}", packet.questId(), component.questPoolId());
+            QuestAPI.LOGGER.warn("Quest {} not found in pools for {}", packet.questId(), component.questPoolId());
             return;
         }
 
         if (!quest.meetsRequirements(player)) {
-            player.sendSystemMessage(Component.translatable("message.qe_api.requirements_not_met")
+            player.sendSystemMessage(Component.translatable("message.quest_api.requirements_not_met")
                     .withStyle(ChatFormatting.RED));
             return;
         }
 
-        // A quest_line_choice root never occupies the giver's entityProgress/active-quest slot (see
-        // QuestLineChoiceTask's javadoc) - accepting it only flips its own acceptedRoots flag, which
-        // is what gates the line picker becoming interactive in QuestScreen.
+        // a quest_line_choice root never occupies the giver's entityProgress/active-quest slot (see QuestLineChoiceTask's javadoc) - accepting it only flips its acceptedRoots flag,
+        // which is what gates the line picker becoming interactive in QuestScreen
         if (com.qeapi.api.QuestEntityAccess.isLineRootQuest(quest)) {
-            PlayerQuestData rootPlayerData = player.getAttachedOrCreate(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT,
+            PlayerQuestData rootPlayerData = player.getAttachedOrCreate(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT,
                     PlayerQuestData::new);
             PlayerQuestData.LineSelectionState lineState = rootPlayerData.getLineSelection(entityId);
             if (!lineState.acceptedRoots().contains(quest.id())) {
                 rootPlayerData.setLineSelection(entityId, lineState.withAcceptedRoot(quest.id()));
-                player.setAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT, rootPlayerData);
+                player.setAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT, rootPlayerData);
             }
 
             sendOpenQuestMenu(player, packet.entityId(), component, getAvailableQuestsForPlayer(allPools, component, player, entity));
@@ -279,7 +283,7 @@ public final class FabricNetworking {
             long completedAt = component.getCompletionDayTime(playerId, packet.questId());
             long currentDayTime = player.serverLevel().getDayTime();
             if (!quest.isDueForRepeat(completedAt, currentDayTime)) {
-                player.sendSystemMessage(Component.translatable("message.qe_api.already_completed")
+                player.sendSystemMessage(Component.translatable("message.quest_api.already_completed")
                         .withStyle(ChatFormatting.YELLOW));
                 return;
             }
@@ -289,25 +293,24 @@ public final class FabricNetworking {
                 playerId,
                 EntityQuestComponent.ActiveQuestData.create(packet.questId())
         );
-        entity.setAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT, updatedComponent);
+        entity.setAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT, updatedComponent);
 
-        // one-way: once accepted from, this giver is protected from despawning for good, even
-        // after every quest with it wraps up - no-ops for non-Mob QuestEntity implementations
+        // one-way: once accepted from, this giver is protected from despawning for good, even after every quest with it wraps up
         if (entity instanceof net.minecraft.world.entity.Mob mob) {
             mob.setPersistenceRequired();
         }
 
-        PlayerQuestData playerData = player.getAttachedOrCreate(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT,
+        PlayerQuestData playerData = player.getAttachedOrCreate(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT,
                 PlayerQuestData::new);
         playerData.startQuest(entity.getUUID(), packet.questId());
         playerData.recordEntityLocation(entity);
-        player.setAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
+        player.setAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
 
         // Grants a one-time structure map if this quest has a provides_map task; no-op otherwise
         com.qeapi.event.QuestEventHandler.grantStructureMapIfNeeded(player, quest);
         // resolves deliver_item's target selector to one concrete entity; no-op otherwise
         com.qeapi.event.QuestEventHandler.resolveDeliveryTargetIfNeeded(player, entity, quest);
-        com.qeapi.event.QuestEventHandler.playAcceptSound(player, quest);
+        com.qeapi.event.QuestEventHandler.playAcceptSound(player, quest, component);
 
         // First pool only, for compatibility
         QuestPool primaryPool = allPools.get(0);
@@ -315,21 +318,21 @@ public final class FabricNetworking {
 
         sendOpenQuestMenu(player, packet.entityId(), finalComponent, getAvailableQuestsForPlayer(allPools, finalComponent, player, entity));
 
-        QuestEntityAPI.LOGGER.info("Player {} accepted quest {} from entity {}",
+        QuestAPI.LOGGER.info("Player {} accepted quest {} from entity {}",
                 player.getName().getString(), packet.questId(), packet.entityId());
     }
 
     private static void handleDismissQuest(ServerPlayer player, DismissQuestPacket packet) {
-        QuestEntityAPI.LOGGER.debug("Player {} dismissing quest from entity {}",
+        QuestAPI.LOGGER.debug("Player {} dismissing quest from entity {}",
                 player.getName().getString(), packet.entityId());
 
         Entity entity = player.serverLevel().getEntity(packet.entityId());
         if (entity == null) {
-            QuestEntityAPI.LOGGER.warn("Entity {} not found for quest dismiss", packet.entityId());
+            QuestAPI.LOGGER.warn("Entity {} not found for quest dismiss", packet.entityId());
             return;
         }
 
-        EntityQuestComponent component = entity.getAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT);
+        EntityQuestComponent component = entity.getAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT);
         if (component == null) {
             return;
         }
@@ -344,11 +347,11 @@ public final class FabricNetworking {
         Optional<ResourceLocation> dismissedQuestId = component.getActiveQuest(playerId).map(EntityQuestComponent.ActiveQuestData::questId);
 
         EntityQuestComponent updatedComponent = component.withoutActiveQuest(playerId);
-        entity.setAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT, updatedComponent);
+        entity.setAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT, updatedComponent);
 
         List<QuestPool> allPools = component.getAllQuestPools();
 
-        PlayerQuestData playerData = player.getAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT);
+        PlayerQuestData playerData = player.getAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT);
         if (playerData != null) {
             playerData.clearEntityProgress(entity.getUUID());
 
@@ -362,7 +365,7 @@ public final class FabricNetworking {
                 playerData.setLineSelection(entityUuid, playerData.getLineSelection(entityUuid).withoutActiveLine());
             }
 
-            player.setAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
+            player.setAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
         }
 
 
@@ -370,21 +373,21 @@ public final class FabricNetworking {
             sendOpenQuestMenu(player, packet.entityId(), updatedComponent, getAvailableQuestsForPlayer(allPools, updatedComponent, player, entity));
         }
 
-        QuestEntityAPI.LOGGER.info("Player {} dismissed quest from entity {}",
+        QuestAPI.LOGGER.info("Player {} dismissed quest from entity {}",
                 player.getName().getString(), packet.entityId());
     }
 
     private static void handleClaimRewards(ServerPlayer player, ClaimRewardsPacket packet) {
-        QuestEntityAPI.LOGGER.debug("Player {} claiming rewards from entity {}",
+        QuestAPI.LOGGER.debug("Player {} claiming rewards from entity {}",
                 player.getName().getString(), packet.entityId());
 
         Entity entity = player.serverLevel().getEntity(packet.entityId());
         if (entity == null) {
-            QuestEntityAPI.LOGGER.warn("Entity {} not found for reward claim", packet.entityId());
+            QuestAPI.LOGGER.warn("Entity {} not found for reward claim", packet.entityId());
             return;
         }
 
-        EntityQuestComponent component = entity.getAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT);
+        EntityQuestComponent component = entity.getAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT);
         if (component == null) {
             return;
         }
@@ -394,23 +397,23 @@ public final class FabricNetworking {
 
         Optional<EntityQuestComponent.ActiveQuestData> activeQuestOpt = component.getActiveQuest(playerId);
         if (activeQuestOpt.isEmpty()) {
-            player.sendSystemMessage(Component.translatable("message.qe_api.no_active_quest")
+            player.sendSystemMessage(Component.translatable("message.quest_api.no_active_quest")
                     .withStyle(ChatFormatting.RED));
             return;
         }
 
         EntityQuestComponent.ActiveQuestData activeQuest = activeQuestOpt.get();
 
-        QuestEntityAPI.LOGGER.info("Claim rewards: Active quest {} with entity progress {}",
+        QuestAPI.LOGGER.info("Claim rewards: Active quest {} with entity progress {}",
                 activeQuest.questId(), activeQuest.progress().getAllTaskProgress());
 
         // Sync progress from player data - handles the entity having been unloaded while progress updated
-        PlayerQuestData playerData = player.getAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT);
+        PlayerQuestData playerData = player.getAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT);
         if (playerData != null) {
             Optional<QuestProgress> playerProgress = playerData.getProgressForEntity(entity.getUUID());
             if (playerProgress.isPresent()) {
                 QuestProgress pp = playerProgress.get();
-                QuestEntityAPI.LOGGER.info("Player data has progress: {}", pp.getAllTaskProgress());
+                QuestAPI.LOGGER.info("Player data has progress: {}", pp.getAllTaskProgress());
 
                 Map<Integer, Integer> entityTaskProgress = activeQuest.progress().getAllTaskProgress();
                 Map<Integer, Integer> playerTaskProgress = pp.getAllTaskProgress();
@@ -425,9 +428,9 @@ public final class FabricNetworking {
                 }
 
                 if (needsSync) {
-                    QuestEntityAPI.LOGGER.info("Syncing player progress to entity component");
+                    QuestAPI.LOGGER.info("Syncing player progress to entity component");
                     EntityQuestComponent updatedComponent = component.withUpdatedProgress(playerId, pp);
-                    entity.setAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT, updatedComponent);
+                    entity.setAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT, updatedComponent);
                     component = updatedComponent;
                     activeQuest = component.getActiveQuest(playerId).orElse(activeQuest);
                 }
@@ -437,7 +440,7 @@ public final class FabricNetworking {
         // Search all pools - entity may reference multiple via tags
         List<QuestPool> allPools = component.getAllQuestPools();
         if (allPools.isEmpty()) {
-            QuestEntityAPI.LOGGER.warn("No quest pools found for claim");
+            QuestAPI.LOGGER.warn("No quest pools found for claim");
             return;
         }
 
@@ -451,78 +454,78 @@ public final class FabricNetworking {
             }
         }
         if (quest == null) {
-            QuestEntityAPI.LOGGER.warn("Quest {} not found in pools", activeQuest.questId());
+            QuestAPI.LOGGER.warn("Quest {} not found in pools", activeQuest.questId());
             return;
         }
 
         // Copy progress - avoid mutating the original during serialization
         QuestProgress progress = activeQuest.progress().copy();
-        QuestEntityAPI.LOGGER.info("Progress copy before BringItem check: {}", progress.getAllTaskProgress());
+        QuestAPI.LOGGER.info("Progress copy before BringItem check: {}", progress.getAllTaskProgress());
 
         for (int i = 0; i < quest.tasks().size(); i++) {
             QuestTask task = quest.tasks().get(i);
             if (task instanceof BringItemTask bringTask) {
-                int count = bringTask.countMatchingItems(player.getInventory().items);
+                // locked (see Quest.isTaskUnlocked) reads as 0 regardless of what's held, same as the periodic sync in checkAndUpdateBringItemProgress
+                int count = quest.isTaskUnlocked(progress, i)
+                        ? bringTask.countMatchingItems(player.getInventory().items) : 0;
                 progress.setTaskProgress(i, count);
             }
         }
 
-        QuestEntityAPI.LOGGER.info("Progress after BringItem check: {}", progress.getAllTaskProgress());
+        QuestAPI.LOGGER.info("Progress after BringItem check: {}", progress.getAllTaskProgress());
 
         for (int i = 0; i < quest.tasks().size(); i++) {
             QuestTask task = quest.tasks().get(i);
             boolean taskComplete = task.isComplete(progress, i);
-            QuestEntityAPI.LOGGER.info("Task {} ({}): complete={}, progress={}, target={}",
+            QuestAPI.LOGGER.info("Task {} ({}): complete={}, progress={}, target={}",
                     i, task.getTypeId(), taskComplete, progress.getTaskProgress(i), task.getTargetAmount());
         }
 
         if (!quest.isComplete(progress)) {
-            QuestEntityAPI.LOGGER.warn("Quest not complete - cannot claim rewards");
-            player.sendSystemMessage(Component.translatable("message.qe_api.quest_not_complete")
+            QuestAPI.LOGGER.warn("Quest not complete - cannot claim rewards");
+            player.sendSystemMessage(Component.translatable("message.quest_api.quest_not_complete")
                     .withStyle(ChatFormatting.RED));
             return;
         }
 
-        com.qeapi.network.ClaimRewardsHelper.consumeBringItemTasks(player, quest, packet.bringItemSlots());
-
         if (!quest.isValidPoolChoice(packet.poolChoices())) {
-            QuestEntityAPI.LOGGER.warn("Invalid reward pool choice from player {} for quest {}",
+            QuestAPI.LOGGER.warn("Invalid reward pool choice from player {} for quest {}",
                     player.getName().getString(), quest.id());
             return;
         }
+
+        // mutates real inventory - must come after every other check, or a failed claim eats items for nothing
+        com.qeapi.network.ClaimRewardsHelper.consumeBringItemTasks(player, quest, progress, packet.bringItemSlots());
         quest.grantRewards(player, entity, packet.poolChoices(), packet.rewardTargetSlots());
         com.qeapi.event.QuestEventHandler.grantVillagerTradeXp(entity, quest.tier());
-        com.qeapi.event.QuestEventHandler.playClaimEffects(player, quest);
+        com.qeapi.event.QuestEventHandler.playClaimEffects(player, quest, component);
 
-        // Re-fetch rather than reusing the pre-grant `component` - an EntityAwareReward (e.g.
-        // SetQuestGroupReward) may have already written its own update onto the entity during
-        // grantRewards above, and building withCompletedQuest off the stale copy would clobber it.
-        EntityQuestComponent postGrantComponent = entity.getAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT);
+        // re-fetch rather than reusing the pre-grant `component` - an EntityAwareReward (e.g. SetQuestGroupReward) may have already written its own update during grantRewards above
+        EntityQuestComponent postGrantComponent = entity.getAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT);
         if (postGrantComponent == null) {
             postGrantComponent = component;
         }
         EntityQuestComponent updatedComponent = postGrantComponent.withCompletedQuest(playerId, activeQuest.questId(),
                 player.serverLevel().getDayTime());
-        entity.setAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT, updatedComponent);
+        entity.setAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT, updatedComponent);
         com.qeapi.api.QuestEntityAccess.resolveQuestLineIfNeeded(player, entity, updatedComponent, quest);
 
-        // checkNearbyQuestEntities only syncs an entity once per continuous presence in range,
-        // so without forcing this the marker (e.g. available -> complete) won't refresh after claiming.
-        QuestEntityAPIFabric.forceResyncForNearbyPlayers(entity);
+        // checkNearbyQuestEntities only syncs an entity once per continuous presence in range, so without forcing this the marker won't refresh after claiming
+        QuestAPIFabric.forceResyncForNearbyPlayers(entity);
 
         com.qeapi.advancement.QuestCompleteTrigger.INSTANCE.trigger(player, activeQuest.questId());
 
         // Re-fetch playerData - may have changed during the sync above
-        playerData = player.getAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT);
+        playerData = player.getAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT);
         if (playerData != null) {
             playerData.clearEntityProgress(entity.getUUID());
-            player.setAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
+            player.setAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
         }
 
 
         sendOpenQuestMenu(player, packet.entityId(), updatedComponent, getAvailableQuestsForPlayer(allPools, updatedComponent, player, entity));
 
-        QuestEntityAPI.LOGGER.info("Player {} claimed rewards for quest {} from entity {}",
+        QuestAPI.LOGGER.info("Player {} claimed rewards for quest {} from entity {}",
                 player.getName().getString(), activeQuest.questId(), packet.entityId());
     }
 
@@ -530,7 +533,7 @@ public final class FabricNetworking {
         Entity entity = player.serverLevel().getEntity(packet.entityId());
         if (entity == null) return;
 
-        EntityQuestComponent component = entity.getAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT);
+        EntityQuestComponent component = entity.getAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT);
         if (component == null) return;
 
         List<QuestPool> allPools = component.getAllQuestPools();
@@ -541,29 +544,27 @@ public final class FabricNetworking {
         }
         if (root == null || root.tasks().size() != 1
                 || !(root.tasks().get(0) instanceof QuestLineChoiceTask lineChoiceTask)) {
-            QuestEntityAPI.LOGGER.warn("Quest {} is not a quest_line_choice root", packet.rootQuestId());
+            QuestAPI.LOGGER.warn("Quest {} is not a quest_line_choice root", packet.rootQuestId());
             return;
         }
 
         Optional<QuestLineChoiceTask.LineOption> lineOption = lineChoiceTask.findLine(packet.lineId());
         if (lineOption.isEmpty() || !lineOption.get().isAvailable()) {
-            QuestEntityAPI.LOGGER.warn("Line {} is not a valid/available choice on {}", packet.lineId(), packet.rootQuestId());
+            QuestAPI.LOGGER.warn("Line {} is not a valid/available choice on {}", packet.lineId(), packet.rootQuestId());
             return;
         }
 
         UUID entityUuid = entity.getUUID();
 
-        // A quest_line-tagged step quest must be authored with follow_quest_order: false (see the
-        // README) - it never needs the root's own tier "completed" to unlock, only its questLine
-        // matching the active line, so picking a line here never has to touch completedQuests.
-        PlayerQuestData playerData = player.getAttachedOrCreate(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT, PlayerQuestData::new);
+        // a quest_line-tagged step quest must be authored with follow_quest_order: false (see the README) - it unlocks off the active line matching, not the root's tier completion
+        PlayerQuestData playerData = player.getAttachedOrCreate(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT, PlayerQuestData::new);
         playerData.setLineSelection(entityUuid, playerData.getLineSelection(entityUuid).withActiveLine(packet.lineId()));
-        player.setAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
+        player.setAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
 
         sendOpenQuestMenu(player, packet.entityId(), component, getAvailableQuestsForPlayer(allPools, component, player, entity));
-        QuestEntityAPIFabric.forceResyncForNearbyPlayers(entity);
+        QuestAPIFabric.forceResyncForNearbyPlayers(entity);
 
-        QuestEntityAPI.LOGGER.info("Player {} chose line {} for quest_line_choice root {}",
+        QuestAPI.LOGGER.info("Player {} chose line {} for quest_line_choice root {}",
                 player.getName().getString(), packet.lineId(), packet.rootQuestId());
     }
 
@@ -571,7 +572,7 @@ public final class FabricNetworking {
         Entity entity = player.serverLevel().getEntity(packet.entityId());
         if (entity == null) return;
 
-        EntityQuestComponent component = entity.getAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT);
+        EntityQuestComponent component = entity.getAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT);
         if (component == null) return;
 
         List<QuestPool> allPools = component.getAllQuestPools();
@@ -582,12 +583,12 @@ public final class FabricNetworking {
         }
         if (root == null || root.tasks().size() != 1
                 || !(root.tasks().get(0) instanceof QuestLineChoiceTask lineChoiceTask)) {
-            QuestEntityAPI.LOGGER.warn("Quest {} is not a quest_line_choice root", packet.rootQuestId());
+            QuestAPI.LOGGER.warn("Quest {} is not a quest_line_choice root", packet.rootQuestId());
             return;
         }
 
         UUID entityUuid = entity.getUUID();
-        PlayerQuestData playerData = player.getAttachedOrCreate(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT, PlayerQuestData::new);
+        PlayerQuestData playerData = player.getAttachedOrCreate(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT, PlayerQuestData::new);
         PlayerQuestData.LineSelectionState lineState = playerData.getLineSelection(entityUuid);
 
         if (lineState.claimedRoots().contains(root.id()) || !lineChoiceTask.isResolved(lineState.resolvedLines())) {
@@ -596,35 +597,30 @@ public final class FabricNetworking {
 
         root.grantRewards(player, entity, List.of());
         com.qeapi.event.QuestEventHandler.grantVillagerTradeXp(entity, root.tier());
-        com.qeapi.event.QuestEventHandler.playClaimEffects(player, root);
+        com.qeapi.event.QuestEventHandler.playClaimEffects(player, root, component);
 
-        // Marked completed here - only on the real claim, once every line is actually resolved -
-        // so follow_quest_order for a sibling root at a higher tier only unlocks once this one is
-        // genuinely done, matching every other quest's completion timing.
+        // marked completed only on the real claim, once every line is resolved, so follow_quest_order for a sibling root only unlocks once this one is genuinely done
         EntityQuestComponent updatedComponent = component.withCompletedQuest(player.getUUID(), root.id(), player.serverLevel().getDayTime());
-        entity.setAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT, updatedComponent);
+        entity.setAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT, updatedComponent);
 
         playerData.setLineSelection(entityUuid, lineState.withClaimedRoot(root.id()));
-        player.setAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
+        player.setAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
 
 
         sendOpenQuestMenu(player, packet.entityId(), updatedComponent, getAvailableQuestsForPlayer(allPools, updatedComponent, player, entity));
-        QuestEntityAPIFabric.forceResyncForNearbyPlayers(entity);
+        QuestAPIFabric.forceResyncForNearbyPlayers(entity);
 
-        QuestEntityAPI.LOGGER.info("Player {} claimed quest_line_choice root reward {}",
+        QuestAPI.LOGGER.info("Player {} claimed quest_line_choice root reward {}",
                 player.getName().getString(), packet.rootQuestId());
     }
 
-    // Cancels the player's currently active line for a quest_line_choice root, sent from clicking
-    // that line's own bordered icon (see QuestScreen's confirm-dismiss dialog reuse). Clears
-    // activeLine unconditionally, and additionally clears entityProgress/the component's active
-    // quest if the giver's active quest happens to be a step of the line being canceled - mirrors
-    // handleDismissQuest's questLine-clearing hook, just triggered from the root side instead.
+    // cancels the player's active line for a quest_line_choice root; also clears entityProgress/the active quest if it happens to be a step of the canceled line,
+    // mirroring handleDismissQuest's questLine-clearing hook from the root side
     private static void handleCancelQuestLine(ServerPlayer player, CancelQuestLinePacket packet) {
         Entity entity = player.serverLevel().getEntity(packet.entityId());
         if (entity == null) return;
 
-        EntityQuestComponent component = entity.getAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT);
+        EntityQuestComponent component = entity.getAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT);
         if (component == null) return;
 
         List<QuestPool> allPools = component.getAllQuestPools();
@@ -635,13 +631,13 @@ public final class FabricNetworking {
         }
         if (root == null || root.tasks().size() != 1
                 || !(root.tasks().get(0) instanceof QuestLineChoiceTask)) {
-            QuestEntityAPI.LOGGER.warn("Quest {} is not a quest_line_choice root", packet.rootQuestId());
+            QuestAPI.LOGGER.warn("Quest {} is not a quest_line_choice root", packet.rootQuestId());
             return;
         }
 
         UUID entityUuid = entity.getUUID();
 
-        PlayerQuestData playerData = player.getAttachedOrCreate(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT, PlayerQuestData::new);
+        PlayerQuestData playerData = player.getAttachedOrCreate(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT, PlayerQuestData::new);
         PlayerQuestData.LineSelectionState lineState = playerData.getLineSelection(entityUuid);
 
         if (lineState.activeLine().isEmpty() || !lineState.activeLine().get().equals(packet.lineId())) {
@@ -652,27 +648,23 @@ public final class FabricNetworking {
 
         EntityQuestComponent updatedComponent = clearActiveLineStep(component, allPools, player, entity, playerData, packet.lineId());
 
-        player.setAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
+        player.setAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
 
 
         sendOpenQuestMenu(player, packet.entityId(), updatedComponent, getAvailableQuestsForPlayer(allPools, updatedComponent, player, entity));
-        QuestEntityAPIFabric.forceResyncForNearbyPlayers(entity);
+        QuestAPIFabric.forceResyncForNearbyPlayers(entity);
 
-        QuestEntityAPI.LOGGER.info("Player {} canceled line {} for quest_line_choice root {}",
+        QuestAPI.LOGGER.info("Player {} canceled line {} for quest_line_choice root {}",
                 player.getName().getString(), packet.lineId(), packet.rootQuestId());
     }
 
-    // Un-accepts an already-accepted, not-yet-claimed quest_line_choice root, sent from clicking
-    // that root's own checkbox a second time (see QuestScreen's confirm-dismiss dialog reuse).
-    // Clears activeLine and acceptedRoots unconditionally, and additionally clears
-    // entityProgress/the component's active quest if the giver's active quest happens to be a step
-    // of whichever line was active - same clearActiveLineStep helper handleCancelQuestLine uses.
-    // Never touches resolvedLines/claimedRoots, so already-claimed steps stay claimed.
+    // un-accepts an already-accepted, not-yet-claimed quest_line_choice root; clears activeLine/acceptedRoots and, via the same clearActiveLineStep helper
+    // handleCancelQuestLine uses, the active quest if it's a step of the line that was active - never touches resolvedLines/claimedRoots, so claimed steps stay claimed
     private static void handleDismissQuestLineRoot(ServerPlayer player, DismissQuestLineRootPacket packet) {
         Entity entity = player.serverLevel().getEntity(packet.entityId());
         if (entity == null) return;
 
-        EntityQuestComponent component = entity.getAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT);
+        EntityQuestComponent component = entity.getAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT);
         if (component == null) return;
 
         List<QuestPool> allPools = component.getAllQuestPools();
@@ -683,13 +675,13 @@ public final class FabricNetworking {
         }
         if (root == null || root.tasks().size() != 1
                 || !(root.tasks().get(0) instanceof QuestLineChoiceTask)) {
-            QuestEntityAPI.LOGGER.warn("Quest {} is not a quest_line_choice root", packet.rootQuestId());
+            QuestAPI.LOGGER.warn("Quest {} is not a quest_line_choice root", packet.rootQuestId());
             return;
         }
 
         UUID entityUuid = entity.getUUID();
 
-        PlayerQuestData playerData = player.getAttachedOrCreate(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT, PlayerQuestData::new);
+        PlayerQuestData playerData = player.getAttachedOrCreate(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT, PlayerQuestData::new);
         PlayerQuestData.LineSelectionState lineState = playerData.getLineSelection(entityUuid);
 
         if (!lineState.acceptedRoots().contains(root.id()) || lineState.claimedRoots().contains(root.id())) {
@@ -702,21 +694,18 @@ public final class FabricNetworking {
         }
 
         playerData.setLineSelection(entityUuid, lineState.withoutActiveLine().withoutAcceptedRoot(root.id()));
-        player.setAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
+        player.setAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
 
 
         sendOpenQuestMenu(player, packet.entityId(), updatedComponent, getAvailableQuestsForPlayer(allPools, updatedComponent, player, entity));
-        QuestEntityAPIFabric.forceResyncForNearbyPlayers(entity);
+        QuestAPIFabric.forceResyncForNearbyPlayers(entity);
 
-        QuestEntityAPI.LOGGER.info("Player {} dismissed quest_line_choice root {}",
+        QuestAPI.LOGGER.info("Player {} dismissed quest_line_choice root {}",
                 player.getName().getString(), packet.rootQuestId());
     }
 
-    // Clears the giver's active quest + entityProgress if the player's current in-progress step
-    // belongs to lineId - shared by handleCancelQuestLine (lineId is the line being explicitly
-    // canceled) and handleDismissQuestLineRoot (lineId is whatever line was active on the root
-    // being dismissed). Only touches entityProgress/the active-quest pointer, never
-    // completedQuests, so already-claimed steps stay claimed.
+    // clears the giver's active quest + entityProgress if the current in-progress step belongs to lineId; shared by handleCancelQuestLine and handleDismissQuestLineRoot,
+    // never touches completedQuests so already-claimed steps stay claimed
     private static EntityQuestComponent clearActiveLineStep(EntityQuestComponent component, List<QuestPool> allPools,
                                                               ServerPlayer player, Entity entity,
                                                               PlayerQuestData playerData, String lineId) {
@@ -736,13 +725,13 @@ public final class FabricNetworking {
         }
 
         EntityQuestComponent updatedComponent = component.withoutActiveQuest(playerId);
-        entity.setAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT, updatedComponent);
+        entity.setAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT, updatedComponent);
         playerData.clearEntityProgress(entity.getUUID());
         return updatedComponent;
     }
 
     private static void handleRequestQuestMenu(ServerPlayer player, RequestQuestMenuPacket packet) {
-        QuestEntityAPI.LOGGER.debug("Player {} requesting quest menu for entity {}",
+        QuestAPI.LOGGER.debug("Player {} requesting quest menu for entity {}",
                 player.getName().getString(), packet.entityId());
 
         // Close any open container first (e.g. merchant screen) so the player can reinteract with the villager
@@ -750,22 +739,22 @@ public final class FabricNetworking {
 
         Entity entity = player.serverLevel().getEntity(packet.entityId());
         if (entity == null) {
-            QuestEntityAPI.LOGGER.warn("Entity {} not found for quest menu request", packet.entityId());
+            QuestAPI.LOGGER.warn("Entity {} not found for quest menu request", packet.entityId());
             return;
         }
 
-        EntityQuestComponent component = entity.getAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT);
+        EntityQuestComponent component = entity.getAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT);
         if (component == null) {
-            QuestEntityAPI.LOGGER.debug("Entity {} has no quest component", packet.entityId());
-            player.sendSystemMessage(Component.translatable("message.qe_api.no_quests_available")
+            QuestAPI.LOGGER.debug("Entity {} has no quest component", packet.entityId());
+            player.sendSystemMessage(Component.translatable("message.quest_api.no_quests_available")
                     .withStyle(ChatFormatting.GRAY));
             return;
         }
 
         List<QuestPool> allPools = component.getAllQuestPools();
         if (allPools.isEmpty()) {
-            QuestEntityAPI.LOGGER.debug("No quest pools found for entity {}", packet.entityId());
-            player.sendSystemMessage(Component.translatable("message.qe_api.no_quests_available")
+            QuestAPI.LOGGER.debug("No quest pools found for entity {}", packet.entityId());
+            player.sendSystemMessage(Component.translatable("message.quest_api.no_quests_available")
                     .withStyle(ChatFormatting.GRAY));
             return;
         }
@@ -774,23 +763,23 @@ public final class FabricNetworking {
 
         sendOpenQuestMenu(player, packet.entityId(), component, availableQuests);
 
-        QuestEntityAPI.LOGGER.info("Sent quest menu to player {} for entity {}",
+        QuestAPI.LOGGER.info("Sent quest menu to player {} for entity {}",
                 player.getName().getString(), packet.entityId());
     }
 
     private static void handleRequestMerchantMenu(ServerPlayer player, RequestMerchantMenuPacket packet) {
-        QuestEntityAPI.LOGGER.debug("Player {} requesting merchant menu for entity {}",
+        QuestAPI.LOGGER.debug("Player {} requesting merchant menu for entity {}",
                 player.getName().getString(), packet.entityId());
 
         Entity entity = player.serverLevel().getEntity(packet.entityId());
         if (entity == null) {
-            QuestEntityAPI.LOGGER.warn("Entity {} not found for merchant menu request", packet.entityId());
+            QuestAPI.LOGGER.warn("Entity {} not found for merchant menu request", packet.entityId());
             return;
         }
 
         // AbstractVillager covers both villagers and wandering traders
         if (!(entity instanceof AbstractVillager villager)) {
-            QuestEntityAPI.LOGGER.warn("Entity {} is not a merchant", packet.entityId());
+            QuestAPI.LOGGER.warn("Entity {} is not a merchant", packet.entityId());
             return;
         }
 
@@ -825,19 +814,17 @@ public final class FabricNetworking {
             );
         }
 
-        QuestEntityAPI.LOGGER.info("Opened merchant menu for player {} with entity {}",
+        QuestAPI.LOGGER.info("Opened merchant menu for player {} with entity {}",
                 player.getName().getString(), packet.entityId());
     }
 
-    // Gathers every quest the player currently has active, across every quest-giver, using only
-    // PlayerQuestData (no world/entity scan - see PlayerQuestData.QuestGiverLocation for how giver
-    // positions are kept fresh without one).
+    // gathers every quest the player has active, across every quest-giver, using only PlayerQuestData - no world/entity scan (see QuestGiverLocation for how positions stay fresh)
     private static void handleRequestActiveQuests(ServerPlayer player) {
-        PlayerQuestData playerData = player.getAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT);
+        PlayerQuestData playerData = player.getAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT);
         List<ActiveQuestEntry> entries = new java.util.ArrayList<>();
 
         if (playerData != null) {
-            boolean showCoords = com.qeapi.config.QuestEntityAPIConfig.get().show_quest_coordinates || player.isCreative();
+            boolean showCoords = com.qeapi.config.QuestAPIConfig.get().show_quest_coordinates || player.isCreative();
 
             for (Map.Entry<UUID, QuestProgress> e : playerData.getAllProgress().entrySet()) {
                 UUID entityUuid = e.getKey();
@@ -863,7 +850,7 @@ public final class FabricNetworking {
     // ==================== Client Handlers ====================
 
     private static void handleOpenQuestMenu(OpenQuestMenuPacket packet) {
-        QuestEntityAPI.LOGGER.debug("Opening quest menu for entity {}", packet.entityId());
+        QuestAPI.LOGGER.debug("Opening quest menu for entity {}", packet.entityId());
 
         net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
         if (minecraft.player == null || minecraft.level == null) return;
@@ -890,12 +877,12 @@ public final class FabricNetworking {
     }
 
     private static void handleQuestProgress(QuestProgressPacket packet) {
-        QuestEntityAPI.LOGGER.debug("Received quest progress update for entity {}", packet.entityId());
+        QuestAPI.LOGGER.debug("Received quest progress update for entity {}", packet.entityId());
         // Update is handled by refreshing the GUI when needed
     }
 
     private static void handleSyncEntityQuests(SyncEntityQuestsPacket packet) {
-        QuestEntityAPI.LOGGER.debug("Received entity quest sync for entity {} (UUID: {}), active={}, complete={}",
+        QuestAPI.LOGGER.debug("Received entity quest sync for entity {} (UUID: {}), active={}, complete={}",
                 packet.entityId(), packet.entityUuid(), packet.hasActiveQuest(), packet.isQuestComplete());
 
         ClientQuestCache.markEntityHasQuestsSimple(
@@ -932,7 +919,16 @@ public final class FabricNetworking {
         ClientQuestCache.setDeliveryTarget(packet.entityUuid(), stack);
     }
 
+    private static void handleShowHudMessage(ShowHudMessagePacket packet) {
+        if (!com.qeapi.config.QuestAPIConfig.get().hud_messages_enabled) return;
+        com.qeapi.client.ClientHudMessageState.show(packet.message());
+    }
+
     // ==================== Send Helpers ====================
+
+    public static void sendHudMessage(ServerPlayer player, Component message) {
+        ServerPlayNetworking.send(player, new ShowHudMessagePacket(message));
+    }
 
     // Syncs progress from player data and updates BringItemTask progress before sending the menu.
     public static void sendOpenQuestMenu(ServerPlayer player, int entityId,
@@ -940,7 +936,7 @@ public final class FabricNetworking {
         Entity entity = player.serverLevel().getEntity(entityId);
         if (entity != null && component.hasActiveQuest(player.getUUID())) {
             // Sync progress from player data - handles the player completing tasks while far from the quest entity
-            PlayerQuestData playerData = player.getAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT);
+            PlayerQuestData playerData = player.getAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT);
             if (playerData != null) {
                 Optional<QuestProgress> playerProgress = playerData.getProgressForEntity(entity.getUUID());
                 if (playerProgress.isPresent()) {
@@ -961,9 +957,9 @@ public final class FabricNetworking {
                         }
 
                         if (needsSync) {
-                            QuestEntityAPI.LOGGER.info("Syncing player progress to entity component when opening menu");
+                            QuestAPI.LOGGER.info("Syncing player progress to entity component when opening menu");
                             component = component.withUpdatedProgress(player.getUUID(), pp);
-                            entity.setAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT, component);
+                            entity.setAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT, component);
                         }
                     }
                 }
@@ -1018,13 +1014,8 @@ public final class FabricNetworking {
         return null;
     }
 
-    // Picks one quest per tier, weighted-random and seeded by entity UUID so each entity's
-    // selection is stable. Respects followQuestOrder: a quest is locked until at least one
-    // quest from every lower tier has been completed. Also respects questGroup: a quest with one
-    // set is only a candidate for a player who's chosen that exact group for this pool (see
-    // SetQuestGroupReward) - a quest with none is a candidate regardless. Also respects questLine:
-    // a quest with one set is only a candidate while that line is the player's active line for this
-    // giver (see PlayerQuestData.LineSelectionState) - a quest with none is a candidate regardless.
+    // picks one quest per tier, weighted-random and seeded by entity UUID for stable selection; respects followQuestOrder, questGroup (see SetQuestGroupReward),
+    // and questLine (see PlayerQuestData.LineSelectionState) gating - a quest with none of those set is always a candidate
     public static List<Quest> getAvailableQuestsForPlayer(List<QuestPool> pools, EntityQuestComponent component, ServerPlayer player, Entity entity) {
         UUID playerId = player.getUUID();
         UUID entityUuid = entity.getUUID();
@@ -1052,7 +1043,7 @@ public final class FabricNetworking {
                                 }
                             }
                         }
-                        if (!canAccept && !com.qeapi.config.QuestEntityAPIConfig.get().show_all_quests) {
+                        if (!canAccept && !com.qeapi.config.QuestAPIConfig.get().show_all_quests) {
                             continue;
                         }
                     }
@@ -1113,22 +1104,25 @@ public final class FabricNetworking {
                 }
             }
 
-            // Otherwise show a completed quest for this tier, if any
+            // otherwise the most recently completed quest in this tier, since shuffle_refreshing_quests can leave more than one distinct id completed across repeat cycles
             Quest completedInTier = null;
+            long completedInTierAt = -1;
             for (Quest q : tierQuests) {
                 if (completedQuests.contains(q.id())) {
-                    completedInTier = q;
-                    break;
+                    long completedAt = component.getCompletionDayTime(playerId, q.id());
+                    if (completedAt > completedInTierAt) {
+                        completedInTier = q;
+                        completedInTierAt = completedAt;
+                    }
                 }
             }
             if (completedInTier != null) {
+                completedInTier = applyShuffleIfDue(completedInTier, completedInTierAt, tierQuests, entityUuid, player);
                 available.add(completedInTier);
                 continue;
             }
 
-            // Otherwise pick randomly by weight, skipping any quest whose find_structure task has
-            // no matching structure within range of this entity (see isQuestGeographicallyEligible) -
-            // a quest already accepted/completed is never re-filtered this way, only a fresh pick
+            // otherwise pick randomly by weight, skipping quests geographically ineligible (see isQuestGeographicallyEligible) - an already accepted/completed quest is never re-filtered this way
             List<Quest> eligibleQuests = tierQuests.stream()
                     .filter(q -> isQuestGeographicallyEligible(q, entity))
                     .toList();
@@ -1161,9 +1155,34 @@ public final class FabricNetworking {
         return available;
     }
 
-    // A quest with a find_structure task is only offerable if the nearest matching structure is
-    // within that task's max_distance of the quest-giving entity - see FindStructureTask.maxDistance.
-    // Structure lookups are cached (see StructureDistanceUtil), so this is cheap after the first check.
+    // if due for repeat and opted into shuffle_refreshing_quests, weighted-randomly swaps in a different repeatable quest from the tier, falling back to previousQuest otherwise;
+    // seeded off (entityUuid, previousQuest's completion day-time) instead of stored, so the pick stays stable across GUI reopens until actually completed again
+    private static Quest applyShuffleIfDue(Quest previousQuest, long completedAtDayTime, List<Quest> tierQuests,
+                                            UUID entityUuid, ServerPlayer player) {
+        if (!previousQuest.shuffleRefreshingQuests()) return previousQuest;
+        long currentDayTime = player.serverLevel().getDayTime();
+        if (!previousQuest.isDueForRepeat(completedAtDayTime, currentDayTime)) return previousQuest;
+
+        List<Quest> shuffleOptions = tierQuests.stream()
+                .filter(q -> q.repeatAfterDays().isPresent() && !q.id().equals(previousQuest.id()))
+                .toList();
+        if (shuffleOptions.isEmpty()) return previousQuest;
+
+        int totalWeight = shuffleOptions.stream().mapToInt(Quest::weight).sum();
+        if (totalWeight <= 0) return previousQuest;
+
+        java.util.Random shuffleRandom = new java.util.Random(entityUuid.hashCode() * 31L + completedAtDayTime);
+        int roll = shuffleRandom.nextInt(totalWeight);
+        int cumulative = 0;
+        for (Quest candidate : shuffleOptions) {
+            cumulative += candidate.weight();
+            if (roll < cumulative) return candidate;
+        }
+        return previousQuest;
+    }
+
+    // a quest with a find_structure task is only offerable if the nearest match is within its max_distance (see FindStructureTask.maxDistance);
+    // lookups are cached (see StructureDistanceUtil), so this is cheap after the first check
     private static boolean isQuestGeographicallyEligible(Quest quest, Entity entity) {
         if (!(entity.level() instanceof net.minecraft.server.level.ServerLevel serverLevel)) {
             return true;
@@ -1181,8 +1200,7 @@ public final class FabricNetworking {
         return true;
     }
 
-    // Diffs the player's inventory against originalProgress (not mutated) and returns an
-    // updated component, or null if nothing changed.
+    // diffs the player's inventory against originalProgress (not mutated) and returns an updated component, or null if nothing changed
     private static EntityQuestComponent updateBringItemProgress(ServerPlayer player, Quest quest,
             EntityQuestComponent component, QuestProgress originalProgress) {
         boolean changed = false;
@@ -1193,7 +1211,9 @@ public final class FabricNetworking {
         for (int i = 0; i < quest.tasks().size(); i++) {
             QuestTask task = quest.tasks().get(i);
             if (task instanceof BringItemTask bringTask) {
-                int count = bringTask.countMatchingItems(player.getInventory().items);
+                // locked (see Quest.isTaskUnlocked) reads as 0 regardless of what's held, so it can't complete out of order just by having the item already
+                int count = quest.isTaskUnlocked(progress, i)
+                        ? bringTask.countMatchingItems(player.getInventory().items) : 0;
                 int currentProgress = progress.getTaskProgress(i);
 
                 if (count != currentProgress) {
@@ -1209,8 +1229,7 @@ public final class FabricNetworking {
         return null;
     }
 
-    // Updates BringItemTask progress for the player's active quest, across entity and player
-    // data. Searches all pools associated with the component (supports tags).
+    // updates BringItemTask progress for the active quest across entity and player data; searches all pools associated with the component (supports tags)
     public static EntityQuestComponent checkAndUpdateBringItemProgress(ServerPlayer player, Entity entity,
             EntityQuestComponent component, QuestPool pool) {
         UUID playerId = player.getUUID();
@@ -1243,12 +1262,12 @@ public final class FabricNetworking {
         EntityQuestComponent updated = updateBringItemProgress(player, quest, component, progress);
 
         if (updated != null) {
-            entity.setAttached(QuestEntityAPIFabric.ENTITY_QUEST_ATTACHMENT, updated);
+            entity.setAttached(QuestAPIFabric.ENTITY_QUEST_ATTACHMENT, updated);
 
-            PlayerQuestData playerData = player.getAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT);
+            PlayerQuestData playerData = player.getAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT);
             if (playerData != null) {
                 playerData.setProgressForEntity(entity.getUUID(), progress);
-                player.setAttached(QuestEntityAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
+                player.setAttached(QuestAPIFabric.PLAYER_QUEST_ATTACHMENT, playerData);
             }
 
             return updated;

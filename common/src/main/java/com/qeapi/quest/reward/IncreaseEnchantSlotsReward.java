@@ -3,7 +3,7 @@ package com.qeapi.quest.reward;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
-import com.qeapi.QuestEntityAPI;
+import com.qeapi.QuestAPI;
 import com.qeapi.compat.EnchantLimiterCompat;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -15,7 +15,7 @@ import java.util.Optional;
 
 public record IncreaseEnchantSlotsReward(int amount, int cap, Optional<ResourceLocation> textureOverrideId) implements QuestReward, TargetItemReward, EnhanceOperation {
 
-    public static final ResourceLocation DEFAULT_TEXTURE = QuestEntityAPI.id("textures/gui/quest_rewards/increase_enchant_slots_default.png");
+    public static final ResourceLocation DEFAULT_TEXTURE = QuestAPI.id("textures/gui/quest_rewards/increase_enchant_slots_default.png");
 
     public IncreaseEnchantSlotsReward(int amount, int cap) {
         this(amount, cap, Optional.empty());
@@ -31,7 +31,7 @@ public record IncreaseEnchantSlotsReward(int amount, int cap, Optional<ResourceL
 
     @Override
     public ResourceLocation getTypeId() {
-        return QuestEntityAPI.id("increase_enchant_slots");
+        return ResourceLocation.fromNamespaceAndPath("enchant_limiter", "increase_enchant_slots");
     }
 
     @Override
@@ -42,7 +42,7 @@ public record IncreaseEnchantSlotsReward(int amount, int cap, Optional<ResourceL
     @Override
     public void applyToTarget(ServerPlayer player, ItemStack stack) {
         if (!EnchantLimiterCompat.isLoaded()) {
-            QuestEntityAPI.LOGGER.warn("[IncreaseEnchantSlotsReward] Enchant Limiter isn't loaded - skipping reward");
+            QuestAPI.LOGGER.warn("[IncreaseEnchantSlotsReward] Enchant Limiter isn't loaded - skipping reward");
             return;
         }
         EnchantLimiterCompat.increaseEnchantLimit(stack, amount, cap);
@@ -50,12 +50,12 @@ public record IncreaseEnchantSlotsReward(int amount, int cap, Optional<ResourceL
 
     @Override
     public void grant(ServerPlayer player) {
-        QuestEntityAPI.LOGGER.warn("[IncreaseEnchantSlotsReward] grant(player) called without a target item - ignoring");
+        QuestAPI.LOGGER.warn("[IncreaseEnchantSlotsReward] grant(player) called without a target item - ignoring");
     }
 
     @Override
     public Component getDisplayText() {
-        return Component.translatable("reward.qe_api.increase_enchant_slots", amount);
+        return Component.translatable("reward.quest_api.increase_enchant_slots", amount);
     }
 
     @Override
